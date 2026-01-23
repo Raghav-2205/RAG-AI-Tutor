@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenLearnHub - Signup</title>
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/components.css">
+</head>
+<body>
+  <main class="container auth-page">
+    <section class="glass-card auth-card auth-card--wide">
+      <div class="auth-header">
+        <h2>Create your account</h2>
+        <p class="mb-0">Start learning with AI support.</p>
+      </div>
+
+      <div class="form-toggle" role="tablist" aria-label="Auth toggle">
+        <div class="toggle-slider" style="transform: translateX(100%);"></div>
+        <a class="toggle-option" href="login.html" role="tab" aria-selected="false">Login</a>
+        <a class="toggle-option active" href="signup.html" role="tab" aria-selected="true">Signup</a>
+      </div>
+
+      <form data-auth-form="signup">
+        <div class="input-group">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" placeholder="Your name" autocomplete="name" required>
+        </div>
+        <div class="input-group">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+        <div class="input-group">
+          <label for="level">Level</label>
+          <select id="level" name="level" class="input-select">
+            <option value="school">School</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="engineering">Engineering</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="new-password" required>
+        </div>
+
+        <div data-auth-status class="auth-status"></div>
+        <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+
+        <button type="button" class="oauth-btn" onclick="alert('Hook Google OAuth here')">
+          <span>G</span>
+          <span>Continue with Google</span>
+        </button>
+      </form>
+
+      <p class="auth-footer">Already have an account? <a href="login.html">Login</a></p>
+      <p class="auth-links"><a href="index.html">Back to Home</a> · <a href="subjects.html">Subjects</a></p>
+    </section>
+  </main>
+
+  <script src="../src/js/auth.js"></script>
+</body>
+</html>

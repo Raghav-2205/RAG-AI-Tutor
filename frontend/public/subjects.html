@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenLearnHub - Subjects</title>
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/components.css">
+</head>
+<body>
+  <main class="container subjects-page">
+    <header class="glass-card subjects-header">
+      <div class="subjects-header__text">
+        <h2>Subjects</h2>
+        <p class="mb-0">Pick a subject or search by typing/voice.</p>
+      </div>
+      <nav class="subjects-nav">
+        <a class="btn btn-secondary" href="index.html">Home</a>
+        <a class="btn btn-secondary" href="login.html">Login</a>
+        <a class="btn btn-secondary" href="signup.html">Signup</a>
+      </nav>
+    </header>
+
+    <div class="voice-search-container">
+      <div class="voice-search-bar">
+        <input class="voice-search-input" id="subjectSearch" type="text" placeholder="Search subjects (e.g., Math, CS, ML)">
+        <button class="voice-search-btn" id="micBtn" type="button" aria-label="Voice search">
+          <span class="voice-search-icon">🎙️</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="subjects-grid" id="subjectsGrid">
+      <!-- Rendered by subjects.js -->
+    </section>
+  </main>
+
+  <script src="../src/js/auth.js"></script>
+  <script src="../src/js/subjects.js"></script>
+</body>
+</html>

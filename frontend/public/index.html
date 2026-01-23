@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="OpenLearnHub - AI-driven edtech platform for School, Intermediate, and Engineering students">
+  <title>OpenLearnHub - AI-Powered Learning Platform</title>
+
+  <link rel="stylesheet" href="../src/css/main.css">
+  <link rel="stylesheet" href="../src/css/components.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0b0c">
+</head>
+<body>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <nav class="nav-slide" id="navSlide">
+    <div class="nav-content">
+      <div class="logo-section">
+        <h2 class="logo-title">OpenLearnHub</h2>
+      </div>
+      <ul class="nav-list">
+        <li><a href="index.html" class="nav-link">🏠 Home</a></li>
+        <li><a href="subjects.html" class="nav-link">📚 Subjects</a></li>
+        <li><a href="chatbot.html" class="nav-link">💬 AI Chatbot</a></li>
+        <li><a href="doubts.html" class="nav-link">❓ Doubts</a></li>
+        <li class="nav-divider">
+          <a href="login.html" class="nav-link" id="navLogin">🔐 Login</a>
+        </li>
+        <li><a href="signup.html" class="nav-link" id="navSignup">✨ Sign Up</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-slider">
+      <div class="hero-slide active">
+        <h1>Welcome to OpenLearnHub</h1>
+        <p>Your AI-powered learning companion for School, Intermediate, and Engineering</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" onclick="window.location.href='subjects.html'">Explore Subjects</button>
+          <button class="btn btn-secondary" onclick="window.location.href='doubts.html'">Upload Doubt</button>
+        </div>
+      </div>
+      <div class="hero-slide">
+        <h1>AI-Powered Tutoring</h1>
+        <p>Get instant answers, personalized explanations, and interactive learning experiences</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" onclick="window.location.href='chatbot.html'">Start Chatting</button>
+        </div>
+      </div>
+      <div class="hero-slide">
+        <h1>Learn Together</h1>
+        <p>Connect with peers, share doubts, and learn from community-driven solutions</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" onclick="window.location.href='doubts.html'">Join Community</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-indicators">
+      <span class="hero-indicator active" data-slide="0"></span>
+      <span class="hero-indicator" data-slide="1"></span>
+      <span class="hero-indicator" data-slide="2"></span>
+    </div>
+  </section>
+
+  <section class="container section-levels">
+    <h2 class="section-title">Choose Your Learning Path</h2>
+    <div class="level-grid">
+      <div class="level-card" onclick="window.location.href='subjects.html?level=school'">
+        <span class="level-card-icon">🎒</span>
+        <h3>School</h3>
+        <p>Perfect for students from classes 6–10. Build strong foundations in Math, Science, and more.</p>
+      </div>
+      <div class="level-card" onclick="window.location.href='subjects.html?level=intermediate'">
+        <span class="level-card-icon">📖</span>
+        <h3>Intermediate</h3>
+        <p>Designed for 11th and 12th grade. Master advanced concepts and prepare for competitive exams.</p>
+      </div>
+      <div class="level-card" onclick="window.location.href='subjects.html?level=engineering'">
+        <span class="level-card-icon">⚙️</span>
+        <h3>Engineering</h3>
+        <p>Comprehensive courses for engineering students. Deep dive into CS, ML, and specialized subjects.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="helpbot-bubble" id="helpbotBubble" onclick="window.location.href='chatbot.html'" title="Click to chat with AI HelpBot"></div>
+
+  <div class="doubt-upload-cta">
+    <button class="doubt-upload-btn" onclick="window.location.href='doubts.html'">
+      <span>📤</span>
+      <span>Upload Doubt</span>
+    </button>
+  </div>
+
+  <script src="../src/js/auth.js"></script>
+  <script>
+    const navToggle = document.getElementById('navToggle');
+    const navSlide = document.getElementById('navSlide');
+
+    navToggle.addEventListener('click', () => navSlide.classList.toggle('nav-open'));
+
+    document.addEventListener('click', (e) => {
+      if (!navSlide.contains(e.target) && !navToggle.contains(e.target)) navSlide.classList.remove('nav-open');
+    });
+
+    const slides = document.querySelectorAll('.hero-slide');
+    const indicators = document.querySelectorAll('.hero-indicator');
+    let currentSlide = 0;
+
+    function showSlide(index) {
+      slides.forEach((s, i) => s.classList.toggle('active', i === index));
+      indicators.forEach((ind, i) => ind.classList.toggle('active', i === index));
+      currentSlide = index;
+    }
+
+    indicators.forEach((ind, i) => ind.addEventListener('click', () => showSlide(i)));
+    setInterval(() => { currentSlide = (currentSlide + 1) % slides.length; showSlide(currentSlide); }, 5000);
+
+    if (typeof checkAuth !== 'undefined') {
+      checkAuth().then(ok => {
+        if (ok) {
+          const n1 = document.getElementById('navLogin'), n2 = document.getElementById('navSignup');
+          if (n1) n1.style.display = 'none';
+          if (n2) n2.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
