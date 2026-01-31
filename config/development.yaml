@@ -1,0 +1,48 @@
+app:
+  debug: true
+  title: "RAG AI Tutor - Development"
+  version: "0.1.0"
+
+database:
+  mongodb:
+    uri: "mongodb://localhost:27017"
+    database_name: "rag_ai_tutor_dev"
+    max_connection_count: 10
+    min_connection_count: 5
+
+auth:
+  jwt_algorithm: "HS256"
+  jwt_expire_minutes: 10080  # 7 days
+  bcrypt_rounds: 12
+  
+llm:
+  provider: "gemini"  # gemini, groq, openai
+  model: "gemini-1.5-flash"
+  temperature: 0.7
+  max_tokens: 1024
+
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+  batch_size: 32
+
+search:
+  hybrid_enabled: true
+  bm25_weight: 0.3
+  vector_weight: 0.7
+  top_k: 5
+  reranker: true
+
+vector_store:
+  backend: "chromadb"
+  persist_directory: "./data/chroma"
+  
+features:
+  socratic_tutoring: true
+  quiz_generation: true
+  ocr_support: true
+  voice_input: false
+
+logging:
+  level: "DEBUG"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

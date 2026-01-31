@@ -1,0 +1,31 @@
+models:
+  embedding:
+    name: "sentence-transformers/all-MiniLM-L6-v2"
+    dimension: 384
+    pooling: "mean"
+    normalize: true
+    device: "cpu"  # or cuda
+  
+  llm:
+    gemini:
+      name: "gemini-1.5-flash"
+      max_tokens: 1024
+      temperature: 0.7
+      top_p: 0.9
+      fallback: "gemini-1.5-pro"
+    
+    groq:
+      name: "mixtral-8x7b-32768"
+      max_tokens: 1024
+      temperature: 0.7
+      top_p: 0.9
+    
+    openai:
+      name: "gpt-3.5-turbo"
+      max_tokens: 1024
+      temperature: 0.7
+      top_p: 0.9
+
+download_on_startup: false
+cache_models: true
+model_cache_dir: "./models"

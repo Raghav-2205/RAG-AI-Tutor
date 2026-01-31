@@ -1,0 +1,76 @@
+subjects:
+  Computer Science:
+    id: "CS"
+    description: "Computer Science and Programming"
+    topics:
+      - Algorithms
+      - Data Structures
+      - Web Development
+      - AI/ML
+      - Databases
+    icon: "💻"
+    color: "#007ACC"
+
+  Mathematics:
+    id: "MATH"
+    description: "Mathematics and Calculus"
+    topics:
+      - Algebra
+      - Calculus
+      - Linear Algebra
+      - Statistics
+      - Discrete Math
+    icon: "📐"
+    color: "#FF6B6B"
+
+  Physics:
+    id: "PHYS"
+    description: "Physics and Mechanics"
+    topics:
+      - Mechanics
+      - Thermodynamics
+      - Electromagnetism
+      - Quantum Physics
+      - Relativity
+    icon: "⚛️"
+    color: "#4ECDC4"
+
+  Biology:
+    id: "BIO"
+    description: "Biology and Life Sciences"
+    topics:
+      - Cell Biology
+      - Genetics
+      - Evolution
+      - Ecology
+      - Human Physiology
+    icon: "🧬"
+    color: "#95E1D3"
+
+  Chemistry:
+    id: "CHEM"
+    description: "Chemistry and Reactions"
+    topics:
+      - Organic Chemistry
+      - Inorganic Chemistry
+      - Biochemistry
+      - Physical Chemistry
+      - Analytical Chemistry
+    icon: "🧪"
+    color: "#F39C12"
+
+quiz_difficulty_levels:
+  easy:
+    question_complexity: 1
+    num_options: 3
+    explanation_depth: "basic"
+  
+  medium:
+    question_complexity: 2
+    num_options: 4
+    explanation_depth: "detailed"
+  
+  hard:
+    question_complexity: 3
+    num_options: 5
+    explanation_depth: "comprehensive"

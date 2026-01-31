@@ -6,7 +6,7 @@
    ============================================ */
 
 (() => {
-  const API_BASE = "http://localhost:5000/api";
+  const API_BASE = "/api";
   const TOKEN_KEY = "olh_token";
   const USER_KEY = "olh_user";
 

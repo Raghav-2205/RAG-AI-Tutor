@@ -495,6 +495,41 @@
   background: var(--gradient-secondary);
 }
 
+.chat-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.chat-back {
+  display: inline-block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.chat-back:hover { color: var(--text-primary); }
+
+.chat-title {
+  margin: 0 0 var(--spacing-xs);
+  font-size: 1.5rem;
+}
+
+.chat-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.chat-status {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  min-height: 1.25rem;
+}
+
+.message.welcome-msg { margin-bottom: var(--spacing-sm); }
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

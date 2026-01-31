@@ -1,0 +1,48 @@
+app:
+  debug: false
+  title: "RAG AI Tutor - Production"
+  version: "0.1.0"
+
+database:
+  mongodb:
+    uri: "${MONGODB_URI}"
+    database_name: "rag_ai_tutor_prod"
+    max_connection_count: 20
+    min_connection_count: 10
+
+auth:
+  jwt_algorithm: "HS256"
+  jwt_expire_minutes: 10080  # 7 days
+  bcrypt_rounds: 14
+  
+llm:
+  provider: "${LLM_PROVIDER}"  # gemini, groq, openai
+  model: "gemini-1.5-pro"
+  temperature: 0.5
+  max_tokens: 2048
+
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+  batch_size: 64
+
+search:
+  hybrid_enabled: true
+  bm25_weight: 0.3
+  vector_weight: 0.7
+  top_k: 10
+  reranker: true
+
+vector_store:
+  backend: "chromadb"
+  persist_directory: "/app/data/chroma"
+  
+features:
+  socratic_tutoring: true
+  quiz_generation: true
+  ocr_support: true
+  voice_input: true
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

@@ -1,7 +1,7 @@
 /* OpenLearnHub - Subjects: search, voice, level-based grid */
 
 (function () {
-  const API_BASE = 'http://localhost:5000/api';
+  const API_BASE = '/api';
   const grid = document.getElementById('subjectsGrid');
   const searchInput = document.getElementById('subjectSearch');
   const micBtn = document.getElementById('micBtn');
