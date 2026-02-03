@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RAG AI Tutor - Debug Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #0a0e27; color: white; }
+    .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+    .success { background: #1a5f1a; }
+    .error { background: #5f1a1a; }
+    .info { background: #1a1a5f; }
+    button { padding: 10px 20px; margin: 5px; background: #00f5ff; color: black; border: none; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>RAG AI Tutor - Debug Test</h1>
+  
+  <div id="results"></div>
+  
+  <button onclick="testAPI()">Test API Connection</button>
+  <button onclick="testViews()">Test View Loading</button>
+  <button onclick="testAuth()">Test Auth Endpoints</button>
+  <button onclick="location.href='/'">Go to Main App</button>
+
+  <script>
+    function addResult(message, type = 'info') {
+      const results = document.getElementById('results');
+      const div = document.createElement('div');
+      div.className = `test-result ${type}`;
+      div.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+      results.appendChild(div);
+    }
+
+    async function testAPI() {
+      addResult('Testing API connection...', 'info');
+      
+      try {
+        // Test health endpoint
+        const healthResponse = await fetch('http://127.0.0.1:8000/health');
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          addResult(`✅ Health check passed: ${healthData.status}`, 'success');
+        } else {
+          addResult(`❌ Health check failed: ${healthResponse.status}`, 'error');
+        }
+        
+        // Test API root
+        const apiResponse = await fetch('http://127.0.0.1:8000/api/');
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          addResult(`✅ API root accessible: ${apiData.message}`, 'success');
+        } else {
+          addResult(`❌ API root failed: ${apiResponse.status}`, 'error');
+        }
+        
+      } catch (error) {
+        addResult(`❌ API test error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testViews() {
+      addResult('Testing view loading...', 'info');
+      
+      const views = ['home', 'login', 'signup', 'subjects'];
+      
+      for (const view of views) {
+        try {
+          const response = await fetch(`views/${view}.html`);
+          if (response.ok) {
+            const html = await response.text();
+            addResult(`✅ View ${view} loaded (${html.length} chars)`, 'success');
+          } else {
+            addResult(`❌ View ${view} failed: ${response.status}`, 'error');
+          }
+        } catch (error) {
+          addResult(`❌ View ${view} error: ${error.message}`, 'error');
+        }
+      }
+    }
+
+    async function testAuth() {
+      addResult('Testing auth endpoints...', 'info');
+      
+      try {
+        // Test registration endpoint (should return validation error)
+        const response = await fetch('http://127.0.0.1:8000/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'test@example.com',
+            password: 'testpass123',
+            full_name: 'Test User'
+          })
+        });
+        
+        if (response.status === 200 || response.status === 201) {
+          addResult('✅ Auth registration endpoint working', 'success');
+        } else if (response.status === 400 || response.status === 422) {
+          addResult('✅ Auth registration endpoint accessible (validation error expected)', 'success');
+        } else {
+          addResult(`❌ Auth registration failed: ${response.status}`, 'error');
+        }
+        
+      } catch (error) {
+        addResult(`❌ Auth test error: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-run basic tests on load
+    document.addEventListener('DOMContentLoaded', () => {
+      addResult('Debug page loaded', 'info');
+      testAPI();
+    });
+  </script>
+</body>
+</html>

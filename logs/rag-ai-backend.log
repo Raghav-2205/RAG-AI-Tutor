@@ -1,0 +1,84 @@
+2026-02-03 13:32:55,037 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:32:55,037 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:33:24,906 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:33:24,908 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:34:43,329 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:34:43,330 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:37:11,893 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:37:11,895 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:40:47,442 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:40:47,443 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:46:32,427 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:46:32,428 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:47:27,095 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:47:27,095 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:47:56,933 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:47:56,934 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 13:48:45,111 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 13:48:45,112 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:10:03,177 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:10:03,179 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:10:41,912 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:10:41,913 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:11:07,071 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:11:07,072 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:11:16,219 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 14:11:16,719 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:11:16,720 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 14:11:16,721 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 14:24:19,121 - backend.main - INFO - 🛑 Shutting down application...
+2026-02-03 14:24:19,123 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:24:19,123 - backend.main - INFO - ✅ Application shutdown complete
+2026-02-03 14:24:19,573 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 14:24:19,588 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:24:19,589 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 14:24:19,589 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 14:24:19,591 - backend.main - INFO - 🛑 Shutting down application...
+2026-02-03 14:24:19,593 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 14:24:19,593 - backend.main - INFO - ✅ Application shutdown complete
+2026-02-03 14:24:27,536 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 14:24:35,730 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 14:24:35,779 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 14:24:35,779 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 14:24:35,780 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:19:18,425 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:19:18,452 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:19:18,452 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:19:18,453 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:19:58,659 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:19:58,690 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:19:58,691 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:19:58,692 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:19:58,695 - backend.main - INFO - 🛑 Shutting down application...
+2026-02-03 15:19:58,696 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 15:19:58,696 - backend.main - INFO - ✅ Application shutdown complete
+2026-02-03 15:21:37,035 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:21:37,036 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 15:21:44,588 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:21:44,623 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:21:44,623 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:21:44,623 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:23:13,317 - backend.main - INFO - 🛑 Shutting down application...
+2026-02-03 15:23:13,319 - backend.utils.db - INFO - Disconnected from MongoDB
+2026-02-03 15:23:13,320 - backend.main - INFO - ✅ Application shutdown complete
+2026-02-03 15:23:23,457 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:24:41,699 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:24:41,730 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:24:41,730 - backend.utils.db - ERROR - Failed to create indexes: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:24:41,731 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:24:43,018 - backend.main - ERROR - Health check failed: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:26:05,156 - backend.main - ERROR - Health check failed: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2026-02-03 15:27:43,186 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:27:43,232 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:27:43,483 - backend.utils.db - INFO - Database indexes created successfully
+2026-02-03 15:27:43,484 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:31:27,017 - backend.main - INFO - 🚀 Starting RAG AI Tutor application...
+2026-02-03 15:31:27,060 - backend.utils.db - INFO - Connected to MongoDB successfully
+2026-02-03 15:31:27,071 - backend.utils.db - INFO - Database indexes created successfully
+2026-02-03 15:31:27,072 - backend.main - INFO - ✅ Application startup complete
+2026-02-03 15:32:19,406 - passlib.handlers.bcrypt - WARNING - (trapped) error reading bcrypt version
+Traceback (most recent call last):
+  File "C:\Users\Anany\AppData\Roaming\Python\Python312\site-packages\passlib\handlers\bcrypt.py", line 620, in _load_backend_mixin
+    version = _bcrypt.__about__.__version__
+              ^^^^^^^^^^^^^^^^^
+AttributeError: module 'bcrypt' has no attribute '__about__'

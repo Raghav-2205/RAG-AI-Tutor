@@ -1,0 +1,194 @@
+/* ===== DASHBOARD ===== */
+.dashboard {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 80px);
+  padding: 4rem 1rem;
+}
+
+.dashboard-card {
+  background: rgba(26, 31, 58, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: 28px;
+  padding: 3rem 2.5rem;
+  width: 100%;
+  max-width: 1000px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-title {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== SUBJECTS GRID ===== */
+.subjects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.subject-card {
+  background: rgba(10, 14, 39, 0.6);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.subject-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 32px rgba(0, 255, 204, 0.2);
+  background: rgba(10, 14, 39, 0.8);
+}
+
+.subject-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.3));
+}
+
+.subject-card h3 {
+  margin: 1rem 0 1.5rem;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.subject-btn {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
+  color: var(--bg-primary);
+  border: none;
+  padding: 0.7rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.subject-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 255, 204, 0.4);
+}
+
+/* ===== UPLOAD ZONE ===== */
+.upload-zone {
+  margin: 2.5rem 0;
+  border: 2px dashed rgba(0, 255, 204, 0.4);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  background: rgba(10, 14, 39, 0.3);
+}
+
+.upload-zone:hover {
+  border-color: var(--accent);
+  background: rgba(10, 14, 39, 0.5);
+  color: var(--accent);
+}
+
+.upload-zone::before {
+  content: '📁';
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.3));
+}
+
+/* ===== DASHBOARD ACTIONS ===== */
+.dashboard-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ===== BUTTONS ===== */
+.primary-btn,
+.secondary-btn,
+.danger-btn {
+  padding: 0.9rem 2rem;
+  border-radius: 25px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
+  color: var(--bg-primary);
+  box-shadow: 0 4px 16px rgba(0, 255, 204, 0.3);
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 255, 204, 0.4);
+}
+
+.secondary-btn {
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+.secondary-btn:hover {
+  background: rgba(0, 255, 204, 0.1);
+  transform: translateY(-2px);
+}
+
+.danger-btn {
+  background: transparent;
+  border: 2px solid var(--danger);
+  color: var(--danger);
+}
+
+.danger-btn:hover {
+  background: rgba(255, 68, 68, 0.1);
+  transform: translateY(-2px);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .dashboard-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .dashboard-title {
+    font-size: 2rem;
+  }
+  
+  .subjects-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+  
+  .dashboard-actions {
+    flex-direction: column;
+  }
+  
+  .primary-btn,
+  .secondary-btn,
+  .danger-btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up - RAG AI Tutor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/auth.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">🚀 RAG AI Tutor</div>
+    <div class="nav-links">
+      <a href="/" class="nav-button">Home</a>
+      <a href="/views/login.html" class="nav-button">Login</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="auth-container">
+      <div class="auth-card">
+        <h2>Join RAG AI Tutor</h2>
+
+        <form onsubmit="handleSignup(event)">
+          <input type="text" id="signupName" placeholder="Full Name" required />
+          <input type="email" id="signupEmail" placeholder="Email" required />
+          <input type="password" id="signupPassword" placeholder="Password" required />
+          
+          <select id="signupLevel" required>
+            <option value="">Select Level</option>
+            <option value="high_school">High School</option>
+            <option value="undergraduate">Undergraduate</option>
+            <option value="graduate">Graduate</option>
+          </select>
+          
+          <button type="submit">Sign Up</button>
+        </form>
+
+        <p class="auth-switch">
+          Already have an account?
+          <a href="/views/login.html">Login</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/auth.js"></script>
+</body>
+</html>
