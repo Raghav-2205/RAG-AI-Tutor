@@ -1,46 +1,29 @@
 # backend/api/feedback.py
-
+from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
-from typing import Optional, List
-
-from backend.utils import get_db, get_current_user
+from pydantic import BaseModel
+from backend.utils.db import get_db
+from backend.api.auth import get_current_user
 from backend.utils.helpers import doc_to_dict
 
-
-router = APIRouter(tags=["feedback"])
-
+router = APIRouter()
 
 class FeedbackCreate(BaseModel):
-    rating: int = Field(..., ge=1, le=5)
+    rating: int # 1-5
     message: Optional[str] = None
-    chat_session_id: Optional[str] = None
 
-
-class FeedbackPublic(BaseModel):
-    id: str
-    rating: int
-    message: Optional[str]
-    created_at: str
-
-
-@router.post("/", response_model=FeedbackPublic, status_code=201)
-async def create_feedback(fb: FeedbackCreate,
-                         db=Depends(get_db),
-                         current_user=Depends(get_current_user)):
+@router.post("/", status_code=201)
+async def create_feedback(
+    feedback: FeedbackCreate,
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
     doc = {
-        "user_id": current_user["_id"],
-        "rating": fb.rating,
-        "message": fb.message,
-        "chat_session_id": fb.chat_session_id,
-        "created_at": datetime.utcnow(),
+        "user_id": str(current_user["_id"]),
+        "rating": feedback.rating,
+        "message": feedback.message,
+        "created_at": datetime.utcnow()
     }
-    result = db.feedback.insert_one(doc)
-    doc["_id"] = result.inserted_id
+    result = await db.feedback.insert_one(doc)
     return doc_to_dict(doc)
-
-
-@router.get("/", response_model=List[FeedbackPublic])
-async def list_feedback(db=Depends(get_db), current_user=Depends(get_current_user)):
-    docs = list(db.feedback.find({"user_id": current_user["_id"]}))
-    return [doc_to_dict(doc) for doc in docs]

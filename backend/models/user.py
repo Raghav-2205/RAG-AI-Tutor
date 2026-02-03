@@ -1,17 +1,26 @@
 # backend/models/user.py
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
-from passlib.context import CryptContext
+from typing import Optional, Any
+from pydantic import BaseModel, EmailStr, Field, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 from bson import ObjectId
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-class PyObjectId(ObjectId):
+# Fix for using MongoDB ObjectId with Pydantic V2
+class PyObjectId(str):
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        from pydantic_core import core_schema
-        return core_schema.no_info_plain_validator_function(cls.validate)
+    def __get_pydantic_core_schema__(
+        cls, _source_type: Any, _handler: GetJsonSchemaHandler
+    ) -> core_schema.CoreSchema:
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.str_schema(),
+            python_schema=core_schema.union_schema([
+                core_schema.is_instance_schema(ObjectId),
+                core_schema.str_schema(),
+            ]),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda x: str(x)
+            ),
+        )
 
     @classmethod
     def validate(cls, v):
@@ -19,45 +28,34 @@ class PyObjectId(ObjectId):
             raise ValueError("Invalid ObjectId")
         return ObjectId(v)
 
-    @classmethod
-    def __modify_schema(cls, field_schema):
-        field_schema.update(type="string")
-
-
-class UserBase(BaseModel):
+# What we store in DB
+class UserInDB(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    name: str
     email: EmailStr
-    name: str = Field(..., min_length=1, max_length=100)
-    level: str = Field(..., pattern="^(high_school|undergraduate|graduate|professional)$")
+    hashed_password: str
+    level: str = "undergraduate"
+    created_at: Any = None
 
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
 
-class UserCreate(UserBase):
+# What the frontend sends to register
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
     password: str = Field(..., min_length=6)
+    level: str = "undergraduate"
 
-    @field_validator("password")
-    @classmethod
-    def hash_password(cls, v):
-        return pwd_context.hash(v)
-
-
+# Simple Login Model (Added back to fix ImportError)
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-
-class UserInDB(UserBase):
-    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    password: str  # hashed
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        populate_by_name = True
-
-
-class UserPublic(UserBase):
+# What we return to the frontend
+class UserPublic(BaseModel):
     id: str
-
-    @classmethod
-    def from_mongo(cls, doc: dict):
-        """Convert Mongo document → Pydantic model"""
-        return cls(id=str(doc["_id"]), **{k: v for k, v in doc.items() if k != "_id" and k != "password"})
+    name: str
+    email: EmailStr
+    level: str

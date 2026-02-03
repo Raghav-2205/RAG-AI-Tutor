@@ -1,117 +1,67 @@
 # backend/preprocessing.py
-
-from typing import List, Dict, Any
 import re
-
+from typing import List, Dict, Any
+from backend.config import settings
 
 def clean_text(text: str) -> str:
-    """
-    Clean raw text from file_handler.py before chunking.
-    
-    Removes extra whitespace, normalizes newlines, strips weird characters.
-    """
     if not text:
         return ""
-    
-    # Normalize whitespace and newlines
-    text = re.sub(r'\n\s*\n', '\n\n', text)  # Multiple newlines → double newline
-    text = re.sub(r'[ \t]+', ' ', text)      # Multiple spaces/tabs → single space
-    text = re.sub(r'\s*\n\s*', '\n', text)   # Space around newlines
-    
-    # Remove excessive leading/trailing whitespace
-    text = text.strip()
-    
-    # Optional: remove strange unicode (keep for now)
-    # text = text.encode('ascii', 'ignore').decode('ascii')
-    
-    return text
+    # Normalize whitespace
+    text = re.sub(r'[\t]', ' ', text)
+    text = re.sub(r'\s*\n\s*', '\n', text)  # Clean newlines
+    text = re.sub(r' +', ' ', text)         # Remove double spaces
+    return text.strip()
 
-
-def chunk_text(
-    text: str,
-    chunk_size: int = 600,
-    chunk_overlap: int = 100,
-) -> List[str]:
-    """
-    Split cleaned text into overlapping chunks.
-    
-    Simple character-based splitting that tries to break at sentence boundaries.
-    """
+def chunk_text(text: str, chunk_size: int = 600, chunk_overlap: int = 100) -> List[str]:
+    """Sliding window chunking."""
     if len(text) <= chunk_size:
         return [text]
-    
+        
     chunks = []
     start = 0
+    text_len = len(text)
     
-    while start < len(text):
-        # Calculate end of this chunk
+    while start < text_len:
         end = start + chunk_size
         
-        # Try to end at sentence boundary (., !, ?, newline)
-        if end < len(text):
-            for boundary in [".", "!", "?", "\n\n", "\n"]:
-                boundary_pos = text.rfind(boundary, start, end)
-                if boundary_pos > start + chunk_size // 2:  # Don't break too early
-                    end = boundary_pos + len(boundary)
-                    break
+        # Try to find a sentence boundary (., !, ?, \n) near the end
+        if end < text_len:
+            # Look for boundary in the last 20% of the chunk
+            boundary_search = text[end - 100 : end + 50] 
+            # Simple heuristic: look for last period or newline
+            last_period = boundary_search.rfind('.')
+            if last_period != -1:
+                end = (end - 100) + last_period + 1
         
-        # Extract chunk
         chunk = text[start:end].strip()
-        if chunk:  # Skip empty chunks
+        if chunk:
             chunks.append(chunk)
+            
+        # Move forward, keeping the overlap
+        start = end - chunk_overlap
         
-        # Move start forward (with overlap)
-        start += chunk_size - chunk_overlap
-        
-        # Safety check to avoid infinite loop
-        if start >= len(text):
+        # Prevent infinite loops if no progress
+        if start >= text_len:
             break
-    
+            
     return chunks
 
-
-def create_chunks(
-    raw_text: str,
-    source_filename: str,
-    doc_id: str,
-    chunk_size: int = 600,
-    chunk_overlap: int = 100,
-) -> List[Dict[str, Any]]:
-    """
-    MAIN FUNCTION used by upload.py.
-    
-    Turns raw text → list of chunk dicts ready for vector_db.py.
-    
-    Each chunk has:
-    - "text": the chunk content
-    - "source": original filename  
-    - "doc_id": unique document ID
-    - "chunk_index": position in document (0, 1, 2...)
-    """
-    
-    # 1. Clean the text
+def create_chunks(raw_text: str, filename: str, doc_id: str) -> List[Dict[str, Any]]:
+    """Processing pipeline: Clean -> Chunk -> Format"""
     cleaned = clean_text(raw_text)
     if not cleaned:
         return []
+        
+    text_chunks = chunk_text(cleaned, settings.chunk_size, settings.chunk_overlap)
     
-    # 2. Split into chunks
-    text_chunks = chunk_text(cleaned, chunk_size, chunk_overlap)
-    
-    # 3. Create chunk dicts with metadata
-    chunks = []
+    formatted_chunks = []
     for i, chunk_text in enumerate(text_chunks):
-        chunk = {
+        formatted_chunks.append({
             "text": chunk_text,
-            "source": source_filename,
+            "source": filename,
             "doc_id": doc_id,
             "chunk_index": i,
-            "chunk_size": len(chunk_text),
-        }
-        chunks.append(chunk)
-    
-    return chunks
-
-
-# Default settings matching your project docs [file:164]
-DEFAULT_CHUNK_SIZE = 600
-DEFAULT_CHUNK_OVERLAP = 100
+            "chunk_size": len(chunk_text)
+        })
+        
+    return formatted_chunks

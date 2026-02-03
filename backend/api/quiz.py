@@ -1,37 +1,52 @@
 # backend/api/quiz.py
-
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
 from typing import Optional, List
-
-from backend.utils import get_db, get_current_user
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from backend.utils.db import get_db
+from backend.api.auth import get_current_user
 from backend.quiz_generator import generate_quiz_for_user
 from backend.utils.helpers import doc_to_dict
 
-
-router = APIRouter(tags=["quiz"])
-
+router = APIRouter()
 
 class QuizGenerateRequest(BaseModel):
-    num_questions: int = Field(5, ge=1, le=20)
-    difficulty: str = Field("medium", pattern="^(easy|medium|hard)$")
     subject: Optional[str] = None
+    num_questions: int = 5
+    difficulty: str = "medium"
 
+@router.post("/generate")
+async def generate_quiz_endpoint(
+    request: QuizGenerateRequest,
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    try:
+        quiz_data = generate_quiz_for_user(
+            user_id=str(current_user["_id"]),
+            subject=request.subject,
+            num_questions=request.num_questions,
+            difficulty=request.difficulty
+        )
+        
+        # Save to DB
+        result = await db.quizzes.insert_one(quiz_data)
+        quiz_data["id"] = str(result.inserted_id)
+        if "_id" in quiz_data: del quiz_data["_id"]
+        
+        return quiz_data
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/generate", response_model=dict)
-async def generate_quiz(request: QuizGenerateRequest,
-                       current_user=Depends(get_current_user)):
-    """Generate quiz from user's documents"""
-    quiz = generate_quiz_for_user(
-        user_id=str(current_user["_id"]),
-        subject=request.subject,
-        num_questions=request.num_questions,
-        difficulty=request.difficulty,
-    )
-    return quiz
-
-
-@router.get("/", response_model=List[dict])
-async def list_quizzes(db=Depends(get_db), current_user=Depends(get_current_user)):
-    quizzes = list(db.quizzes.find({"user_id": current_user["_id"]}))
+@router.get("/")
+async def list_quizzes(
+    current_user = Depends(get_current_user),
+    db = Depends(get_db)
+):
+    quizzes = await db.quizzes.find(
+        {"user_id": str(current_user["_id"])}
+    ).sort("created_at", -1).to_list(length=20)
+    
     return [doc_to_dict(q) for q in quizzes]

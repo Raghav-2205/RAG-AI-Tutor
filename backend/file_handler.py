@@ -1,108 +1,70 @@
 # backend/file_handler.py
-
 import os
 from pathlib import Path
-from typing import Tuple
-
 from pypdf import PdfReader
 from docx import Document as DocxDocument
+from backend.config import settings
 
-
-# Base folder where uploads are stored, e.g. data/uploads/
-BASE_UPLOAD_DIR = Path("data") / "uploads"
+# Create upload directory if it doesn't exist
+BASE_UPLOAD_DIR = Path(settings.upload_dir)
 BASE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-
 def save_upload_to_disk(filename: str, file_bytes: bytes, user_id: str) -> Path:
-    """
-    Save an uploaded file (from API) to disk under a user-specific folder.
-
-    Returns the full Path to the saved file.
-    """
+    """Saves the uploaded file to a user-specific folder."""
     user_folder = BASE_UPLOAD_DIR / str(user_id)
     user_folder.mkdir(parents=True, exist_ok=True)
-
+    
+    # Sanitize filename to prevent directory traversal
     sanitized_name = filename.replace("/", "_").replace("\\", "_")
     full_path = user_folder / sanitized_name
-
+    
     with open(full_path, "wb") as f:
         f.write(file_bytes)
-
+        
     return full_path
 
-
 def extract_text_from_pdf(path: Path) -> str:
-    """
-    Extract text from a PDF using pypdf.
-    """
-    reader = PdfReader(str(path))
-    texts = []
-    for page in reader.pages:
-        try:
+    try:
+        reader = PdfReader(str(path))
+        texts = []
+        for page in reader.pages:
             txt = page.extract_text() or ""
-        except Exception:
-            txt = ""
-        if txt.strip():
-            texts.append(txt)
-    return "\n\n".join(texts)
-
+            if txt.strip():
+                texts.append(txt)
+        return "\n\n".join(texts)
+    except Exception as e:
+        print(f"Error reading PDF {path}: {e}")
+        return ""
 
 def extract_text_from_docx(path: Path) -> str:
-    """
-    Extract text from a DOCX file using python-docx.
-    """
-    doc = DocxDocument(str(path))
-    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-    return "\n".join(paragraphs)
+    try:
+        doc = DocxDocument(str(path))
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(paragraphs)
+    except Exception as e:
+        print(f"Error reading DOCX {path}: {e}")
+        return ""
 
-
-def extract_text_from_txt(path: Path) -> str:
-    """
-    Read plain text from a .txt file.
-    """
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        return f.read()
-
-
-def detect_file_type(path: Path) -> str:
-    """
-    Very simple file type detection based on extension.
-    Returns: 'pdf', 'docx', 'txt', or 'unknown'.
-    """
-    ext = path.suffix.lower()
-    if ext == ".pdf":
-        return "pdf"
-    if ext in [".docx"]:
-        return "docx"
-    if ext in [".txt"]:
-        return "txt"
-    return "unknown"
-
-
-def extract_text_from_file(file_path: str | Path) -> str:
-    """
-    Main entrypoint used by upload / ingestion pipeline.
-
-    Given a file path (PDF, DOCX, TXT), returns extracted text as a string.
-    Raises ValueError if the file type is not supported or no text could be read.
-    """
+def extract_text_from_file(file_path: Path) -> str:
+    """Main entry point to extract text based on extension."""
     path = Path(file_path)
-
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    ftype = detect_file_type(path)
+    ext = path.suffix.lower()
+    text = ""
 
-    if ftype == "pdf":
+    if ext == ".pdf":
         text = extract_text_from_pdf(path)
-    elif ftype == "docx":
+    elif ext == ".docx":
         text = extract_text_from_docx(path)
-    elif ftype == "txt":
-        text = extract_text_from_txt(path)
+    elif ext == ".txt":
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            text = f.read()
     else:
-        raise ValueError(f"Unsupported file type: {path.suffix}")
+        raise ValueError(f"Unsupported file type: {ext}")
 
-    if not text or not text.strip():
-        raise ValueError(f"No text could be extracted from file: {path.name}")
-
+    if not text.strip():
+        raise ValueError("No text could be extracted from file.")
+        
     return text
