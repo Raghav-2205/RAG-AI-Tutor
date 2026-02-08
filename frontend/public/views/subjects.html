@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG AI Tutor - Workspace</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #0a0e27;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #e0e6ed;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            height: 70px;
+            background: #0d112d;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+        }
+
+        .brand {
+            color: #00ffcc;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        /* LAYOUT */
+        .dashboard-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: calc(100vh - 70px);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: rgba(13, 17, 45, 0.95);
+            border-right: 1px solid rgba(0, 255, 204, 0.15);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            color: #b8c5d6;
+            text-transform: uppercase;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .nav-item:hover {
+            background: rgba(0, 255, 204, 0.1);
+            color: #00ffcc;
+        }
+
+        /* CHAT HISTORY SIDEBAR */
+        .new-chat-btn {
+            background: linear-gradient(135deg, #00ffcc, #00d4aa);
+            color: #0f0c29;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 255, 204, 0.3);
+        }
+
+        .chat-list-container {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .chat-list-header {
+            font-size: 0.75rem;
+            color: #b8c5d6;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            padding: 0 0.5rem;
+        }
+
+        .chat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .chat-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .chat-item:hover {
+            background: rgba(0, 255, 204, 0.08);
+        }
+
+        .chat-item.active {
+            background: rgba(0, 255, 204, 0.15);
+            border-left-color: #00ffcc;
+        }
+
+        .chat-title {
+            font-size: 0.9rem;
+            color: #e0e6ed;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 4px;
+        }
+
+        .chat-timestamp {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .loading-chats {
+            text-align: center;
+            color: #888;
+            padding: 2rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .tools-section {
+            display: flex;
+            gap: 0.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: auto;
+        }
+
+        .tools-section .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 0.75rem;
+            font-size: 1.2rem;
+        }
+
+
+        /* MAIN */
+        .main-workspace {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: radial-gradient(circle at center, #1a1f3a, #0a0e27);
+        }
+
+        /* CHAT */
+        .chat-feed {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 2rem 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 140px;
+            height: calc(100vh - 70px - 140px);
+            max-height: calc(100vh - 70px - 140px);
+        }
+
+        .chat-feed::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-feed::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-feed::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 204, 0.3);
+            border-radius: 4px;
+        }
+
+        .chat-feed::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 204, 0.5);
+        }
+
+        .msg {
+            padding: 1rem 1.2rem;
+            border-radius: 16px;
+            max-width: 80%;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: #2a2f4a;
+        }
+
+        .msg.ai {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            line-height: 1.7;
+        }
+
+        /* Markdown formatting */
+        .msg.ai h1,
+        .msg.ai h2,
+        .msg.ai h3 {
+            margin: 0.8rem 0 0.5rem 0;
+            color: #00ffcc;
+        }
+
+        .msg.ai p {
+            margin: 0.5rem 0;
+        }
+
+        .msg.ai ul,
+        .msg.ai ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .msg.ai li {
+            margin: 0.3rem 0;
+        }
+
+        .msg.ai code {
+            background: rgba(0, 255, 204, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .msg.ai pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+
+        .msg.ai pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Citation styling */
+        .citation {
+            display: inline-block;
+            background: linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(138, 43, 226, 0.2));
+            color: #00ffcc;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            margin: 0 2px;
+            position: relative;
+        }
+
+        .citation:hover {
+            background: linear-gradient(135deg, rgba(0, 255, 204, 0.3), rgba(138, 43, 226, 0.3));
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 255, 204, 0.3);
+        }
+
+        .citation-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: #1e233e;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.75em;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            max-width: 300px;
+            white-space: normal;
+        }
+
+        .citation:hover .citation-tooltip {
+            opacity: 1;
+        }
+
+        /* FEEDBACK UI */
+        .feedback-container {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .feedback-label {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .feedback-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .feedback-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 6px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1.1em;
+            color: #888;
+        }
+
+        .feedback-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(0, 255, 204, 0.3);
+            transform: scale(1.1);
+        }
+
+        .feedback-btn.selected {
+            background: rgba(0, 255, 204, 0.15);
+            border-color: #00ffcc;
+            color: #00ffcc;
+        }
+
+        .feedback-comment {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.85em;
+            margin-top: 8px;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .feedback-comment:focus {
+            border-color: rgba(0, 255, 204, 0.3);
+        }
+
+        .feedback-submit {
+            background: linear-gradient(135deg, #00ffcc, #00d4aa);
+            color: #0f0c29;
+            padding: 6px 16px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+        }
+
+        .feedback-submit:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 10px rgba(0, 255, 204, 0.3);
+        }
+
+        .feedback-thanks {
+            color: #00ffcc;
+            font-size: 0.85em;
+            font-style: italic;
+        }
+
+        /* INPUT */
+        .input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 2rem 20%;
+            background: linear-gradient(to top, #0a0e27 80%, transparent);
+        }
+
+        .input-box {
+            background: #1e233e;
+            border-radius: 24px;
+            padding: 12px;
+            display: flex;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            resize: none;
+            outline: none;
+        }
+
+        .send-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            background: #00ffcc;
+            font-weight: bold;
+        }
+
+        /* QUIZ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 14, 39, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-card {
+            background: #1e233e;
+            border-radius: 24px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .quiz-option {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 0.6rem;
+        }
+
+        .quiz-option.correct {
+            background: rgba(0, 255, 100, 0.2);
+        }
+
+        .quiz-option.wrong {
+            background: rgba(255, 68, 68, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="brand">RAG AI Tutor</div>
+        <button onclick="localStorage.clear(); window.location.href='/views/login.html';"
+            style="background:none;border:1px solid #ff4444;color:#ff4444;padding:6px 16px;border-radius:20px;cursor:pointer;">
+            Logout
+        </button>
+    </nav>
+
+    <div class="dashboard-container">
+
+        <aside class="sidebar">
+            <!-- NEW CHAT BUTTON -->
+            <button class="new-chat-btn" onclick="chatHistory.createNewChat()">
+                <span style="font-size: 1.2rem;">➕</span>
+                <span>New Chat</span>
+            </button>
+
+            <!-- CHAT HISTORY LIST -->
+            <div class="chat-list-container">
+                <div class="chat-list-header">Recent</div>
+                <div id="chatList" class="chat-list">
+                    <!-- Dynamically populated by JavaScript -->
+                    <div class="loading-chats">Loading chats...</div>
+                </div>
+            </div>
+
+            <!-- TOOLS SECTION (Minimized) -->
+            <div class="tools-section">
+                <div class="nav-item" onclick="document.getElementById('hiddenFileInput').click()"
+                    title="Upload Document">
+                    📄
+                </div>
+                <div class="nav-item" onclick="window.location.href='/views/quiz.html'" title="Take Quiz">
+                    🎯
+                </div>
+                <div class="nav-item" onclick="clearAllDocuments()" style="color: #ff6b6b;" title="Clear Documents">
+                    🗑️
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-workspace">
+
+            <div id="chatFeed" class="chat-feed">
+                <h1 style="text-align:center;color:#00ffcc;margin-top:20vh;">
+                    What do you want to learn?
+                </h1>
+            </div>
+
+            <div class="input-area">
+                <div class="input-box">
+                    <textarea id="chatInput" rows="1" placeholder="Message RAG AI Tutor..."></textarea>
+                    <button id="sendBtn" class="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- FILE INPUT (hidden) -->
+    <input type="file" id="hiddenFileInput" accept=".pdf,.docx,.txt,.pptx,.jpg,.png" style="display:none"
+        onchange="handleFileSelect(event)">
+
+    <!-- QUIZ MODAL -->
+    <div id="quizModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 style="color:#00ffcc;">AI Quiz Generator</h2>
+            <div id="quizArea"></div>
+            <button onclick="closeQuiz()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CHAT HISTORY MANAGER ====================
+        class ChatHistoryManager {
+            constructor() {
+                this.activeChatId = null;
+                this.sessions = [];
+                this.token = localStorage.getItem('token');
+                this.apiBase = window.config?.apiBase || 'http://127.0.0.1:8000/api';
+            }
+
+            async init() {
+                if (!this.token) {
+                    window.location.href = '/views/login.html';
+                    return;
+                }
+
+                await this.loadSessions();
+
+                // If no sessions exist, show welcome screen
+                if (this.sessions.length === 0) {
+                    this.showWelcomeScreen();
+                } else {
+                    // Load most recent chat
+                    await this.switchToChat(this.sessions[0].chat_id);
+                }
+            }
+
+            async loadSessions() {
+                try {
+                    const res = await fetch(`${this.apiBase}/chat/sessions`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+
+                    if (!res.ok) {
+                        if (res.status === 401) {
+                            localStorage.clear();
+                            window.location.href = '/views/login.html';
+                            return;
+                        }
+                        throw new Error('Failed to load sessions');
+                    }
+
+                    this.sessions = await res.json();
+                    this.renderSessionList();
+                } catch (error) {
+                    console.error('Error loading sessions:', error);
+                    document.getElementById('chatList').innerHTML =
+                        '<div class="loading-chats" style="color: #ff6b6b;">Failed to load chats</div>';
+                }
+            }
+
+            renderSessionList() {
+                const chatList = document.getElementById('chatList');
+
+                if (this.sessions.length === 0) {
+                    chatList.innerHTML = '<div class="loading-chats">No chats yet</div>';
+                    return;
+                }
+
+                chatList.innerHTML = this.sessions.map(session => `
+                    <div class="chat-item ${session.chat_id === this.activeChatId ? 'active' : ''}"
+                         onclick="chatHistory.switchToChat('${session.chat_id}')">
+                        <div class="chat-title">${this.escapeHtml(session.title)}</div>
+                        <div class="chat-timestamp">${this.getRelativeTime(session.updated_at)}</div>
+                    </div>
+                `).join('');
+            }
+
+            async switchToChat(chatId) {
+                try {
+                    this.activeChatId = chatId;
+
+                    // Fetch full chat history
+                    const res = await fetch(`${this.apiBase}/chat/sessions/${chatId}`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+
+                    if (!res.ok) throw new Error('Failed to load chat');
+
+                    const chat = await res.json();
+
+                    // Render messages
+                    const feed = document.getElementById('chatFeed');
+                    feed.innerHTML = '';
+
+                    for (const msg of chat.messages) {
+                        if (msg.role === 'user') {
+                            feed.innerHTML += `<div class="msg user">${this.escapeHtml(msg.content)}</div>`;
+                        } else {
+                            const formatted = window.ai ?
+                                window.ai.formatMessage(msg.content, msg.chunks || []) :
+                                this.escapeHtml(msg.content);
+
+                            // Create feedback UI for assistant messages
+                            const sessionId = `${chatId}_${msg.timestamp}`;
+                            const feedbackUI = this.createFeedbackUI(sessionId);
+
+                            feed.innerHTML += `<div class="msg ai">${formatted}${feedbackUI}</div>`;
+                        }
+                    }
+
+                    // Update sidebar highlighting
+                    this.renderSessionList();
+                    feed.scrollTop = feed.scrollHeight;
+
+                } catch (error) {
+                    console.error('Error switching chat:', error);
+                    alert('Failed to load chat: ' + error.message);
+                }
+            }
+
+            async createNewChat() {
+                this.activeChatId = null;
+                this.showWelcomeScreen();
+                this.renderSessionList(); // Remove active highlighting
+            }
+
+            showWelcomeScreen() {
+                document.getElementById('chatFeed').innerHTML =
+                    '<h1 style="text-align:center;color:#00ffcc;margin-top:20vh;">What do you want to learn?</h1>';
+            }
+
+            async afterMessageSent(chatId) {
+                this.activeChatId = chatId;
+                await this.loadSessions(); // Refresh session list
+            }
+
+            createFeedbackUI(sessionId) {
+                return `
+                    <div class="feedback-container" id="feedback-${sessionId}">
+                        <span class="feedback-label">Was this helpful?</span>
+                        <div class="feedback-buttons">
+                            <button class="feedback-btn" data-rating="positive" onclick="handleFeedback('${sessionId}', 'positive')">
+                                👍
+                            </button>
+                            <button class="feedback-btn" data-rating="negative" onclick="handleFeedback('${sessionId}', 'negative')">
+                                👎
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getRelativeTime(timestamp) {
+                const now = new Date();
+                const then = new Date(timestamp);
+                const diff = now - then;
+
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (minutes < 1) return 'Just now';
+                if (minutes < 60) return `${minutes}m ago`;
+                if (hours < 24) return `${hours}h ago`;
+                if (days === 1) return 'Yesterday';
+                if (days < 7) return `${days} days ago`;
+
+                return then.toLocaleDateString();
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // Initialize global chat history manager
+        window.chatHistory = new ChatHistoryManager();
+
+        // ==================== EXISTING FUNCTIONS ====================
+        function resetChat() {
+            chatHistory.createNewChat();
+        }
+
+        async function clearAllDocuments() {
+            if (!confirm('Are you sure you want to delete ALL uploaded documents? This cannot be undone.')) {
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first.');
+                return;
+            }
+
+            const feed = document.getElementById('chatFeed');
+            if (feed.querySelector('h1')) feed.innerHTML = '';
+            feed.innerHTML += `<div class="msg ai">🗑️ Deleting all documents...</div>`;
+
+            try {
+                const apiBase = window.config?.apiBase || 'http://127.0.0.1:8000/api';
+                const response = await fetch(`${apiBase}/upload/all`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Delete failed');
+                }
+
+                const data = await response.json();
+                feed.lastElementChild.innerHTML = `✅ ${data.message || 'Documents cleared'}. You can now upload new documents.`;
+            } catch (err) {
+                feed.lastElementChild.innerHTML = `❌ Delete failed: ${err.message}`;
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const feed = document.getElementById('chatFeed');
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (feed.querySelector('h1')) feed.innerHTML = '';
+
+            feed.innerHTML += `<div class="msg user">${text}</div>`;
+            feed.innerHTML += `<div class="msg ai">Thinking...</div>`;
+            feed.scrollTop = feed.scrollHeight;
+
+            input.value = '';
+
+            try {
+                // Pass active chat_id to backend (null for new chat)
+                const res = await window.ai.sendMessage(text, 'general', chatHistory.activeChatId);
+
+                // Use formatMessage to render markdown and interactive citations
+                const formattedAnswer = window.ai.formatMessage(res.answer, res.chunks || []);
+
+                // Get chat_id from response
+                const chatId = res.chat_id || res.sessionId;
+                const sessionId = chatId;
+
+                // Add feedback UI inline
+                const feedbackUI = `
+                    <div class="feedback-container" id="feedback-${sessionId}">
+                        <span class="feedback-label">Was this helpful?</span>
+                        <div class="feedback-buttons">
+                            <button class="feedback-btn" data-rating="positive" onclick="handleFeedback('${sessionId}', 'positive')">
+                                👍
+                            </button>
+                            <button class="feedback-btn" data-rating="negative" onclick="handleFeedback('${sessionId}', 'negative')">
+                                👎
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                feed.lastElementChild.innerHTML = formattedAnswer + feedbackUI;
+
+                // Update chat history sidebar
+                await chatHistory.afterMessageSent(chatId);
+
+            } catch (e) {
+                feed.lastElementChild.innerHTML = `❌ ${e.message}`;
+            }
+
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        async function handleFeedback(sessionId, rating) {
+            const container = document.getElementById(`feedback-${sessionId}`);
+            if (!container) return;
+
+            const buttons = container.querySelectorAll('.feedback-btn');
+            buttons.forEach(b => b.classList.remove('selected'));
+            container.querySelector(`[data-rating="${rating}"]`).classList.add('selected');
+
+            if (container.querySelector('.feedback-comment')) return;
+
+            container.insertAdjacentHTML('beforeend', `
+                <div style="width: 100%; display: flex; flex-direction: column;">
+                    <textarea class="feedback-comment" placeholder="Optional: Tell us more..." rows="2"></textarea>
+                    <button class="feedback-submit" onclick="submitFeedback('${sessionId}', '${rating}')">Submit Feedback</button>
+                </div>
+            `);
+        }
+
+        async function submitFeedback(sessionId, rating) {
+            const container = document.getElementById(`feedback-${sessionId}`);
+            const comment = container.querySelector('.feedback-comment')?.value.trim() || '';
+            const token = localStorage.getItem('token');
+
+            try {
+                const res = await fetch((window.config?.apiBase || 'http://127.0.0.1:8000/api') + '/feedback/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ source: 'chat', reference_id: sessionId, rating, subject: 'general', comment })
+                });
+                if (!res.ok) throw new Error('Failed');
+                container.innerHTML = '<span class="feedback-thanks">✓ Thank you for your feedback!</span>';
+            } catch (e) {
+                alert('Failed to submit feedback: ' + e.message);
+            }
+        }
+
+        async function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Get token from localStorage directly (more reliable)
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login first to upload documents.');
+                window.location.href = '/views/login.html';
+                return;
+            }
+
+            const feed = document.getElementById('chatFeed');
+            if (feed.querySelector('h1')) feed.innerHTML = '';
+
+            feed.innerHTML += `<div class="msg ai">📤 Uploading ${file.name}...</div>`;
+            feed.scrollTop = feed.scrollHeight;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('subject', 'general');
+
+                const apiBase = window.config?.apiBase || 'http://127.0.0.1:8000/api';
+                const response = await fetch(`${apiBase}/upload/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Upload failed');
+                }
+
+                const data = await response.json();
+                const chunkCount = data.chunks || data.chunks_stored || 0;
+                if (chunkCount > 0) {
+                    feed.lastElementChild.innerHTML = `✅ Uploaded: ${file.name} - ${chunkCount} chunks indexed. You can now ask questions about this document!`;
+                } else {
+                    feed.lastElementChild.innerHTML = `⚠️ Uploaded: ${file.name} but no text could be extracted. This may be a scanned PDF - try uploading an image instead.`;
+                }
+            } catch (err) {
+                feed.lastElementChild.innerHTML = `❌ Upload failed: ${err.message}`;
+            }
+
+            feed.scrollTop = feed.scrollHeight;
+            e.target.value = ''; // Reset input
+        }
+
+        /* QUIZ */
+        const quizData = [
+            { q: "What does RAG stand for?", options: ["Retrieval Augmented Generation", "Random AI Generator"], correct: 0 }
+        ];
+        let quizIndex = 0;
+
+        function openQuizModal() {
+            quizIndex = 0;
+            document.getElementById('quizModal').style.display = 'flex';
+            renderQuiz();
+        }
+        function closeQuiz() {
+            document.getElementById('quizModal').style.display = 'none';
+        }
+        function renderQuiz() {
+            const area = document.getElementById('quizArea');
+            const q = quizData[quizIndex];
+            area.innerHTML = `<h3>${q.q}</h3>`;
+            q.options.forEach((o, i) => {
+                const d = document.createElement('div');
+                d.className = 'quiz-option';
+                d.textContent = o;
+                d.onclick = () => d.classList.add(i === q.correct ? 'correct' : 'wrong');
+                area.appendChild(d);
+            });
+        }
+
+        // ==================== PAGE INITIALIZATION ====================
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Initializing chat history...');
+            await chatHistory.init();
+        });
+    </script>
+
+    <!-- Markdown parser for beautiful formatting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/ai.js"></script>
+
+</body>
+
+</html>
