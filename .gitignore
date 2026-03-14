@@ -1,32 +1,77 @@
-# Python
-venv/
-.venv/
+# Python caches
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
-.Python
-env/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 .coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
+htmlcov/
 
-# Environment
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment and secrets
 .env
+.env.*
+!.env.example
+credentials.json
+*.pem
+*.key
 
-# Backups and Zips
-*.zip
-*.rar
-*.7z
-
-# OS
+# IDE and OS files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
+
+# Local runtime data
+uploads/
+chroma_data/
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+rag_ai_tutor.db
+simple_vector_store.json
+
+# Model and generated artifacts
+/models/
+build/
+dist/
+*.egg-info/
+
+# Local helper outputs
+benchmark_output.txt
+error.txt
+output.txt
+startup_log.txt
+test_result.txt
+query
+server_run.log
+server_run.err.log
+
+# Temporary ingestion/export folders
+temp_drive_downloads/
+RAG-AI-Tutor-runtime/
+
+# Large local dataset files that should not go to the main repo
+data/base_dataset/DCCN_Final Theory.pdf
+
+# Archives and backups
+*.zip
+*.7z
+*.tar
+*.gz
+*.rar
+
+# Frontend local dependencies
+node_modules/
