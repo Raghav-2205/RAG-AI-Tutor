@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG AI Tutor - Evaluation Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #0a0e27;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #e0e6ed;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            height: 70px;
+            background: #0d112d;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+        }
+
+        .brand {
+            color: #00ffcc;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .navbar-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* LAYOUT */
+        .dashboard-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            height: calc(100vh - 70px);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            background: rgba(13, 17, 45, 0.95);
+            border-right: 1px solid rgba(0, 255, 204, 0.15);
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.7rem;
+            color: #b8c5d6;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0.75rem 0 0.5rem 0.5rem;
+        }
+
+        .nav-link {
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #b8c5d6;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: rgba(0, 255, 204, 0.08);
+            color: #00ffcc;
+        }
+
+        .nav-link.active {
+            background: rgba(0, 255, 204, 0.15);
+            color: #00ffcc;
+            border-left: 3px solid #00ffcc;
+        }
+
+        .sidebar-divider {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin: 0.75rem 0;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            overflow-y: auto;
+            padding: 2rem;
+            background: radial-gradient(circle at center, #1a1f3a, #0a0e27);
+        }
+
+        .main-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 204, 0.3);
+            border-radius: 4px;
+        }
+
+        /* PAGE HEADER */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .page-header h2 {
+            color: #00ffcc;
+            font-size: 1.3rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ffcc, #00d4aa);
+            color: #0f0c29;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 255, 204, 0.3);
+        }
+
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            color: #00ffcc;
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 255, 204, 0.1);
+        }
+
+        .btn-danger {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            color: #ff4444;
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 68, 68, 0.2);
+        }
+
+        .btn-logout {
+            background: none;
+            border: 1px solid #ff4444;
+            color: #ff4444;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        /* METRIC CARDS GRID */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(0, 255, 204, 0.12);
+            border-radius: 14px;
+            padding: 1.2rem;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(0, 255, 204, 0.3);
+        }
+
+        .metric-card.good {
+            border-left: 3px solid #00ffcc;
+        }
+
+        .metric-card.warn {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .metric-card.bad {
+            border-left: 3px solid #ff4444;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: #b8c5d6;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #e0e6ed;
+            margin-bottom: 0.3rem;
+        }
+
+        .metric-target {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        /* PANELS */
+        .panel {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(0, 255, 204, 0.12);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #00ffcc;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* TABLE */
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .logs-table th {
+            text-align: left;
+            padding: 0.7rem 0.5rem;
+            color: #888;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.1);
+        }
+
+        .logs-table td {
+            padding: 0.65rem 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .logs-table tbody tr:hover {
+            background: rgba(0, 255, 204, 0.04);
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-VERIFIED {
+            background: rgba(0, 255, 100, 0.15);
+            color: #00ff64;
+        }
+
+        .status-WARNING {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .status-REJECTED {
+            background: rgba(255, 68, 68, 0.15);
+            color: #ff4444;
+        }
+
+        .status-ERROR {
+            background: rgba(255, 255, 255, 0.05);
+            color: #888;
+        }
+
+        .status-INSUFFICIENT_CONTEXT {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+        }
+
+        /* DEBUG PANEL */
+        .debug-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .debug-HEALTHY {
+            background: rgba(0, 255, 100, 0.15);
+            color: #00ff64;
+        }
+
+        .debug-NEEDS_ATTENTION {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .debug-DEGRADED {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .debug-FAILING {
+            background: rgba(255, 68, 68, 0.15);
+            color: #ff4444;
+        }
+
+        .debug-NO_DATA {
+            background: rgba(255, 255, 255, 0.05);
+            color: #888;
+        }
+
+        .issue-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #ff4444;
+            padding: 0.7rem 1rem;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .issue-item.HIGH {
+            border-left-color: #f59e0b;
+        }
+
+        .issue-item.MEDIUM {
+            border-left-color: #818cf8;
+        }
+
+        .rec-item {
+            padding: 0.5rem 0;
+            font-size: 0.8rem;
+            color: #b8c5d6;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .rec-item:last-child {
+            border-bottom: none;
+        }
+
+        /* SCORE COLORS */
+        .score-cell {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-good {
+            color: #00ffcc;
+        }
+
+        .score-okay {
+            color: #f59e0b;
+        }
+
+        .score-bad {
+            color: #ff4444;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 2.5rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 1200px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- NAVBAR (same as subjects.html) -->
+    <nav class="navbar">
+        <div class="brand">RAG AI Tutor</div>
+        <div class="navbar-actions">
+            <button class="btn-logout"
+                onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Navigation</h3>
+                <a href="/views/subjects.html" class="nav-link">💬 Subjects</a>
+                <a href="/views/quiz.html" class="nav-link">🎯 Quizzes</a>
+                <a href="/views/evaluation.html" class="nav-link active">📊 Evaluation</a>
+            </div>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-section">
+                <h3>Actions</h3>
+                <div class="nav-link" onclick="triggerSync()" style="cursor:pointer">🔄 Sync History</div>
+                <div class="nav-link" onclick="triggerBenchmark()" style="cursor:pointer">🚀 Run Benchmark</div>
+                <div class="nav-link" onclick="clearData()" style="cursor:pointer;color:#ff6b6b;">🗑️ Clear Data</div>
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="main-content">
+            <!-- Header -->
+            <div class="page-header">
+                <h2>📊 RAG Evaluation Dashboard</h2>
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="syncHistoryBtn" onclick="triggerSync()">🔄 Sync History</button>
+                    <button class="btn btn-primary" id="runBenchmarkBtn" onclick="triggerBenchmark()">🚀 Run
+                        Benchmark</button>
+                </div>
+            </div>
+
+            <!-- 8 Metric Cards -->
+            <div class="metrics-grid">
+                <div class="metric-card" id="card-faithfulness">
+                    <div class="metric-label">Mean Faithfulness</div>
+                    <div class="metric-value" id="avgFaithfulness">—</div>
+                    <div class="metric-target">Target: ≥ 0.90</div>
+                </div>
+                <div class="metric-card" id="card-hallucination">
+                    <div class="metric-label">Hallucination Rate</div>
+                    <div class="metric-value" id="avgHallucination">—</div>
+                    <div class="metric-target">Max: 0.15</div>
+                </div>
+                <div class="metric-card" id="card-bertscore">
+                    <div class="metric-label">BERTScore (F1)</div>
+                    <div class="metric-value" id="avgBertScore">—</div>
+                    <div class="metric-target">Target: ≥ 0.85</div>
+                </div>
+                <div class="metric-card" id="card-recall">
+                    <div class="metric-label">Avg Recall@5</div>
+                    <div class="metric-value" id="avgRecall">—</div>
+                    <div class="metric-target">Target: ≥ 0.70</div>
+                </div>
+                <div class="metric-card" id="card-citation">
+                    <div class="metric-label">Citation Alignment</div>
+                    <div class="metric-value" id="avgCitation">—</div>
+                    <div class="metric-target">Target: ≥ 0.80</div>
+                </div>
+                <div class="metric-card" id="card-relevance">
+                    <div class="metric-label">Answer Relevance</div>
+                    <div class="metric-value" id="avgRelevance">—</div>
+                    <div class="metric-target">LLM Judge Score</div>
+                </div>
+                <div class="metric-card" id="card-ragscore">
+                    <div class="metric-label">Final RAG Score</div>
+                    <div class="metric-value" id="avgRagScore">—</div>
+                    <div class="metric-target">Weighted Composite</div>
+                </div>
+                <div class="metric-card" id="card-total">
+                    <div class="metric-label">Total Validations</div>
+                    <div class="metric-value" id="totalValidations">—</div>
+                    <div class="metric-target" id="statusBreakdown">—</div>
+                </div>
+            </div>
+
+            <!-- Auto-Debug Panel -->
+            <div class="panel" id="debugPanel">
+                <div class="panel-title">
+                    🔍 System Health & Auto-Debug
+                    <span class="debug-status-badge debug-NO_DATA" id="debugStatus">Loading...</span>
+                </div>
+                <div id="debugContent">
+                    <div class="empty-state">Fetching system report...</div>
+                </div>
+            </div>
+
+            <!-- Validation Logs -->
+            <div class="panel">
+                <div class="panel-title">📋 Recent Validations</div>
+                <div style="overflow-x:auto;">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Source</th>
+                                <th>Question</th>
+                                <th>Faith.</th>
+                                <th>Halluc.</th>
+                                <th>BERT</th>
+                                <th>Cite</th>
+                                <th>Relev.</th>
+                                <th>RAG Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <tr>
+                                <td colspan="10" class="empty-state">Fetching data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script>
+        // ── Auth ──
+        const apiBase = '/api/evaluation';
+        const token = () => localStorage.getItem('token');
+
+        async function authFetch(url, options = {}) {
+            const t = token();
+            if (!t) { window.location.href = '/views/login.html'; return null; }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${t}` };
+            const res = await fetch(url, options);
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = '/views/login.html';
+                return null;
+            }
+            return res;
+        }
+
+        if (!token()) window.location.href = '/views/login.html';
+
+        // ── Helpers ──
+        function scoreClass(v, th, inv = false) {
+            if (!v) return '';
+            if (inv) return v <= th ? 'score-good' : v <= th * 1.5 ? 'score-okay' : 'score-bad';
+            return v >= th ? 'score-good' : v >= th * 0.8 ? 'score-okay' : 'score-bad';
+        }
+        function cardClass(v, th, inv = false) {
+            if (!v) return '';
+            if (inv) return v <= th ? 'good' : v <= th * 1.5 ? 'warn' : 'bad';
+            return v >= th ? 'good' : v >= th * 0.8 ? 'warn' : 'bad';
+        }
+
+        // ── Fetch Metrics ──
+        async function fetchMetrics() {
+            try {
+                const res = await authFetch(`${apiBase}/metrics`);
+                if (!res || !res.ok) return;
+                const d = await res.json();
+
+                const faith = d.avg_faithfulness || 0;
+                const halluc = d.avg_hallucination || 0;
+                const bert = d.avg_bert_score || 0;
+                const recall = d.avg_recall_at_5 || 0;
+                const cite = d.avg_citation_alignment || 0;
+                const relev = d.avg_answer_relevance || 0;
+                const rag = d.avg_final_rag_score || 0;
+
+                document.getElementById('avgFaithfulness').textContent = faith.toFixed(2);
+                document.getElementById('avgHallucination').textContent = halluc.toFixed(2);
+                document.getElementById('avgBertScore').textContent = bert.toFixed(2);
+                document.getElementById('avgRecall').textContent = recall.toFixed(2);
+                document.getElementById('avgCitation').textContent = cite.toFixed(2);
+                document.getElementById('avgRelevance').textContent = relev.toFixed(2);
+                document.getElementById('avgRagScore').textContent = rag.toFixed(2);
+                document.getElementById('totalValidations').textContent = d.total_validations || 0;
+
+                const v = d.verified_count || 0, w = d.warning_count || 0, r = d.rejected_count || 0;
+                document.getElementById('statusBreakdown').innerHTML =
+                    `<span style="color:#00ff64">✓${v}</span> · <span style="color:#f59e0b">⚠${w}</span> · <span style="color:#ff4444">✗${r}</span>`;
+
+                document.getElementById('card-faithfulness').className = `metric-card ${cardClass(faith, 0.9)}`;
+                document.getElementById('card-hallucination').className = `metric-card ${cardClass(halluc, 0.15, true)}`;
+                document.getElementById('card-bertscore').className = `metric-card ${cardClass(bert, 0.85)}`;
+                document.getElementById('card-recall').className = `metric-card ${cardClass(recall, 0.7)}`;
+                document.getElementById('card-citation').className = `metric-card ${cardClass(cite, 0.8)}`;
+                document.getElementById('card-relevance').className = `metric-card ${cardClass(relev, 0.8)}`;
+                document.getElementById('card-ragscore').className = `metric-card ${cardClass(rag, 0.7)}`;
+            } catch (e) { console.error('Metrics error:', e); }
+        }
+
+        // ── Fetch Logs ──
+        async function fetchLogs() {
+            try {
+                const res = await authFetch(`${apiBase}/logs?limit=50`);
+                if (!res || !res.ok) return;
+                const logs = await res.json();
+                const tbody = document.getElementById('logsTableBody');
+                tbody.innerHTML = '';
+
+                if (!logs.length) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No validation logs yet. Send a chat message or run a benchmark.</td></tr>';
+                    return;
+                }
+
+                logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    const t = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const isBench = log.user_id === 'benchmark_runner';
+                    const src = isBench
+                        ? '<span style="color:#818cf8;font-weight:600">🤖 Bench</span>'
+                        : '<span style="color:#00ffcc;font-weight:600">👤 User</span>';
+
+                    const f = (v, th, inv) => `<span class="score-cell ${scoreClass(v, th, inv)}">${(v || 0).toFixed(2)}</span>`;
+
+                    tr.innerHTML = `
+                        <td style="color:#666;white-space:nowrap;font-size:0.75rem">${t}</td>
+                        <td>${src}</td>
+                        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.question}">${log.question}</td>
+                        <td>${f(log.faithfulness_score, 0.9)}</td>
+                        <td>${f(log.hallucination_rate, 0.15, true)}</td>
+                        <td>${f(log.bert_score, 0.85)}</td>
+                        <td>${f(log.citation_alignment_score, 0.8)}</td>
+                        <td>${f(log.answer_relevance, 0.8)}</td>
+                        <td><strong>${f(log.final_rag_score, 0.7)}</strong></td>
+                        <td><span class="status-badge status-${log.validation_status}">${log.validation_status}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) { console.error('Logs error:', e); }
+        }
+
+        // ── Fetch Report ──
+        async function fetchReport() {
+            try {
+                const res = await authFetch(`${apiBase}/report`);
+                if (!res || !res.ok) return;
+                const report = await res.json();
+
+                const statusEl = document.getElementById('debugStatus');
+                statusEl.textContent = report.overall_status;
+                statusEl.className = `debug-status-badge debug-${report.overall_status}`;
+
+                const content = document.getElementById('debugContent');
+
+                if (report.overall_status === 'NO_DATA') {
+                    content.innerHTML = '<div class="empty-state">No evaluation data yet. Send chat messages or run a benchmark first.</div>';
+                    return;
+                }
+
+                let html = '';
+
+                if (report.issues && report.issues.length > 0) {
+                    html += '<div style="margin-bottom:0.75rem"><strong style="font-size:0.8rem;color:#ff6b6b">⚠ Issues Detected</strong></div>';
+                    report.issues.forEach(issue => {
+                        html += `<div class="issue-item ${issue.severity}">
+                            <strong>${issue.metric}</strong>: ${issue.value} (threshold: ${issue.threshold}) — <em>${issue.severity}</em>
+                        </div>`;
+                    });
+                }
+
+                if (report.recommendations && report.recommendations.length > 0) {
+                    html += '<div style="margin:1rem 0 0.5rem"><strong style="font-size:0.8rem;color:#00ffcc">📋 Recommendations</strong></div>';
+                    report.recommendations.forEach(r => {
+                        html += `<div class="rec-item">${r}</div>`;
+                    });
+                }
+
+                if (!report.issues?.length && !report.recommendations?.length) {
+                    html = '<div style="padding:1rem;color:#00ffcc;font-weight:600">✅ All metrics within healthy thresholds. System performing well.</div>';
+                }
+
+                content.innerHTML = html;
+            } catch (e) { console.error('Report error:', e); }
+        }
+
+        // ── Actions ──
+        async function triggerBenchmark() {
+            if (!confirm("Run a full system benchmark? This tests 10 samples against the RAG pipeline.")) return;
+            const btn = document.getElementById('runBenchmarkBtn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Running...'; btn.disabled = true;
+            try {
+                const res = await authFetch(`${apiBase}/run_benchmark`, { method: 'POST' });
+                if (!res || !res.ok) throw new Error('Failed');
+                alert("✅ Benchmark started! Results will appear in a few minutes.");
+                setTimeout(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 5000);
+            } catch (e) { alert(`Error: ${e.message}`); }
+            finally { btn.innerHTML = orig; btn.disabled = false; }
+        }
+
+        async function triggerSync() {
+            const btn = document.getElementById('syncHistoryBtn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Syncing...'; btn.disabled = true;
+            try {
+                const res = await authFetch(`${apiBase}/sync_history`, { method: 'POST' });
+                if (!res || !res.ok) throw new Error('Failed');
+                alert("✅ History sync started in background.");
+                setTimeout(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 5000);
+            } catch (e) { alert(`Error: ${e.message}`); }
+            finally { btn.innerHTML = orig; btn.disabled = false; }
+        }
+
+        async function clearData() {
+            if (!confirm("⚠️ This will DELETE all evaluation data. Continue?")) return;
+            try {
+                const res = await authFetch(`${apiBase}/clear`, { method: 'DELETE' });
+                if (!res || !res.ok) throw new Error('Failed');
+                const data = await res.json();
+                alert(`✅ Cleared: ${data.validations_deleted} validations, ${data.benchmarks_deleted} benchmarks`);
+                fetchMetrics(); fetchLogs(); fetchReport();
+            } catch (e) { alert(`Error: ${e.message}`); }
+        }
+
+        // ── Init ──
+        fetchMetrics();
+        fetchLogs();
+        fetchReport();
+
+        setInterval(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 20000);
+    </script>
+</body>
+
+</html>

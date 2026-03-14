@@ -1,0 +1,37 @@
+# backend/config/development.yaml
+# Local development settings
+
+debug: true
+log_level: "DEBUG"
+
+# MongoDB (local)
+mongodb:
+  uri: "mongodb://localhost:27017"
+  db_name: "rag_tutor_dev"
+
+# ChromaDB (local persistent)
+chromadb:
+  path: "./chroma_db_dev"
+  persist_directory: "./chroma_db_dev"
+
+# Gemini API (get key from ai.google.dev)
+gemini:
+  api_key: "YOUR_GEMINI_API_KEY_HERE"
+  model: "gemini-1.5-flash"
+  temperature: 0.7
+
+# File upload limits
+upload:
+  max_size_mb: 50
+  allowed_types: ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+
+# RAG settings
+rag:
+  chunk_size: 800
+  chunk_overlap: 100
+  top_k: 6
+  rerank: true
+
+# CORS for frontend
+cors:
+  origins: ["http://localhost:3000", "http://localhost:8000"]

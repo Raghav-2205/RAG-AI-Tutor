@@ -1,0 +1,62 @@
+[
+    {
+        "question": "What is Scrum?",
+        "gold_answer": "Scrum is an agile framework for developing, delivering, and sustaining complex products. It uses iterative and incremental practices with cross-functional, self-organizing teams working in time-boxed sprints.",
+        "gold_chunk_id": "scrum_overview",
+        "subject": "general"
+    },
+    {
+        "question": "What are the roles in Scrum?",
+        "gold_answer": "The three roles in Scrum are: Product Owner (manages the product backlog and priorities), Scrum Master (facilitates the process and removes impediments), and the Development Team (cross-functional group that delivers the product increment).",
+        "gold_chunk_id": "scrum_roles",
+        "subject": "general"
+    },
+    {
+        "question": "What is a Sprint in Scrum?",
+        "gold_answer": "A Sprint is a time-boxed iteration, typically 1-4 weeks, during which a potentially releasable product increment is created. Each sprint has a planning session, daily standups, a review, and a retrospective.",
+        "gold_chunk_id": "scrum_sprint",
+        "subject": "general"
+    },
+    {
+        "question": "What is the Product Backlog?",
+        "gold_answer": "The Product Backlog is an ordered list of everything that is known to be needed in the product. It is the single source of requirements and is managed by the Product Owner. Items are prioritized by value, risk, and dependencies.",
+        "gold_chunk_id": "product_backlog",
+        "subject": "general"
+    },
+    {
+        "question": "What is a Sprint Retrospective?",
+        "gold_answer": "The Sprint Retrospective is a meeting held at the end of each Sprint where the Scrum Team inspects itself and creates a plan for improvements. The team discusses what went well, what could be improved, and what actions to take.",
+        "gold_chunk_id": "sprint_retrospective",
+        "subject": "general"
+    },
+    {
+        "question": "What is the difference between Scrum and Kanban?",
+        "gold_answer": "Scrum uses fixed-length sprints with defined roles, while Kanban uses continuous flow with WIP limits. Scrum has prescribed ceremonies and artifacts, while Kanban is more flexible. Both are agile methodologies but differ in structure and cadence.",
+        "gold_chunk_id": "scrum_vs_kanban",
+        "subject": "general"
+    },
+    {
+        "question": "What are user stories in agile?",
+        "gold_answer": "User stories are short descriptions of a feature told from the perspective of the user. They follow the format: As a [type of user], I want [an action] so that [a benefit]. User stories help teams focus on delivering value to the customer.",
+        "gold_chunk_id": "user_stories",
+        "subject": "general"
+    },
+    {
+        "question": "What is the Daily Standup meeting?",
+        "gold_answer": "The Daily Standup (or Daily Scrum) is a 15-minute time-boxed event where the Development Team synchronizes activities and creates a plan for the next 24 hours. Each member answers: What did I do yesterday? What will I do today? Are there any impediments?",
+        "gold_chunk_id": "daily_standup",
+        "subject": "general"
+    },
+    {
+        "question": "What is velocity in Scrum?",
+        "gold_answer": "Velocity is a measure of the amount of work a Development Team can complete in a single Sprint. It is calculated by summing the story points of completed user stories. Velocity is used for planning and forecasting future sprints.",
+        "gold_chunk_id": "velocity",
+        "subject": "general"
+    },
+    {
+        "question": "What is the Definition of Done?",
+        "gold_answer": "The Definition of Done (DoD) is a shared understanding of what it means for work to be complete. It ensures transparency and quality. A typical DoD includes criteria like code reviewed, tests passing, documentation updated, and deployed to staging.",
+        "gold_chunk_id": "definition_of_done",
+        "subject": "general"
+    }
+]

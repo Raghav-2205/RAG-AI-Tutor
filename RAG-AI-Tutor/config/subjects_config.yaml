@@ -1,0 +1,40 @@
+# backend/config/subjects_config.yaml
+# Academic subjects for validation + filtering
+
+subjects:
+  math:
+    name: "Mathematics"
+    levels: ["school", "college", "professional"]
+    keywords: ["algebra", "calculus", "geometry", "statistics"]
+  
+  science:
+    name: "General Science"
+    levels: ["school", "college"]
+    keywords: ["physics", "chemistry", "biology"]
+  
+  physics:
+    name: "Physics"
+    levels: ["school", "college", "professional"]
+    keywords: ["mechanics", "thermodynamics", "quantum"]
+  
+  chemistry:
+    name: "Chemistry"
+    levels: ["school", "college"]
+    keywords: ["organic", "inorganic", "periodic table"]
+  
+  biology:
+    name: "Biology"
+    levels: ["school", "college"]
+    keywords: ["cell", "dna", "evolution"]
+  
+  cs:
+    name: "Computer Science"
+    levels: ["college", "professional"]
+    keywords: ["algorithms", "data structures", "programming"]
+  
+  ml:
+    name: "Machine Learning"
+    levels: ["professional", "research"]
+    keywords: ["neural networks", "transformers", "gradient descent"]
+
+default_subject: "science"

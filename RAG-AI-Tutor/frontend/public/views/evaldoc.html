@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Detailed Evaluation - RAG AI Tutor</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <!-- Fallback if needed, but we use inline for now to match evaluation.html -->
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #0a0e27;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #e0e6ed;
+        }
+
+        /* Reusing evaluation.html styles */
+        .navbar {
+            height: 70px;
+            background: #0d112d;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+        }
+
+        .brand {
+            color: #00ffcc;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .dashboard-container {
+            flex: 1;
+            display: flex;
+            height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            width: 220px;
+            background: rgba(13, 17, 45, 0.95);
+            border-right: 1px solid rgba(0, 255, 204, 0.15);
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #b8c5d6;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: rgba(0, 255, 204, 0.08);
+            color: #00ffcc;
+        }
+
+        .nav-link.active {
+            background: rgba(0, 255, 204, 0.15);
+            color: #00ffcc;
+            border-left: 3px solid #00ffcc;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            background: radial-gradient(circle at center, #1a1f3a, #0a0e27);
+        }
+
+        /* Specific EvalDoc Styles */
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #b8c5d6;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .section-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            color: #00ffcc;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.1);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Q&A Section */
+        .qa-box {
+            margin-bottom: 1rem;
+        }
+
+        .qa-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .qa-text {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #e0e6ed;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .qa-answer {
+            border-left: 3px solid #00ffcc;
+        }
+
+        /* Chunks */
+        .chunk-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .chunk-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .chunk-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            color: #00ffcc;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .chunk-text {
+            color: #ccc;
+            line-height: 1.5;
+            font-size: 0.85rem;
+        }
+
+        .highlight {
+            background: rgba(0, 255, 204, 0.15);
+            color: #00ffcc;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        /* Metrics Bar */
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.8rem;
+            align-items: center;
+        }
+
+        .metric-name {
+            color: #b8c5d6;
+            font-size: 0.9rem;
+        }
+
+        .progress-bg {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 0 1rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #00ffcc;
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+
+        .metric-val {
+            width: 50px;
+            text-align: right;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Unsupported Sentences */
+        .alert-box {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            color: #ffcccc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .alert-title {
+            color: #ff6b6b;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-VERIFIED {
+            background: rgba(0, 255, 100, 0.2);
+            color: #00ff64;
+        }
+
+        .badge-WARNING {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .badge-REJECTED {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="brand">RAG AI Tutor <span id="docBadge"
+                style="font-size:0.8rem;background:rgba(0,255,204,0.1);color:#00ffcc;padding:2px 8px;border-radius:4px;margin-left:10px;display:none">📄
+                DOC SCOPE</span></div>
+        <div style="font-size:0.9rem; color:#888;">Eval ID: <span id="evalId" style="color:#fff">...</span></div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div style="margin-bottom:1rem;color:#666;font-size:0.8rem;text-transform:uppercase;font-weight:700;">Menu
+            </div>
+            <a href="/views/evaluation.html" class="nav-link active">⬅ Back to Dashboard</a>
+        </aside>
+
+        <!-- Main -->
+        <main class="main-content">
+            <div class="header-row">
+                <h2 style="margin:0; color:#00ffcc;">🔎 Detailed Answer Analysis</h2>
+                <span class="badge" id="mainStatusBadge">LOADING...</span>
+            </div>
+
+            <!-- 1. Query & Answer -->
+            <div class="section-card">
+                <div class="section-title">📄 Query & Answer</div>
+                <div class="qa-box">
+                    <div class="qa-label">User Question</div>
+                    <div class="qa-text" id="questionText">...</div>
+                </div>
+                <div class="qa-box">
+                    <div class="qa-label">Generated Answer</div>
+                    <div class="qa-text qa-answer" id="answerText">...</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <!-- 2. Metrics & Faithfulness -->
+                <div class="section-card">
+                    <div class="section-title">📊 Generation Metrics</div>
+                    <div id="metricsContainer">
+                        <!-- Bars injected here -->
+                    </div>
+                </div>
+
+                <!-- 3. Retrieval Analysis -->
+                <div class="section-card">
+                    <div class="section-title">📚 Retrieval Stats</div>
+                    <div class="metric-row">
+                        <span class="metric-name">Retrieval Confidence</span>
+                        <div class="progress-bg">
+                            <div class="progress-fill" id="bar-confidence" style="width:0%"></div>
+                        </div>
+                        <span class="metric-val" id="val-confidence">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name">Chunk Coverage</span>
+                        <div class="progress-bg">
+                            <div class="progress-fill" id="bar-coverage" style="width:0%"></div>
+                        </div>
+                        <span class="metric-val" id="val-coverage">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-name">Citation Alignment</span>
+                        <div class="progress-bg">
+                            <div class="progress-fill" id="bar-citation" style="width:0%"></div>
+                        </div>
+                        <span class="metric-val" id="val-citation">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Faithfulness & Grounding Issues -->
+            <div class="section-card" id="faithfulnessSection">
+                <div class="section-title">⚖️ Faithfulness & Grounding</div>
+                <div id="faithfulnessContent">
+                    <div style="color:#888;font-style:italic">Checking grounding...</div>
+                </div>
+            </div>
+
+            <!-- 5. Source Traceability -->
+            <div class="section-card">
+                <div class="section-title">🔍 Source Document Traceability</div>
+                <div class="chunk-grid" id="chunksContainer">
+                    <div style="color:#666">No chunks retrieved.</div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="../assets/js/config.js?v=7"></script>
+    <script src="../assets/js/auth.js?v=7"></script>
+    <script>
+        // Auth handled by auth.js or inline check
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/views/login.html';
+
+        async function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+            document.getElementById('evalId').textContent = id || 'N/A';
+
+            if (!id) {
+                alert("No Evaluation ID provided.");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/evaluation/results/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) { window.location.href = '/views/login.html'; return; }
+                if (!res.ok) throw new Error("Failed to load result");
+
+                const data = await res.json();
+                renderDashboard(data);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('questionText').innerHTML = `<span style="color:#ff4444">Error loading data: ${e.message}</span>`;
+            }
+        }
+
+        function renderDashboard(data) {
+            // Header
+            const statusEl = document.getElementById('mainStatusBadge');
+            statusEl.textContent = data.validation_status;
+            statusEl.className = `badge badge-${data.validation_status}`;
+
+            if (data.document_id) {
+                const badge = document.getElementById('docBadge');
+                badge.style.display = 'inline-block';
+                badge.textContent = '📄 ' + (data.document_name || 'DOC SCOPE');
+                badge.title = `Scoped to Document ID: ${data.document_id}`;
+            }
+
+            // Q&A
+            document.getElementById('questionText').textContent = data.question;
+            document.getElementById('answerText').textContent = data.answer;
+
+            // Metrics Bar Helper
+            const renderBar = (label, val, id) => `
+                <div class="metric-row">
+                    <span class="metric-name">${label}</span>
+                    <div class="progress-bg">
+                        <div class="progress-fill" style="width: ${(val * 100).toFixed(0)}%; background: ${getColor(val)}"></div>
+                    </div>
+                    <span class="metric-val">${val.toFixed(2)}</span>
+                </div>
+            `;
+
+            function getColor(v) { return v >= 0.85 ? '#00ffcc' : v >= 0.6 ? '#f59e0b' : '#ff4444'; }
+            function getReverseColor(v) { return v <= 0.15 ? '#00ffcc' : v <= 0.4 ? '#f59e0b' : '#ff4444'; }
+
+
+            // Generation Metrics
+            const mContainer = document.getElementById('metricsContainer');
+            mContainer.innerHTML = [
+                renderBar('Faithfulness', data.faithfulness_score),
+                renderBar('Answer Relevance', data.answer_relevance),
+                renderBar('BERTScore (Semantic)', data.bert_score),
+                renderBar('Final RAG Score', data.final_rag_score)
+            ].join('');
+
+            // Retrieval Metrics
+            document.getElementById('val-confidence').textContent = (data.retrieval_confidence || 0).toFixed(2);
+            document.getElementById('bar-confidence').style.width = `${(data.retrieval_confidence || 0) * 100}%`;
+
+            const cov = data.chunk_usage?.covered_ratio || 0;
+            document.getElementById('val-coverage').textContent = (cov * 100).toFixed(0) + '%';
+            document.getElementById('bar-coverage').style.width = `${cov * 100}%`;
+
+            const cite = data.citation_alignment_score || 0;
+            document.getElementById('val-citation').textContent = cite.toFixed(2);
+            document.getElementById('bar-citation').style.width = `${cite * 100}%`;
+
+            // Faithfulness Details
+            const fContent = document.getElementById('faithfulnessContent');
+            const unsupp = data.unsupported_sentences || [];
+
+            if (data.faithfulness_score === 1.0 && unsupp.length === 0) {
+                fContent.innerHTML = `<div style="color:#00ffcc;font-weight:600">✅ Answer is fully grounded in the provided context.</div>`;
+            } else {
+                let html = `<div style="margin-bottom:0.5rem">Faithfulness Score: <strong>${data.faithfulness_score.toFixed(2)}</strong></div>`;
+                if (data.reason) html += `<div style="font-size:0.9rem;color:#ccc;margin-bottom:1rem">Reasoning: ${data.reason}</div>`;
+
+                if (unsupp.length > 0) {
+                    html += `<div class="alert-box">
+                        <div class="alert-title">⚠ Unsupported Claims Detected</div>
+                        <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem">
+                            ${unsupp.map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                     </div>`;
+                }
+                fContent.innerHTML = html;
+            }
+
+            // Chunks
+            const cContainer = document.getElementById('chunksContainer');
+            if (data.retrieved_chunks_text && data.retrieved_chunks_text.length) {
+                cContainer.innerHTML = data.retrieved_chunks_text.map((text, i) => {
+                    // Check if used
+                    let style = '';
+                    if (data.chunk_usage?.used_chunk_indices?.includes(i)) {
+                        style = 'border-color: #00ffcc; background: rgba(0, 255, 204, 0.05);';
+                    }
+                    const source = data.retrieved_chunk_ids ? data.retrieved_chunk_ids[i] : `Chunk ${i + 1}`;
+
+                    return `<div class="chunk-card" style="${style}">
+                        <div class="chunk-header">
+                            <span>CHUNK ${i + 1}</span>
+                            <span style="opacity:0.7">${source && source.length > 20 ? '...' + source.slice(-15) : source}</span>
+                        </div>
+                        <div class="chunk-text">${text}</div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
