@@ -92,3 +92,129 @@ Detailed documentation for developers and architects:
 3.  **[Frontend Guide](docs/FRONTEND_GUIDE.md)**: UI Component architecture, State Management, and Interactivity.
 4.  **[Deployment & Setup](docs/DEPLOYMENT.md)**: Step-by-step guide to run locally or deploying with Docker.
 5.  **[Feedback & Adaptation](docs/FEEDBACK_LOOP.md)**: How the self-correcting learning loop functions.
+
+---
+
+## Run On Another System
+
+Use these steps on a fresh Windows machine to clone the `v1` branch and start the full project with one command.
+
+### 1. Install the prerequisites
+
+Make sure these are installed first:
+- Git
+- Docker Desktop
+- Python 3.11 or newer
+
+### 2. Clone the repository
+
+```powershell
+git clone --branch v1 --single-branch https://github.com/Raghav-2205/RAG-AI-Tutor.git
+cd RAG-AI-Tutor
+```
+
+### 3. Run the one-command setup
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
+```
+
+That single script now does all of this:
+- creates `venv` if it does not exist
+- upgrades `pip`
+- installs `requirements.txt`
+- creates `.env` from `.env.example` if needed
+- downloads the embedding and reranker models
+- creates and starts the Docker containers for MongoDB and Chroma
+- waits for MongoDB and Chroma to become reachable
+- starts the FastAPI app with `run.py`
+
+When setup finishes, open:
+
+```text
+http://127.0.0.1:8002
+```
+
+### 4. Update `.env`
+
+Before using Gemini-powered features, edit `.env` and set your real key:
+
+```env
+GEMINI_API_KEY=your-real-gemini-api-key
+```
+
+The important local defaults are:
+
+```env
+MONGODB_URI=mongodb://localhost:27017
+CHROMA_API_URL=http://127.0.0.1:8001/api/v2
+CHROMA_TENANT=default_tenant
+CHROMA_DATABASE=default_database
+API_HOST=127.0.0.1
+RUN_PORT=8002
+HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1
+```
+
+### 5. Optional setup flags
+
+Skip model warmup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SkipModelWarmup
+```
+
+Prepare everything but do not launch the app:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SkipAppStart
+```
+
+### 6. Verify everything is running
+
+Check the backend health endpoint:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:8002/health -UseBasicParsing
+```
+
+Useful Docker checks:
+
+```powershell
+docker ps
+docker logs rag-mongodb --tail 20
+docker logs rag-chroma --tail 20
+```
+
+### 7. Stop or restart services later
+
+Stop the app with `Ctrl + C`.
+
+The Docker containers keep running after the app stops. You can manage them with:
+
+```powershell
+docker start rag-mongodb rag-chroma
+docker stop rag-mongodb rag-chroma
+```
+
+If you used `-SkipAppStart`, or you want to start the app manually later:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+python run.py
+```
+
+If PowerShell blocks activation:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\venv\Scripts\Activate.ps1
+```
+
+### Quick Start Summary
+
+```powershell
+git clone --branch v1 --single-branch https://github.com/Raghav-2205/RAG-AI-Tutor.git
+cd RAG-AI-Tutor
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
+```
