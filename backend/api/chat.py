@@ -354,6 +354,10 @@ async def chat_stream(
                             val_dict = validation_result.dict()
                             if "_id" in val_dict and val_dict["_id"] is not None:
                                 val_dict["_id"] = str(val_dict["_id"])
+                            # Convert all datetime fields to ISO format
+                            for k, v in val_dict.items():
+                                if hasattr(v, "isoformat"):
+                                    val_dict[k] = v.isoformat()
                             validation_event = json.dumps({
                                 "type": "validation",
                                 "data": val_dict

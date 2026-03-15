@@ -540,6 +540,13 @@
             <!-- Validation Logs -->
             <div class="panel">
                 <div class="panel-title">📋 Recent Validations</div>
+                <!-- Filter Bar -->
+                <div id="filterBar" style="margin-bottom:1rem;display:flex;justify-content:flex-end;gap:4px;">
+                    <button class="btn btn-outline btn-sm" data-status="ALL" onclick="setLogFilter('ALL')">All</button>
+                    <button class="btn btn-outline btn-sm" data-status="VERIFIED" onclick="setLogFilter('VERIFIED')">Verified</button>
+                    <button class="btn btn-outline btn-sm" data-status="WARNING" onclick="setLogFilter('WARNING')">Warning</button>
+                    <button class="btn btn-outline btn-sm" data-status="REJECTED" onclick="setLogFilter('REJECTED')">Rejected</button>
+                </div>
                 <div style="overflow-x:auto;">
                     <table class="logs-table">
                         <thead>
@@ -570,6 +577,17 @@
     <script src="../assets/js/config.js"></script>
     <script src="../assets/js/auth.js"></script>
     <script>
+                // ── Log Filter State ──
+                let logFilter = 'ALL';
+                function setLogFilter(status) {
+                    logFilter = status;
+                    // Highlight selected button
+                    document.querySelectorAll('#filterBar .btn').forEach(btn => {
+                        btn.classList.toggle('btn-primary', btn.dataset.status === status);
+                        btn.classList.toggle('btn-outline', btn.dataset.status !== status);
+                    });
+                    fetchLogs();
+                }
         // ── Auth ──
         const apiBase = '/api/evaluation';
         const token = () => localStorage.getItem('token');
@@ -642,7 +660,7 @@
         // ── Fetch Logs ──
         async function fetchLogs() {
             try {
-                const res = await authFetch(`${apiBase}/logs?limit=50`);
+                const res = await authFetch(`${apiBase}/logs?limit=200`);
                 if (!res || !res.ok) return;
                 const logs = await res.json();
                 const tbody = document.getElementById('logsTableBody');
@@ -653,30 +671,39 @@
                     return;
                 }
 
-                logs.forEach(log => {
-                    const tr = document.createElement('tr');
-                    const t = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const isBench = log.user_id === 'benchmark_runner';
-                    const src = isBench
-                        ? '<span style="color:#818cf8;font-weight:600">🤖 Bench</span>'
-                        : '<span style="color:#00ffcc;font-weight:600">👤 User</span>';
+                logs
+                    .filter(log => logFilter === 'ALL' || log.validation_status === logFilter)
+                    .forEach(log => {
+                        const tr = document.createElement('tr');
+                        const t = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const isBench = log.user_id === 'benchmark_runner';
+                        const src = isBench
+                            ? '<span style="color:#818cf8;font-weight:600">🤖 Bench</span>'
+                            : '<span style="color:#00ffcc;font-weight:600">👤 User</span>';
 
-                    const f = (v, th, inv) => `<span class="score-cell ${scoreClass(v, th, inv)}">${(v || 0).toFixed(2)}</span>`;
+                        const f = (v, th, inv) => `<span class="score-cell ${scoreClass(v, th, inv)}">${(v || 0).toFixed(2)}</span>`;
 
-                    tr.innerHTML = `
-                        <td style="color:#666;white-space:nowrap;font-size:0.75rem">${t}</td>
-                        <td>${src}</td>
-                        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.question}">${log.question}</td>
-                        <td>${f(log.faithfulness_score, 0.9)}</td>
-                        <td>${f(log.hallucination_rate, 0.15, true)}</td>
-                        <td>${f(log.bert_score, 0.85)}</td>
-                        <td>${f(log.citation_alignment_score, 0.8)}</td>
-                        <td>${f(log.answer_relevance, 0.8)}</td>
-                        <td><strong>${f(log.final_rag_score, 0.7)}</strong></td>
-                        <td><span class="status-badge status-${log.validation_status}">${log.validation_status}</span></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                        tr.innerHTML = `
+                            <td style="color:#666;white-space:nowrap;font-size:0.75rem">${t}</td>
+                            <td>${src}</td>
+                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.question}">${log.question}</td>
+                            <td>${f(log.faithfulness_score, 0.9)}</td>
+                            <td>${f(log.hallucination_rate, 0.15, true)}</td>
+                            <td>${f(log.bert_score, 0.85)}</td>
+                            <td>${f(log.citation_alignment_score, 0.8)}</td>
+                            <td>${f(log.answer_relevance, 0.8)}</td>
+                            <td><strong>${f(log.final_rag_score, 0.7)}</strong></td>
+                            <td><span class="status-badge status-${log.validation_status}">${log.validation_status}</span></td>
+                        `;
+                        // Make row clickable
+                        tr.style.cursor = 'pointer';
+                        tr.onclick = () => {
+                            if (log._id) {
+                                window.location.href = `/views/evaldoc.html?id=${log._id}`;
+                            }
+                        };
+                        tbody.appendChild(tr);
+                    });
             } catch (e) { console.error('Logs error:', e); }
         }
 
