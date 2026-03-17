@@ -71,23 +71,27 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(get_db)):
     # Note: OAuth2 form uses 'username' field for email
     user = await db.users.find_one({"email": form_data.username.lower()})
-    
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+
+    hashed_password = user.get("hashed_password") if user else None
+    if not user or not hashed_password or not verify_password(form_data.password, hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
+
     access_token = create_access_token(data={"sub": str(user["_id"])})
-    
+
+    user_name = user.get("name") or user.get("email", "").split("@")[0]
+    user_email = user.get("email") or form_data.username.lower()
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
             "id": str(user["_id"]),
-            "name": user["name"],
-            "email": user["email"]
+            "name": user_name,
+            "email": user_email
         }
     }
 

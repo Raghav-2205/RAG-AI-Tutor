@@ -151,7 +151,8 @@ async def chat(
         history=chat_history,
         feedback_context=feedback_context,
         strict_mode=False,
-        document_id=session.get("document_id")  # PASS DOCUMENT SCOPE
+        document_id=session.get("document_id"),  # PASS DOCUMENT SCOPE
+        chat_id=chat_id
     )
     
     # --- STEP 4.5: VALIDATE ANSWER (Handled in rag_tutor) ---
@@ -172,8 +173,10 @@ async def chat(
             subject=request.subject,
             history=chat_history,
             feedback_context=feedback_context,
-            strict_mode=True
+            strict_mode=True,
+            chat_id=chat_id
         )
+        validation_data = rag_result.get("validation")
         regenerated = True
         
         # Optional: Validate again? 
@@ -323,6 +326,7 @@ async def chat_stream(
         yield f"data: {meta_event}\n\n"
 
         full_answer = ""
+        validation_payload = None
         try:
             async for token in llm_client.async_stream_generate(
                 prompt=prompt,
@@ -348,7 +352,8 @@ async def chat_stream(
                             answer=full_answer,
                             retrieved_chunks=chunks,
                             user_id=user_id,
-                            subject=request.subject or "general"
+                            subject=request.subject or "general",
+                            chat_id=chat_id
                         )
                         if validation_result:
                             val_dict = validation_result.dict()
@@ -358,6 +363,7 @@ async def chat_stream(
                             for k, v in val_dict.items():
                                 if hasattr(v, "isoformat"):
                                     val_dict[k] = v.isoformat()
+                            validation_payload = val_dict
                             validation_event = json.dumps({
                                 "type": "validation",
                                 "data": val_dict
@@ -386,6 +392,7 @@ async def chat_stream(
                     "timestamp": datetime.utcnow(),
                     "citations": citations,
                     "chunks": chunks,
+                    "validation_result": validation_payload,
                     "feedback_adjusted": feedback_adjusted,
                     "source_mode": source_mode
                 }

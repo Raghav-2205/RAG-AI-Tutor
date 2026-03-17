@@ -116,28 +116,64 @@ class ChatBubble {
     // Show loading
     this.addMessage("Thinking...", "ai");
 
-    try {
-      const res = await window.ai.sendMessage(text);
+    let aiResponse = "";
+    let validationData = null;
+    const messages = document.getElementById("chatMessages");
 
-      // Remove "Thinking..." message
-      const messages = document.getElementById("chatMessages");
-      const lastMsg = messages.lastElementChild;
-      if (lastMsg && lastMsg.textContent === "Thinking...") {
-        messages.removeChild(lastMsg);
+    await window.ai.sendMessageStream(
+      text,
+      undefined,
+      undefined,
+      undefined,
+      {
+        onToken: (token) => {
+          aiResponse += token;
+        },
+        onDone: () => {
+          // Remove "Thinking..." message
+          const lastMsg = messages.lastElementChild;
+          if (lastMsg && lastMsg.textContent === "Thinking...") {
+            messages.removeChild(lastMsg);
+          }
+          this.addMessage(aiResponse || "No response received", "ai");
+          // Render evaluation card if validation data exists
+          if (validationData) {
+            this.renderEvaluationCard(validationData);
+          }
+        },
+        onValidation: (data) => {
+          validationData = data;
+        },
+        onError: (err) => {
+          // Remove "Thinking..." message
+          const lastMsg = messages.lastElementChild;
+          if (lastMsg && lastMsg.textContent === "Thinking...") {
+            messages.removeChild(lastMsg);
+          }
+          this.addMessage("❌ Error: " + (err.message || "Failed to contact AI"), "ai");
+        }
       }
+    );
+  }
+}
 
-      // Add actual response - use 'answer' key from ai.js
-      this.addMessage(res.answer || "No response received", "ai");
-    } catch (err) {
-      // Remove "Thinking..." message
-      const messages = document.getElementById("chatMessages");
-      const lastMsg = messages.lastElementChild;
-      if (lastMsg && lastMsg.textContent === "Thinking...") {
-        messages.removeChild(lastMsg);
-      }
+  // Render evaluation card below the AI response
+  renderEvaluationCard(validation) {
+    const messagesContainer = document.getElementById("chatMessages");
+    if (!messagesContainer) return;
 
-      this.addMessage("❌ Error: " + (err.message || "Failed to contact AI"), "ai");
-    }
+    const cardDiv = document.createElement("div");
+    cardDiv.className = "evaluation-card";
+    cardDiv.innerHTML = `
+      <div class="evaluation-title">Evaluation Metrics</div>
+      <div class="evaluation-content">
+        ${Object.entries(validation)
+          .map(([key, value]) => `<div><b>${key}:</b> ${value}</div>`)
+          .join("")}
+      </div>
+    `;
+    messagesContainer.appendChild(cardDiv);
+    this.scrollToBottom();
   }
 }
 

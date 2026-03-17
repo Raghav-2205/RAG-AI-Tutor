@@ -22,17 +22,24 @@ class AuthManager {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
                 let errorMessage = "Login failed";
-                if (errorData.detail) {
-                    if (typeof errorData.detail === 'string') {
-                        errorMessage = errorData.detail;
-                    } else if (Array.isArray(errorData.detail)) {
-                        errorMessage = errorData.detail.map(e => e.msg).join("\n");
-                    } else {
-                        errorMessage = JSON.stringify(errorData.detail);
+                const rawError = await response.text();
+
+                try {
+                    const errorData = JSON.parse(rawError);
+                    if (errorData.detail) {
+                        if (typeof errorData.detail === 'string') {
+                            errorMessage = errorData.detail;
+                        } else if (Array.isArray(errorData.detail)) {
+                            errorMessage = errorData.detail.map(e => e.msg).join("\n");
+                        } else {
+                            errorMessage = JSON.stringify(errorData.detail);
+                        }
                     }
+                } catch {
+                    errorMessage = rawError || `Login failed (${response.status})`;
                 }
+
                 throw new Error(errorMessage);
             }
 

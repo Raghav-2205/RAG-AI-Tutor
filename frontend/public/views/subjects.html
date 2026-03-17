@@ -891,7 +891,7 @@
                 window.location.href = '/views/login.html';
             }
 
-            async init() {
+            async init(preferredChatId = null) {
                 if (!this.token) {
                     window.location.href = '/views/login.html';
                     return;
@@ -903,8 +903,15 @@
                 if (this.sessions.length === 0) {
                     this.showWelcomeScreen();
                 } else {
-                    // Load most recent chat
-                    await this.switchToChat(this.sessions[0].chat_id);
+                    const preferred = preferredChatId
+                        ? this.sessions.find((s) => s.chat_id === preferredChatId)
+                        : null;
+                    if (preferred) {
+                        await this.switchToChat(preferred.chat_id);
+                    } else {
+                        // Load most recent chat
+                        await this.switchToChat(this.sessions[0].chat_id);
+                    }
                 }
             }
 
@@ -1519,7 +1526,9 @@
         // ==================== PAGE INITIALIZATION ====================
         window.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Initializing chat history...');
-            await chatHistory.init();
+            const params = new URLSearchParams(window.location.search);
+            const deepLinkedChatId = params.get('chat_id');
+            await chatHistory.init(deepLinkedChatId);
         });
     </script>
 

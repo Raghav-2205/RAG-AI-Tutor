@@ -8,6 +8,7 @@ class ValidationResult(BaseModel):
     answer: str
     subject: str = "general"
     user_id: Optional[str] = None
+    chat_id: Optional[str] = None
     document_id: Optional[str] = None   # NEW
     document_name: Optional[str] = None # NEW
     

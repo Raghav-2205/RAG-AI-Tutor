@@ -92,8 +92,24 @@
         .header-row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 1rem;
+            flex-wrap: wrap;
             margin-bottom: 2rem;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
         }
 
         .back-btn {
@@ -109,6 +125,30 @@
         .back-btn:hover {
             background: rgba(255, 255, 255, 0.1);
             color: #fff;
+        }
+
+        .action-btn {
+            background: rgba(0, 255, 204, 0.08);
+            border: 1px solid rgba(0, 255, 204, 0.28);
+            color: #00ffcc;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 255, 204, 0.14);
+            transform: translateY(-1px);
+        }
+
+        .action-btn.secondary {
+            color: #d6dde8;
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .section-card {
@@ -170,6 +210,18 @@
             padding: 1rem;
             border-radius: 8px;
             font-size: 0.9rem;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .chunk-card.chunk-used {
+            border-color: rgba(0, 255, 204, 0.65);
+            box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.2);
+            background: rgba(0, 255, 204, 0.06);
+        }
+
+        .chunk-card.chunk-semantic {
+            border-color: rgba(245, 158, 11, 0.8);
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22);
         }
 
         .chunk-header {
@@ -187,11 +239,32 @@
             font-size: 0.85rem;
         }
 
-        .highlight {
-            background: rgba(0, 255, 204, 0.15);
-            color: #00ffcc;
+        .chunk-highlight {
+            background: rgba(245, 158, 11, 0.2);
+            color: #ffd08a;
             padding: 0 2px;
             border-radius: 2px;
+        }
+
+        .metrics-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .radar-wrap {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 255, 204, 0.14);
+            background: rgba(255, 255, 255, 0.02);
+            height: 300px;
+        }
+
+        .radar-note {
+            margin-top: 0.6rem;
+            color: #8da0b8;
+            font-size: 0.75rem;
         }
 
         /* Metrics Bar */
@@ -272,6 +345,32 @@
             background: rgba(255, 68, 68, 0.2);
             color: #ff4444;
         }
+
+        @media (max-width: 980px) {
+            .metrics-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .radar-wrap {
+                height: 260px;
+            }
+        }
+
+        @media print {
+            .navbar,
+            .sidebar,
+            .header-actions {
+                display: none !important;
+            }
+
+            body,
+            .main-content,
+            .section-card {
+                background: #ffffff !important;
+                color: #111111 !important;
+                box-shadow: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -294,8 +393,15 @@
         <!-- Main -->
         <main class="main-content">
             <div class="header-row">
-                <h2 style="margin:0; color:#00ffcc;">🔎 Detailed Answer Analysis</h2>
-                <span class="badge" id="mainStatusBadge">LOADING...</span>
+                <div class="header-title">
+                    <h2 style="margin:0; color:#00ffcc;">Detailed Answer Analysis</h2>
+                    <span class="badge" id="mainStatusBadge">LOADING...</span>
+                </div>
+                <div class="header-actions">
+                    <a href="/views/subjects.html" class="action-btn secondary" id="viewChatBtn">View in Chat Context</a>
+                    <button class="action-btn secondary" type="button" onclick="exportReportJson()">Download JSON</button>
+                    <button class="action-btn" type="button" onclick="exportReportPdf()">Export PDF</button>
+                </div>
             </div>
 
             <!-- 1. Query & Answer -->
@@ -311,13 +417,17 @@
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="metrics-layout">
                 <!-- 2. Metrics & Faithfulness -->
                 <div class="section-card">
                     <div class="section-title">📊 Generation Metrics</div>
                     <div id="metricsContainer">
                         <!-- Bars injected here -->
                     </div>
+                    <div class="radar-wrap">
+                        <canvas id="qualityRadar"></canvas>
+                    </div>
+                    <div class="radar-note">Spider profile of overall answer quality (0.0 to 1.0 scale).</div>
                 </div>
 
                 <!-- 3. Retrieval Analysis -->
@@ -368,39 +478,177 @@
 
     <script src="../assets/js/config.js?v=7"></script>
     <script src="../assets/js/auth.js?v=7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
-        // Auth handled by auth.js or inline check
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/views/login.html';
 
-        async function init() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const id = urlParams.get('id');
-            document.getElementById('evalId').textContent = id || 'N/A';
+        let currentReport = null;
+        let radarChart = null;
 
-            if (!id) {
-                alert("No Evaluation ID provided.");
-                return;
-            }
+        function clampScore(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return 0;
+            return Math.max(0, Math.min(1, n));
+        }
 
-            try {
-                const res = await fetch(`/api/evaluation/results/${id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+        function getColor(value) {
+            if (value >= 0.85) return '#00ffcc';
+            if (value >= 0.6) return '#f59e0b';
+            return '#ff4444';
+        }
 
-                if (res.status === 401) { window.location.href = '/views/login.html'; return; }
-                if (!res.ok) throw new Error("Failed to load result");
+        function escapeHtml(value = '') {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
-                const data = await res.json();
-                renderDashboard(data);
-            } catch (e) {
-                console.error(e);
-                document.getElementById('questionText').innerHTML = `<span style="color:#ff4444">Error loading data: ${e.message}</span>`;
-            }
+        function renderRadarChart(data) {
+            const canvas = document.getElementById('qualityRadar');
+            if (!canvas || typeof Chart === 'undefined') return;
+
+            const labels = ['Faithfulness', 'Relevance', 'BERTScore', 'Citation', 'RAG Score', 'Retrieval'];
+            const values = [
+                clampScore(data.faithfulness_score),
+                clampScore(data.answer_relevance),
+                clampScore(data.bert_score),
+                clampScore(data.citation_alignment_score),
+                clampScore(data.final_rag_score),
+                clampScore(data.retrieval_confidence)
+            ];
+
+            if (radarChart) radarChart.destroy();
+
+            radarChart = new Chart(canvas, {
+                type: 'radar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Quality Profile',
+                        data: values,
+                        borderColor: 'rgba(0, 255, 204, 0.95)',
+                        backgroundColor: 'rgba(0, 255, 204, 0.18)',
+                        pointBackgroundColor: '#00ffcc',
+                        pointBorderColor: '#0a0e27',
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#cfd8e3' } }
+                    },
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 0.2,
+                                color: '#8da0b8',
+                                backdropColor: 'transparent'
+                            },
+                            grid: { color: 'rgba(141, 160, 184, 0.28)' },
+                            angleLines: { color: 'rgba(141, 160, 184, 0.2)' },
+                            pointLabels: { color: '#d9e2ee', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function getCandidatePhrases(sentences) {
+            const phrases = [];
+            (sentences || []).forEach((sentence) => {
+                const cleaned = String(sentence || '').trim();
+                if (!cleaned) return;
+                if (cleaned.length > 12) phrases.push(cleaned);
+
+                const words = cleaned.split(/\s+/).filter((word) => word.length > 3);
+                if (words.length >= 5) phrases.push(words.slice(0, 5).join(' '));
+                if (words.length >= 9) phrases.push(words.slice(2, 7).join(' '));
+            });
+
+            return [...new Set(phrases)]
+                .map((phrase) => phrase.trim())
+                .filter((phrase) => phrase.length >= 12)
+                .sort((a, b) => b.length - a.length);
+        }
+
+        function buildHighlightRanges(text, phrases) {
+            const lower = String(text || '').toLowerCase();
+            const ranges = [];
+
+            phrases.forEach((phrase) => {
+                const idx = lower.indexOf(phrase.toLowerCase());
+                if (idx !== -1) ranges.push({ start: idx, end: idx + phrase.length });
+            });
+
+            ranges.sort((a, b) => a.start - b.start);
+            const merged = [];
+            ranges.forEach((range) => {
+                const last = merged[merged.length - 1];
+                if (!last || range.start > last.end) {
+                    merged.push({ ...range });
+                } else {
+                    last.end = Math.max(last.end, range.end);
+                }
+            });
+
+            return merged;
+        }
+
+        function highlightChunkText(text, unsupportedSentences) {
+            const raw = String(text || '');
+            const phrases = getCandidatePhrases(unsupportedSentences);
+            const ranges = buildHighlightRanges(raw, phrases);
+
+            if (!ranges.length) return { html: escapeHtml(raw), semantic: false };
+
+            let html = '';
+            let cursor = 0;
+            ranges.forEach((range) => {
+                html += escapeHtml(raw.slice(cursor, range.start));
+                html += `<span class="chunk-highlight">${escapeHtml(raw.slice(range.start, range.end))}</span>`;
+                cursor = range.end;
+            });
+            html += escapeHtml(raw.slice(cursor));
+
+            return { html, semantic: true };
+        }
+
+        function setChatContextLink(chatId = null) {
+            const btn = document.getElementById('viewChatBtn');
+            if (!btn) return;
+            btn.href = chatId
+                ? `/views/subjects.html?chat_id=${encodeURIComponent(chatId)}`
+                : '/views/subjects.html';
+            btn.textContent = 'View in Chat Context';
+            btn.title = chatId ? `Open chat session ${chatId}` : 'Open chat workspace';
+        }
+
+        function exportReportJson() {
+            if (!currentReport) return;
+            const blob = new Blob([JSON.stringify(currentReport, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const evalId = document.getElementById('evalId').textContent || 'evaluation-report';
+            link.href = url;
+            link.download = `evaluation-${evalId}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportReportPdf() {
+            window.print();
         }
 
         function renderDashboard(data) {
-            // Header
             const statusEl = document.getElementById('mainStatusBadge');
             statusEl.textContent = data.validation_status;
             statusEl.className = `badge badge-${data.validation_status}`;
@@ -408,90 +656,131 @@
             if (data.document_id) {
                 const badge = document.getElementById('docBadge');
                 badge.style.display = 'inline-block';
-                badge.textContent = '📄 ' + (data.document_name || 'DOC SCOPE');
+                badge.textContent = 'DOC ' + (data.document_name || 'SCOPE');
                 badge.title = `Scoped to Document ID: ${data.document_id}`;
             }
 
-            // Q&A
-            document.getElementById('questionText').textContent = data.question;
-            document.getElementById('answerText').textContent = data.answer;
+            document.getElementById('questionText').textContent = data.question || '';
+            document.getElementById('answerText').textContent = data.answer || '';
 
-            // Metrics Bar Helper
-            const renderBar = (label, val, id) => `
-                <div class="metric-row">
-                    <span class="metric-name">${label}</span>
-                    <div class="progress-bg">
-                        <div class="progress-fill" style="width: ${(val * 100).toFixed(0)}%; background: ${getColor(val)}"></div>
+            const renderBar = (label, value) => {
+                const v = clampScore(value);
+                return `
+                    <div class="metric-row">
+                        <span class="metric-name">${label}</span>
+                        <div class="progress-bg">
+                            <div class="progress-fill" style="width:${(v * 100).toFixed(0)}%; background:${getColor(v)}"></div>
+                        </div>
+                        <span class="metric-val">${v.toFixed(2)}</span>
                     </div>
-                    <span class="metric-val">${val.toFixed(2)}</span>
-                </div>
-            `;
+                `;
+            };
 
-            function getColor(v) { return v >= 0.85 ? '#00ffcc' : v >= 0.6 ? '#f59e0b' : '#ff4444'; }
-            function getReverseColor(v) { return v <= 0.15 ? '#00ffcc' : v <= 0.4 ? '#f59e0b' : '#ff4444'; }
-
-
-            // Generation Metrics
-            const mContainer = document.getElementById('metricsContainer');
-            mContainer.innerHTML = [
+            const metricsContainer = document.getElementById('metricsContainer');
+            metricsContainer.innerHTML = [
                 renderBar('Faithfulness', data.faithfulness_score),
                 renderBar('Answer Relevance', data.answer_relevance),
                 renderBar('BERTScore (Semantic)', data.bert_score),
                 renderBar('Final RAG Score', data.final_rag_score)
             ].join('');
 
-            // Retrieval Metrics
-            document.getElementById('val-confidence').textContent = (data.retrieval_confidence || 0).toFixed(2);
-            document.getElementById('bar-confidence').style.width = `${(data.retrieval_confidence || 0) * 100}%`;
+            const retrieval = clampScore(data.retrieval_confidence);
+            document.getElementById('val-confidence').textContent = retrieval.toFixed(2);
+            document.getElementById('bar-confidence').style.width = `${retrieval * 100}%`;
+            document.getElementById('bar-confidence').style.background = getColor(retrieval);
 
-            const cov = data.chunk_usage?.covered_ratio || 0;
-            document.getElementById('val-coverage').textContent = (cov * 100).toFixed(0) + '%';
-            document.getElementById('bar-coverage').style.width = `${cov * 100}%`;
+            const coverage = clampScore(data.chunk_usage?.covered_ratio);
+            document.getElementById('val-coverage').textContent = `${(coverage * 100).toFixed(0)}%`;
+            document.getElementById('bar-coverage').style.width = `${coverage * 100}%`;
+            document.getElementById('bar-coverage').style.background = getColor(coverage);
 
-            const cite = data.citation_alignment_score || 0;
-            document.getElementById('val-citation').textContent = cite.toFixed(2);
-            document.getElementById('bar-citation').style.width = `${cite * 100}%`;
+            const citation = clampScore(data.citation_alignment_score);
+            document.getElementById('val-citation').textContent = citation.toFixed(2);
+            document.getElementById('bar-citation').style.width = `${citation * 100}%`;
+            document.getElementById('bar-citation').style.background = getColor(citation);
 
-            // Faithfulness Details
-            const fContent = document.getElementById('faithfulnessContent');
-            const unsupp = data.unsupported_sentences || [];
+            renderRadarChart(data);
 
-            if (data.faithfulness_score === 1.0 && unsupp.length === 0) {
-                fContent.innerHTML = `<div style="color:#00ffcc;font-weight:600">✅ Answer is fully grounded in the provided context.</div>`;
+            const unsupported = data.unsupported_sentences || [];
+            const faithfulnessContent = document.getElementById('faithfulnessContent');
+
+            if (clampScore(data.faithfulness_score) === 1 && unsupported.length === 0) {
+                faithfulnessContent.innerHTML = '<div style="color:#00ffcc;font-weight:600">Answer is fully grounded in the provided context.</div>';
             } else {
-                let html = `<div style="margin-bottom:0.5rem">Faithfulness Score: <strong>${data.faithfulness_score.toFixed(2)}</strong></div>`;
-                if (data.reason) html += `<div style="font-size:0.9rem;color:#ccc;margin-bottom:1rem">Reasoning: ${data.reason}</div>`;
-
-                if (unsupp.length > 0) {
-                    html += `<div class="alert-box">
-                        <div class="alert-title">⚠ Unsupported Claims Detected</div>
-                        <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem">
-                            ${unsupp.map(s => `<li>${s}</li>`).join('')}
-                        </ul>
-                     </div>`;
+                let html = `<div style="margin-bottom:0.5rem">Faithfulness Score: <strong>${clampScore(data.faithfulness_score).toFixed(2)}</strong></div>`;
+                if (data.reason) {
+                    html += `<div style="font-size:0.9rem;color:#ccc;margin-bottom:0.8rem">Reasoning: ${escapeHtml(data.reason)}</div>`;
                 }
-                fContent.innerHTML = html;
+                if (unsupported.length > 0) {
+                    html += `<div class="alert-box">
+                        <div class="alert-title">Unsupported claims detected</div>
+                        <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem">
+                            ${unsupported.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
+                        </ul>
+                    </div>`;
+                    html += '<div style="margin-top:0.7rem;color:#8da0b8;font-size:0.8rem">Matching phrases are highlighted in source chunks below.</div>';
+                }
+                faithfulnessContent.innerHTML = html;
             }
 
-            // Chunks
-            const cContainer = document.getElementById('chunksContainer');
-            if (data.retrieved_chunks_text && data.retrieved_chunks_text.length) {
-                cContainer.innerHTML = data.retrieved_chunks_text.map((text, i) => {
-                    // Check if used
-                    let style = '';
-                    if (data.chunk_usage?.used_chunk_indices?.includes(i)) {
-                        style = 'border-color: #00ffcc; background: rgba(0, 255, 204, 0.05);';
-                    }
-                    const source = data.retrieved_chunk_ids ? data.retrieved_chunk_ids[i] : `Chunk ${i + 1}`;
+            const chunks = Array.isArray(data.retrieved_chunks_text) ? data.retrieved_chunks_text : [];
+            const usedIndices = new Set(data.chunk_usage?.used_chunk_indices || []);
+            const chunksContainer = document.getElementById('chunksContainer');
 
-                    return `<div class="chunk-card" style="${style}">
-                        <div class="chunk-header">
-                            <span>CHUNK ${i + 1}</span>
-                            <span style="opacity:0.7">${source && source.length > 20 ? '...' + source.slice(-15) : source}</span>
-                        </div>
-                        <div class="chunk-text">${text}</div>
-                    </div>`;
-                }).join('');
+            if (!chunks.length) {
+                chunksContainer.innerHTML = '<div style="color:#666">No chunks retrieved.</div>';
+                return;
+            }
+
+            chunksContainer.innerHTML = chunks.map((chunkText, i) => {
+                const source = data.retrieved_chunk_ids ? data.retrieved_chunk_ids[i] : `Chunk ${i + 1}`;
+                const highlighted = highlightChunkText(chunkText, unsupported);
+                const classes = ['chunk-card'];
+                if (usedIndices.has(i)) classes.push('chunk-used');
+                if (highlighted.semantic) classes.push('chunk-semantic');
+
+                return `<div class="${classes.join(' ')}">
+                    <div class="chunk-header">
+                        <span>CHUNK ${i + 1}</span>
+                        <span style="opacity:0.7">${escapeHtml(source && source.length > 20 ? '...' + source.slice(-15) : source)}</span>
+                    </div>
+                    <div class="chunk-text">${highlighted.html}</div>
+                </div>`;
+            }).join('');
+        }
+
+        async function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+            const chatIdFromUrl = urlParams.get('chat_id');
+
+            document.getElementById('evalId').textContent = id || 'N/A';
+            setChatContextLink(chatIdFromUrl);
+
+            if (!id) {
+                alert('No Evaluation ID provided.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/evaluation/results/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    window.location.href = '/views/login.html';
+                    return;
+                }
+                if (!res.ok) throw new Error('Failed to load result');
+
+                const data = await res.json();
+                currentReport = data;
+                const resolvedChatId = data.chat_id || chatIdFromUrl;
+                setChatContextLink(resolvedChatId);
+                renderDashboard(data);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('questionText').innerHTML = `<span style="color:#ff4444">Error loading data: ${escapeHtml(err.message)}</span>`;
             }
         }
 
@@ -500,3 +789,5 @@
 </body>
 
 </html>
+
+

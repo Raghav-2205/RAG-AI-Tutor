@@ -246,6 +246,25 @@
             margin-bottom: 0.3rem;
         }
 
+        .metric-trend {
+            font-size: 0.72rem;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .metric-trend.up {
+            color: #00ff64;
+        }
+
+        .metric-trend.down {
+            color: #ff7b7b;
+        }
+
+        .metric-trend.flat {
+            color: #8b9ab0;
+        }
+
         .metric-target {
             font-size: 0.7rem;
             color: #666;
@@ -268,6 +287,71 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .logs-toolbar {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .filter-pills {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            border: 1px solid rgba(0, 255, 204, 0.25);
+            background: rgba(255, 255, 255, 0.03);
+            color: #b8c5d6;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 6px 11px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-pill:hover {
+            color: #00ffcc;
+            border-color: rgba(0, 255, 204, 0.5);
+            background: rgba(0, 255, 204, 0.08);
+        }
+
+        .filter-pill.active {
+            color: #0a0e27;
+            border-color: transparent;
+            background: linear-gradient(135deg, #00ffcc, #00d4aa);
+        }
+
+        .sort-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: #8b9ab0;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .sort-select {
+            border: 1px solid rgba(0, 255, 204, 0.25);
+            background: rgba(255, 255, 255, 0.03);
+            color: #e0e6ed;
+            font-size: 0.78rem;
+            border-radius: 8px;
+            padding: 6px 10px;
+            outline: none;
+        }
+
+        .sort-select:focus {
+            border-color: rgba(0, 255, 204, 0.5);
         }
 
         /* TABLE */
@@ -293,8 +377,48 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         }
 
-        .logs-table tbody tr:hover {
-            background: rgba(0, 255, 204, 0.04);
+        .logs-table tbody tr.log-row {
+            cursor: pointer;
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .logs-table tbody tr.log-row td {
+            transition: background 0.16s ease;
+        }
+
+        .logs-table tbody tr.log-row:hover td,
+        .logs-table tbody tr.log-row:focus-within td {
+            background: rgba(0, 255, 204, 0.08);
+        }
+
+        .logs-table tbody tr.log-row:hover {
+            transform: scale(1.004);
+        }
+
+        .logs-table tbody tr.log-row:focus-visible {
+            outline: 2px solid rgba(0, 255, 204, 0.45);
+            outline-offset: -2px;
+        }
+
+        .question-cell {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .row-link-hint {
+            margin-left: 0.45rem;
+            font-size: 0.68rem;
+            color: #8b9ab0;
+            opacity: 0;
+            transition: opacity 0.16s ease;
+        }
+
+        .logs-table tbody tr.log-row:hover .row-link-hint,
+        .logs-table tbody tr.log-row:focus-within .row-link-hint {
+            opacity: 1;
         }
 
         /* STATUS BADGES */
@@ -487,41 +611,49 @@
                 <div class="metric-card" id="card-faithfulness">
                     <div class="metric-label">Mean Faithfulness</div>
                     <div class="metric-value" id="avgFaithfulness">—</div>
+                    <div class="metric-trend flat" id="trendFaithfulness">No trend yet</div>
                     <div class="metric-target">Target: ≥ 0.90</div>
                 </div>
                 <div class="metric-card" id="card-hallucination">
                     <div class="metric-label">Hallucination Rate</div>
                     <div class="metric-value" id="avgHallucination">—</div>
+                    <div class="metric-trend flat" id="trendHallucination">No trend yet</div>
                     <div class="metric-target">Max: 0.15</div>
                 </div>
                 <div class="metric-card" id="card-bertscore">
                     <div class="metric-label">BERTScore (F1)</div>
                     <div class="metric-value" id="avgBertScore">—</div>
+                    <div class="metric-trend flat" id="trendBert">No trend yet</div>
                     <div class="metric-target">Target: ≥ 0.85</div>
                 </div>
                 <div class="metric-card" id="card-recall">
                     <div class="metric-label">Avg Recall@5</div>
                     <div class="metric-value" id="avgRecall">—</div>
+                    <div class="metric-trend flat" id="trendRecall">No trend yet</div>
                     <div class="metric-target">Target: ≥ 0.70</div>
                 </div>
                 <div class="metric-card" id="card-citation">
                     <div class="metric-label">Citation Alignment</div>
                     <div class="metric-value" id="avgCitation">—</div>
+                    <div class="metric-trend flat" id="trendCitation">No trend yet</div>
                     <div class="metric-target">Target: ≥ 0.80</div>
                 </div>
                 <div class="metric-card" id="card-relevance">
                     <div class="metric-label">Answer Relevance</div>
                     <div class="metric-value" id="avgRelevance">—</div>
+                    <div class="metric-trend flat" id="trendRelevance">No trend yet</div>
                     <div class="metric-target">LLM Judge Score</div>
                 </div>
                 <div class="metric-card" id="card-ragscore">
                     <div class="metric-label">Final RAG Score</div>
                     <div class="metric-value" id="avgRagScore">—</div>
+                    <div class="metric-trend flat" id="trendRag">No trend yet</div>
                     <div class="metric-target">Weighted Composite</div>
                 </div>
                 <div class="metric-card" id="card-total">
                     <div class="metric-label">Total Validations</div>
                     <div class="metric-value" id="totalValidations">—</div>
+                    <div class="metric-trend flat" id="trendTotal">No trend yet</div>
                     <div class="metric-target" id="statusBreakdown">—</div>
                 </div>
             </div>
@@ -541,11 +673,23 @@
             <div class="panel">
                 <div class="panel-title">📋 Recent Validations</div>
                 <!-- Filter Bar -->
-                <div id="filterBar" style="margin-bottom:1rem;display:flex;justify-content:flex-end;gap:4px;">
-                    <button class="btn btn-outline btn-sm" data-status="ALL" onclick="setLogFilter('ALL')">All</button>
-                    <button class="btn btn-outline btn-sm" data-status="VERIFIED" onclick="setLogFilter('VERIFIED')">Verified</button>
-                    <button class="btn btn-outline btn-sm" data-status="WARNING" onclick="setLogFilter('WARNING')">Warning</button>
-                    <button class="btn btn-outline btn-sm" data-status="REJECTED" onclick="setLogFilter('REJECTED')">Rejected</button>
+                <div class="logs-toolbar">
+                    <div class="filter-pills" id="filterBar">
+                        <button class="filter-pill active" data-filter="ALL" onclick="setLogFilter('ALL')">All</button>
+                        <button class="filter-pill" data-filter="VERIFIED_ONLY" onclick="setLogFilter('VERIFIED_ONLY')">Verified Only</button>
+                        <button class="filter-pill" data-filter="HALLUCINATIONS" onclick="setLogFilter('HALLUCINATIONS')">Hallucinations</button>
+                        <button class="filter-pill" data-filter="LOW_RAG" onclick="setLogFilter('LOW_RAG')">Low RAG Score</button>
+                    </div>
+                    <label class="sort-wrap" for="logSortSelect">
+                        Sort
+                        <select class="sort-select" id="logSortSelect" onchange="setLogSort(this.value)">
+                            <option value="NEWEST">Newest first</option>
+                            <option value="OLDEST">Oldest first</option>
+                            <option value="RAG_ASC">RAG score (low to high)</option>
+                            <option value="RAG_DESC">RAG score (high to low)</option>
+                            <option value="HALLUC_DESC">Hallucination (high to low)</option>
+                        </select>
+                    </label>
                 </div>
                 <div style="overflow-x:auto;">
                     <table class="logs-table">
@@ -577,25 +721,34 @@
     <script src="../assets/js/config.js"></script>
     <script src="../assets/js/auth.js"></script>
     <script>
-                // ── Log Filter State ──
-                let logFilter = 'ALL';
-                function setLogFilter(status) {
-                    logFilter = status;
-                    // Highlight selected button
-                    document.querySelectorAll('#filterBar .btn').forEach(btn => {
-                        btn.classList.toggle('btn-primary', btn.dataset.status === status);
-                        btn.classList.toggle('btn-outline', btn.dataset.status !== status);
-                    });
-                    fetchLogs();
-                }
-        // ── Auth ──
         const apiBase = '/api/evaluation';
         const token = () => localStorage.getItem('token');
 
+        let allLogs = [];
+        let logFilter = 'ALL';
+        let logSort = 'NEWEST';
+
+        function escapeHtml(value = '') {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttr(value = '') {
+            return escapeHtml(value).replace(/`/g, '&#96;');
+        }
+
         async function authFetch(url, options = {}) {
             const t = token();
-            if (!t) { window.location.href = '/views/login.html'; return null; }
-            options.headers = { ...options.headers, 'Authorization': `Bearer ${t}` };
+            if (!t) {
+                window.location.href = '/views/login.html';
+                return null;
+            }
+
+            options.headers = { ...options.headers, Authorization: `Bearer ${t}` };
             const res = await fetch(url, options);
             if (res.status === 401) {
                 localStorage.removeItem('token');
@@ -605,34 +758,253 @@
             return res;
         }
 
-        if (!token()) window.location.href = '/views/login.html';
+        if (!token()) {
+            window.location.href = '/views/login.html';
+        }
 
-        // ── Helpers ──
         function scoreClass(v, th, inv = false) {
-            if (!v) return '';
+            if (!Number.isFinite(v)) return '';
             if (inv) return v <= th ? 'score-good' : v <= th * 1.5 ? 'score-okay' : 'score-bad';
             return v >= th ? 'score-good' : v >= th * 0.8 ? 'score-okay' : 'score-bad';
         }
+
         function cardClass(v, th, inv = false) {
-            if (!v) return '';
+            if (!Number.isFinite(v)) return '';
             if (inv) return v <= th ? 'good' : v <= th * 1.5 ? 'warn' : 'bad';
             return v >= th ? 'good' : v >= th * 0.8 ? 'warn' : 'bad';
         }
 
-        // ── Fetch Metrics ──
+        function setLogFilter(filterName) {
+            logFilter = filterName;
+            document.querySelectorAll('#filterBar .filter-pill').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.filter === filterName);
+            });
+            renderLogs();
+        }
+
+        function setLogSort(sortName) {
+            logSort = sortName;
+            renderLogs();
+        }
+
+        function isHallucinationLog(log) {
+            const hallucination = Number(log.hallucination_rate) || 0;
+            const unsupported = Array.isArray(log.unsupported_sentences) ? log.unsupported_sentences.length : 0;
+            return hallucination >= 0.2 || unsupported > 0 || log.validation_status === 'REJECTED';
+        }
+
+        function logMatchesFilter(log) {
+            if (logFilter === 'VERIFIED_ONLY') return log.validation_status === 'VERIFIED';
+            if (logFilter === 'HALLUCINATIONS') return isHallucinationLog(log);
+            if (logFilter === 'LOW_RAG') return (Number(log.final_rag_score) || 0) < 0.7;
+            return true;
+        }
+
+        function sortLogs(logs) {
+            const sorted = [...logs];
+            if (logSort === 'OLDEST') {
+                sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            } else if (logSort === 'RAG_ASC') {
+                sorted.sort((a, b) => (Number(a.final_rag_score) || 0) - (Number(b.final_rag_score) || 0));
+            } else if (logSort === 'RAG_DESC') {
+                sorted.sort((a, b) => (Number(b.final_rag_score) || 0) - (Number(a.final_rag_score) || 0));
+            } else if (logSort === 'HALLUC_DESC') {
+                sorted.sort((a, b) => (Number(b.hallucination_rate) || 0) - (Number(a.hallucination_rate) || 0));
+            } else {
+                sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            }
+            return sorted;
+        }
+
+        function averageBy(items, selector) {
+            const vals = items
+                .map((item) => Number(selector(item)))
+                .filter((v) => Number.isFinite(v));
+            if (!vals.length) return null;
+            return vals.reduce((sum, v) => sum + v, 0) / vals.length;
+        }
+
+        function splitTrendWindows(logs) {
+            const validLogs = logs.filter((log) => {
+                if (!log.timestamp) return false;
+                return !Number.isNaN(new Date(log.timestamp).getTime());
+            });
+
+            if (validLogs.length < 4) return null;
+
+            const now = Date.now();
+            const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+            const recent = validLogs.filter((log) => new Date(log.timestamp).getTime() >= now - weekMs);
+            const previous = validLogs.filter((log) => {
+                const ts = new Date(log.timestamp).getTime();
+                return ts >= now - (2 * weekMs) && ts < now - weekMs;
+            });
+
+            if (recent.length >= 2 && previous.length >= 2) {
+                return { recent, previous, label: 'vs previous 7d' };
+            }
+
+            const sorted = [...validLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const half = Math.floor(sorted.length / 2);
+            if (half < 2) return null;
+
+            return {
+                recent: sorted.slice(0, half),
+                previous: sorted.slice(half, half * 2),
+                label: 'vs previous window'
+            };
+        }
+
+        function computeMetricTrend(logs, selector) {
+            const windows = splitTrendWindows(logs);
+            if (!windows) return null;
+
+            const recentAvg = averageBy(windows.recent, selector);
+            const previousAvg = averageBy(windows.previous, selector);
+            if (!Number.isFinite(recentAvg) || !Number.isFinite(previousAvg)) return null;
+
+            return {
+                delta: recentAvg - previousAvg,
+                label: windows.label
+            };
+        }
+
+        function computeCountTrend(logs) {
+            const windows = splitTrendWindows(logs);
+            if (!windows) return null;
+            return {
+                delta: windows.recent.length - windows.previous.length,
+                label: windows.label === 'vs previous 7d' ? 'this week' : windows.label
+            };
+        }
+
+        function renderTrend(elementId, trend, inverse = false, isCount = false) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            if (!trend || !Number.isFinite(Number(trend.delta))) {
+                el.className = 'metric-trend flat';
+                el.textContent = 'Not enough history';
+                return;
+            }
+
+            const delta = Number(trend.delta);
+            const threshold = isCount ? 0.5 : 0.003;
+            if (Math.abs(delta) < threshold) {
+                el.className = 'metric-trend flat';
+                el.textContent = `Flat ${trend.label}`;
+                return;
+            }
+
+            const improved = inverse ? delta < 0 : delta > 0;
+            el.className = `metric-trend ${improved ? 'up' : 'down'}`;
+
+            if (isCount) {
+                const rounded = Math.round(delta);
+                const signed = rounded > 0 ? `+${rounded}` : `${rounded}`;
+                el.textContent = `${signed} ${trend.label}`;
+            } else {
+                const signed = delta > 0 ? '+' : '-';
+                const points = Math.abs(delta * 100).toFixed(1);
+                el.textContent = `${signed}${points} pts ${trend.label}`;
+            }
+        }
+
+        function updateMetricTrends(logs) {
+            renderTrend('trendFaithfulness', computeMetricTrend(logs, (log) => log.faithfulness_score));
+            renderTrend('trendHallucination', computeMetricTrend(logs, (log) => log.hallucination_rate), true);
+            renderTrend('trendBert', computeMetricTrend(logs, (log) => log.bert_score));
+            renderTrend('trendRecall', computeMetricTrend(logs, (log) => log.recall_at_5));
+            renderTrend('trendCitation', computeMetricTrend(logs, (log) => log.citation_alignment_score));
+            renderTrend('trendRelevance', computeMetricTrend(logs, (log) => log.answer_relevance));
+            renderTrend('trendRag', computeMetricTrend(logs, (log) => log.final_rag_score));
+            renderTrend('trendTotal', computeCountTrend(logs), false, true);
+        }
+
+        function navigateToDoc(log) {
+            if (!log || !log._id) return;
+            const evalId = encodeURIComponent(log._id);
+            const chatParam = log.chat_id ? `&chat_id=${encodeURIComponent(log.chat_id)}` : '';
+            window.location.href = `/views/evaldoc.html?id=${evalId}${chatParam}`;
+        }
+
+        function renderLogs() {
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = '';
+
+            if (!allLogs.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No validation logs yet. Send a chat message or run a benchmark.</td></tr>';
+                return;
+            }
+
+            const logsToRender = sortLogs(allLogs.filter(logMatchesFilter));
+            if (!logsToRender.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No rows match this filter.</td></tr>';
+                return;
+            }
+
+            logsToRender.forEach((log) => {
+                const tr = document.createElement('tr');
+                tr.className = 'log-row';
+                tr.tabIndex = 0;
+                tr.setAttribute('role', 'link');
+
+                const stamp = log.timestamp ? new Date(log.timestamp) : null;
+                const timeText = stamp && !Number.isNaN(stamp.getTime())
+                    ? stamp.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : '--';
+
+                const isBench = log.user_id === 'benchmark_runner';
+                const src = isBench
+                    ? '<span style="color:#818cf8;font-weight:700">BENCH</span>'
+                    : '<span style="color:#00ffcc;font-weight:700">USER</span>';
+
+                const fmt = (v, th, inv = false) => {
+                    const value = Number(v) || 0;
+                    return `<span class="score-cell ${scoreClass(value, th, inv)}">${value.toFixed(2)}</span>`;
+                };
+
+                const question = log.question || 'Untitled question';
+
+                tr.innerHTML = `
+                    <td style="color:#8b9ab0;white-space:nowrap;font-size:0.75rem">${timeText}</td>
+                    <td>${src}</td>
+                    <td class="question-cell" title="${escapeAttr(question)}">${escapeHtml(question)}<span class="row-link-hint">Open report</span></td>
+                    <td>${fmt(log.faithfulness_score, 0.9)}</td>
+                    <td>${fmt(log.hallucination_rate, 0.15, true)}</td>
+                    <td>${fmt(log.bert_score, 0.85)}</td>
+                    <td>${fmt(log.citation_alignment_score, 0.8)}</td>
+                    <td>${fmt(log.answer_relevance, 0.8)}</td>
+                    <td><strong>${fmt(log.final_rag_score, 0.7)}</strong></td>
+                    <td><span class="status-badge status-${log.validation_status}">${escapeHtml(log.validation_status || 'UNKNOWN')}</span></td>
+                `;
+
+                tr.addEventListener('click', () => navigateToDoc(log));
+                tr.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigateToDoc(log);
+                    }
+                });
+
+                tbody.appendChild(tr);
+            });
+        }
+
         async function fetchMetrics() {
             try {
                 const res = await authFetch(`${apiBase}/metrics`);
                 if (!res || !res.ok) return;
-                const d = await res.json();
 
-                const faith = d.avg_faithfulness || 0;
-                const halluc = d.avg_hallucination || 0;
-                const bert = d.avg_bert_score || 0;
-                const recall = d.avg_recall_at_5 || 0;
-                const cite = d.avg_citation_alignment || 0;
-                const relev = d.avg_answer_relevance || 0;
-                const rag = d.avg_final_rag_score || 0;
+                const d = await res.json();
+                const faith = Number(d.avg_faithfulness) || 0;
+                const halluc = Number(d.avg_hallucination) || 0;
+                const bert = Number(d.avg_bert_score) || 0;
+                const recall = Number(d.avg_recall_at_5) || 0;
+                const cite = Number(d.avg_citation_alignment) || 0;
+                const relev = Number(d.avg_answer_relevance) || 0;
+                const rag = Number(d.avg_final_rag_score) || 0;
 
                 document.getElementById('avgFaithfulness').textContent = faith.toFixed(2);
                 document.getElementById('avgHallucination').textContent = halluc.toFixed(2);
@@ -643,9 +1015,11 @@
                 document.getElementById('avgRagScore').textContent = rag.toFixed(2);
                 document.getElementById('totalValidations').textContent = d.total_validations || 0;
 
-                const v = d.verified_count || 0, w = d.warning_count || 0, r = d.rejected_count || 0;
+                const verified = d.verified_count || 0;
+                const warning = d.warning_count || 0;
+                const rejected = d.rejected_count || 0;
                 document.getElementById('statusBreakdown').innerHTML =
-                    `<span style="color:#00ff64">✓${v}</span> · <span style="color:#f59e0b">⚠${w}</span> · <span style="color:#ff4444">✗${r}</span>`;
+                    `<span style="color:#00ff64">Verified ${verified}</span> · <span style="color:#f59e0b">Warning ${warning}</span> · <span style="color:#ff4444">Rejected ${rejected}</span>`;
 
                 document.getElementById('card-faithfulness').className = `metric-card ${cardClass(faith, 0.9)}`;
                 document.getElementById('card-hallucination').className = `metric-card ${cardClass(halluc, 0.15, true)}`;
@@ -654,60 +1028,23 @@
                 document.getElementById('card-citation').className = `metric-card ${cardClass(cite, 0.8)}`;
                 document.getElementById('card-relevance').className = `metric-card ${cardClass(relev, 0.8)}`;
                 document.getElementById('card-ragscore').className = `metric-card ${cardClass(rag, 0.7)}`;
-            } catch (e) { console.error('Metrics error:', e); }
+            } catch (e) {
+                console.error('Metrics error:', e);
+            }
         }
 
-        // ── Fetch Logs ──
         async function fetchLogs() {
             try {
                 const res = await authFetch(`${apiBase}/logs?limit=200`);
                 if (!res || !res.ok) return;
-                const logs = await res.json();
-                const tbody = document.getElementById('logsTableBody');
-                tbody.innerHTML = '';
-
-                if (!logs.length) {
-                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No validation logs yet. Send a chat message or run a benchmark.</td></tr>';
-                    return;
-                }
-
-                logs
-                    .filter(log => logFilter === 'ALL' || log.validation_status === logFilter)
-                    .forEach(log => {
-                        const tr = document.createElement('tr');
-                        const t = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        const isBench = log.user_id === 'benchmark_runner';
-                        const src = isBench
-                            ? '<span style="color:#818cf8;font-weight:600">🤖 Bench</span>'
-                            : '<span style="color:#00ffcc;font-weight:600">👤 User</span>';
-
-                        const f = (v, th, inv) => `<span class="score-cell ${scoreClass(v, th, inv)}">${(v || 0).toFixed(2)}</span>`;
-
-                        tr.innerHTML = `
-                            <td style="color:#666;white-space:nowrap;font-size:0.75rem">${t}</td>
-                            <td>${src}</td>
-                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.question}">${log.question}</td>
-                            <td>${f(log.faithfulness_score, 0.9)}</td>
-                            <td>${f(log.hallucination_rate, 0.15, true)}</td>
-                            <td>${f(log.bert_score, 0.85)}</td>
-                            <td>${f(log.citation_alignment_score, 0.8)}</td>
-                            <td>${f(log.answer_relevance, 0.8)}</td>
-                            <td><strong>${f(log.final_rag_score, 0.7)}</strong></td>
-                            <td><span class="status-badge status-${log.validation_status}">${log.validation_status}</span></td>
-                        `;
-                        // Make row clickable
-                        tr.style.cursor = 'pointer';
-                        tr.onclick = () => {
-                            if (log._id) {
-                                window.location.href = `/views/evaldoc.html?id=${log._id}`;
-                            }
-                        };
-                        tbody.appendChild(tr);
-                    });
-            } catch (e) { console.error('Logs error:', e); }
+                allLogs = await res.json();
+                updateMetricTrends(allLogs);
+                renderLogs();
+            } catch (e) {
+                console.error('Logs error:', e);
+            }
         }
 
-        // ── Fetch Report ──
         async function fetchReport() {
             try {
                 const res = await authFetch(`${apiBase}/report`);
@@ -719,7 +1056,6 @@
                 statusEl.className = `debug-status-badge debug-${report.overall_status}`;
 
                 const content = document.getElementById('debugContent');
-
                 if (report.overall_status === 'NO_DATA') {
                     content.innerHTML = '<div class="empty-state">No evaluation data yet. Send chat messages or run a benchmark first.</div>';
                     return;
@@ -728,75 +1064,95 @@
                 let html = '';
 
                 if (report.issues && report.issues.length > 0) {
-                    html += '<div style="margin-bottom:0.75rem"><strong style="font-size:0.8rem;color:#ff6b6b">⚠ Issues Detected</strong></div>';
-                    report.issues.forEach(issue => {
-                        html += `<div class="issue-item ${issue.severity}">
-                            <strong>${issue.metric}</strong>: ${issue.value} (threshold: ${issue.threshold}) — <em>${issue.severity}</em>
-                        </div>`;
+                    html += '<div style="margin-bottom:0.75rem"><strong style="font-size:0.8rem;color:#ff6b6b">Issues Detected</strong></div>';
+                    report.issues.forEach((issue) => {
+                        html += `<div class="issue-item ${issue.severity}"><strong>${escapeHtml(issue.metric)}</strong>: ${escapeHtml(String(issue.value))} (threshold: ${escapeHtml(String(issue.threshold))}) - <em>${escapeHtml(issue.severity)}</em></div>`;
                     });
                 }
 
                 if (report.recommendations && report.recommendations.length > 0) {
-                    html += '<div style="margin:1rem 0 0.5rem"><strong style="font-size:0.8rem;color:#00ffcc">📋 Recommendations</strong></div>';
-                    report.recommendations.forEach(r => {
-                        html += `<div class="rec-item">${r}</div>`;
+                    html += '<div style="margin:1rem 0 0.5rem"><strong style="font-size:0.8rem;color:#00ffcc">Recommendations</strong></div>';
+                    report.recommendations.forEach((rec) => {
+                        html += `<div class="rec-item">${escapeHtml(rec)}</div>`;
                     });
                 }
 
                 if (!report.issues?.length && !report.recommendations?.length) {
-                    html = '<div style="padding:1rem;color:#00ffcc;font-weight:600">✅ All metrics within healthy thresholds. System performing well.</div>';
+                    html = '<div style="padding:1rem;color:#00ffcc;font-weight:600">All metrics are within healthy thresholds.</div>';
                 }
 
                 content.innerHTML = html;
-            } catch (e) { console.error('Report error:', e); }
+            } catch (e) {
+                console.error('Report error:', e);
+            }
         }
 
-        // ── Actions ──
         async function triggerBenchmark() {
-            if (!confirm("Run a full system benchmark? This tests 10 samples against the RAG pipeline.")) return;
+            if (!confirm('Run a full system benchmark? This tests 10 samples against the RAG pipeline.')) return;
             const btn = document.getElementById('runBenchmarkBtn');
-            const orig = btn.innerHTML;
-            btn.innerHTML = '⏳ Running...'; btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Running...';
+            btn.disabled = true;
+
             try {
                 const res = await authFetch(`${apiBase}/run_benchmark`, { method: 'POST' });
                 if (!res || !res.ok) throw new Error('Failed');
-                alert("✅ Benchmark started! Results will appear in a few minutes.");
-                setTimeout(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 5000);
-            } catch (e) { alert(`Error: ${e.message}`); }
-            finally { btn.innerHTML = orig; btn.disabled = false; }
+                alert('Benchmark started. Results will appear shortly.');
+                setTimeout(refreshAll, 5000);
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         async function triggerSync() {
             const btn = document.getElementById('syncHistoryBtn');
-            const orig = btn.innerHTML;
-            btn.innerHTML = '⏳ Syncing...'; btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Syncing...';
+            btn.disabled = true;
+
             try {
                 const res = await authFetch(`${apiBase}/sync_history`, { method: 'POST' });
                 if (!res || !res.ok) throw new Error('Failed');
-                alert("✅ History sync started in background.");
-                setTimeout(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 5000);
-            } catch (e) { alert(`Error: ${e.message}`); }
-            finally { btn.innerHTML = orig; btn.disabled = false; }
+                alert('History sync started in the background.');
+                setTimeout(refreshAll, 5000);
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         async function clearData() {
-            if (!confirm("⚠️ This will DELETE all evaluation data. Continue?")) return;
+            if (!confirm('This will delete all evaluation data. Continue?')) return;
+
             try {
                 const res = await authFetch(`${apiBase}/clear`, { method: 'DELETE' });
                 if (!res || !res.ok) throw new Error('Failed');
                 const data = await res.json();
-                alert(`✅ Cleared: ${data.validations_deleted} validations, ${data.benchmarks_deleted} benchmarks`);
-                fetchMetrics(); fetchLogs(); fetchReport();
-            } catch (e) { alert(`Error: ${e.message}`); }
+                alert(`Cleared: ${data.validations_deleted} validations, ${data.benchmarks_deleted} benchmarks`);
+                refreshAll();
+            } catch (e) {
+                alert(`Error: ${e.message}`);
+            }
         }
 
-        // ── Init ──
-        fetchMetrics();
-        fetchLogs();
-        fetchReport();
+        function refreshAll() {
+            fetchMetrics();
+            fetchLogs();
+            fetchReport();
+        }
 
-        setInterval(() => { fetchMetrics(); fetchLogs(); fetchReport(); }, 20000);
+        setLogFilter('ALL');
+        refreshAll();
+        setInterval(refreshAll, 20000);
     </script>
+
 </body>
 
 </html>
+
+

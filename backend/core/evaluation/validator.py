@@ -44,7 +44,8 @@ class ValidationEngine:
         retrieved_chunks: List[Dict],
         user_id: str,
         subject: str = "general",
-        document_id: str = None  # NEW
+        document_id: str = None,  # NEW
+        chat_id: str = None
     ) -> ValidationResult:
         """
         Full validation pipeline — runs automatically after RAG generation.
@@ -58,6 +59,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                chat_id=chat_id,
                 document_id=document_id, # NEW
                 validation_status="INSUFFICIENT_CONTEXT",
                 reason="No chunks retrieved. Cannot validate groundedness."
@@ -138,6 +140,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                chat_id=chat_id,
                 # Retrieval metrics (populated during benchmark only)
                 recall_at_5=0.0,
                 precision_at_5=0.0,
@@ -181,6 +184,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                chat_id=chat_id,
                 validation_status="ERROR",
                 reason=f"Validation error: {str(e)}"
             )

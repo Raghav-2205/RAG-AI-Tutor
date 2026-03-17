@@ -21,7 +21,8 @@ async def answer_query_with_rag(
     top_k: int = None,
     feedback_context: str = "",
     strict_mode: bool = False,
-    document_id: str = None  # NEW: Document Scope
+    document_id: str = None,  # NEW: Document Scope
+    chat_id: str = None
 ):
     """
     Intelligent 3-tier query routing:
@@ -51,7 +52,17 @@ async def answer_query_with_rag(
             }
         
         # Generate RAG answer from document
-        return await _generate_rag_answer(chunks, query, history, feedback_context, strict_mode, user_id, subject, source_mode="document")
+        return await _generate_rag_answer(
+            chunks,
+            query,
+            history,
+            feedback_context,
+            strict_mode,
+            user_id,
+            subject,
+            source_mode="document",
+            chat_id=chat_id
+        )
     
     # ========== TIER 2: KNOWLEDGE BASE RAG ==========
     # Try to find chunks from user's uploaded documents OR system knowledge base
@@ -60,14 +71,34 @@ async def answer_query_with_rag(
     
     if chunks:
         # Generate RAG answer from knowledge base
-        return await _generate_rag_answer(chunks, query, history, feedback_context, strict_mode, user_id, subject, source_mode="knowledge_base")
+        return await _generate_rag_answer(
+            chunks,
+            query,
+            history,
+            feedback_context,
+            strict_mode,
+            user_id,
+            subject,
+            source_mode="knowledge_base",
+            chat_id=chat_id
+        )
     
     # ========== TIER 3: GEMINI FALLBACK ==========
     logger.info(f"[TIER 3] Gemini fallback triggered (no context available)")
     return await _generate_gemini_fallback(query, history)
 
 
-async def _generate_rag_answer(chunks, query, history, feedback_context, strict_mode, user_id, subject, source_mode="document"):
+async def _generate_rag_answer(
+    chunks,
+    query,
+    history,
+    feedback_context,
+    strict_mode,
+    user_id,
+    subject,
+    source_mode="document",
+    chat_id=None
+):
     """Generate answer using RAG with validation"""
     
     # Build context from chunks
@@ -112,7 +143,8 @@ Provide a helpful, educational answer based on the materials above:"""
                     answer=response_text,
                     retrieved_chunks=chunks,
                     user_id=user_id,
-                    subject=subject or "general"
+                    subject=subject or "general",
+                    chat_id=chat_id
                 )
         except Exception as e:
             logger.error(f"Validation failed: {e}")
