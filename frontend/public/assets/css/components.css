@@ -4,26 +4,27 @@
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 80px);
-  padding: 4rem 1rem;
+  padding: calc(var(--space-6) * 2) var(--space-4);
 }
 
 .dashboard-card {
-  background: rgba(26, 31, 58, 0.95);
-  border: 1px solid var(--border-color);
-  border-radius: 28px;
-  padding: 3rem 2.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  padding: calc(var(--space-6) * 1) var(--space-6);
   width: 100%;
   max-width: 1000px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-1);
   backdrop-filter: blur(10px);
 }
 
 .dashboard-title {
-  font-size: 2.5rem;
+  font-family: var(--font-heading);
+  font-size: 2.25rem;
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: calc(var(--space-6) * 1);
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, rgba(64, 214, 214, 0.65) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -33,83 +34,86 @@
 .subjects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .subject-card {
-  background: rgba(10, 14, 39, 0.6);
-  border: 1px solid rgba(0, 255, 204, 0.2);
-  border-radius: 20px;
-  padding: 2rem 1.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-3);
+  padding: var(--space-6) var(--space-5);
   text-align: center;
-  transition: all 0.3s ease;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
   cursor: pointer;
 }
 
 .subject-card:hover {
-  transform: translateY(-8px);
-  border-color: var(--accent);
-  box-shadow: 0 12px 32px rgba(0, 255, 204, 0.2);
-  background: rgba(10, 14, 39, 0.8);
+  transform: translateY(-3px);
+  border-color: rgba(64, 214, 214, 0.35);
+  box-shadow: var(--shadow-1);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .subject-icon {
   font-size: 3rem;
-  margin-bottom: 1rem;
-  filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.3));
+  margin-bottom: var(--space-3);
+  filter: drop-shadow(0 10px 22px rgba(64, 214, 214, 0.14));
 }
 
 .subject-card h3 {
-  margin: 1rem 0 1.5rem;
-  color: var(--text-primary);
+  margin: var(--space-3) 0 var(--space-4);
+  color: var(--color-text);
   font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
 
 .subject-btn {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
-  color: var(--bg-primary);
+  background: linear-gradient(135deg, rgba(64, 214, 214, 0.22), rgba(64, 214, 214, 0.10));
+  border: 1px solid rgba(64, 214, 214, 0.35);
+  color: var(--color-text);
   border: none;
-  padding: 0.7rem 1.5rem;
-  border-radius: 20px;
+  padding: 10px 14px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
   font-size: 0.9rem;
 }
 
 .subject-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(0, 255, 204, 0.4);
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(64, 214, 214, 0.26), rgba(64, 214, 214, 0.14));
+  border-color: rgba(64, 214, 214, 0.5);
 }
 
 /* ===== UPLOAD ZONE ===== */
 .upload-zone {
-  margin: 2.5rem 0;
-  border: 2px dashed rgba(0, 255, 204, 0.4);
-  border-radius: 20px;
-  padding: 3rem 2rem;
+  margin: var(--space-6) 0;
+  border: 1px dashed rgba(64, 214, 214, 0.45);
+  border-radius: var(--radius-3);
+  padding: calc(var(--space-6) * 1) var(--space-6);
   text-align: center;
   cursor: pointer;
-  color: var(--text-secondary);
-  transition: all 0.3s ease;
-  background: rgba(10, 14, 39, 0.3);
+  color: var(--color-muted);
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .upload-zone:hover {
-  border-color: var(--accent);
-  background: rgba(10, 14, 39, 0.5);
-  color: var(--accent);
+  border-color: rgba(64, 214, 214, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+  transform: translateY(-1px);
 }
 
 .upload-zone::before {
   content: '📁';
   display: block;
   font-size: 3rem;
-  margin-bottom: 1rem;
-  filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.3));
+  margin-bottom: var(--space-3);
+  filter: drop-shadow(0 10px 22px rgba(64, 214, 214, 0.14));
 }
 
 /* ===== DASHBOARD ACTIONS ===== */
@@ -125,52 +129,53 @@
 .primary-btn,
 .secondary-btn,
 .danger-btn {
-  padding: 0.9rem 2rem;
-  border-radius: 25px;
+  padding: 12px 18px;
+  border-radius: var(--radius-pill);
   border: none;
   cursor: pointer;
   font-weight: 600;
   font-size: 0.95rem;
-  transition: all 0.3s ease;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-glow) 100%);
-  color: var(--bg-primary);
-  box-shadow: 0 4px 16px rgba(0, 255, 204, 0.3);
+  background: linear-gradient(135deg, rgba(64, 214, 214, 0.22), rgba(64, 214, 214, 0.10));
+  border: 1px solid rgba(64, 214, 214, 0.35);
+  color: var(--color-text);
+  box-shadow: var(--shadow-1);
 }
 
 .primary-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0, 255, 204, 0.4);
+  transform: translateY(-1px);
+  border-color: rgba(64, 214, 214, 0.5);
 }
 
 .secondary-btn {
   background: transparent;
-  border: 2px solid var(--accent);
-  color: var(--accent);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .secondary-btn:hover {
-  background: rgba(0, 255, 204, 0.1);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
 }
 
 .danger-btn {
   background: transparent;
-  border: 2px solid var(--danger);
-  color: var(--danger);
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .danger-btn:hover {
-  background: rgba(255, 68, 68, 0.1);
-  transform: translateY(-2px);
+  background: rgba(255, 107, 107, 0.10);
+  transform: translateY(-1px);
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .dashboard-card {
-    padding: 2rem 1.5rem;
+    padding: var(--space-6) var(--space-5);
   }
   
   .dashboard-title {
@@ -179,7 +184,7 @@
   
   .subjects-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
+    gap: var(--space-4);
   }
   
   .dashboard-actions {

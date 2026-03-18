@@ -3,13 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <title>RAG AI Tutor - Debug Test</title>
+  <link rel="stylesheet" href="assets/css/ai-study-console.css?v=1">
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #0a0e27; color: white; }
-    .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
-    .success { background: #1a5f1a; }
-    .error { background: #5f1a1a; }
-    .info { background: #1a1a5f; }
-    button { padding: 10px 20px; margin: 5px; background: #00f5ff; color: black; border: none; border-radius: 5px; cursor: pointer; }
+    body {
+      font-family: var(--font-body);
+      padding: var(--space-5);
+      background: var(--color-bg);
+      color: var(--color-text);
+      overflow: auto;
+    }
+    .test-result {
+      margin: var(--space-2) 0;
+      padding: var(--space-3);
+      border-radius: var(--radius-1);
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+    }
+    .success { border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.10); }
+    .error { border-color: rgba(255, 107, 107, 0.35); background: rgba(255, 107, 107, 0.10); }
+    .info { border-color: rgba(64, 214, 214, 0.25); background: rgba(64, 214, 214, 0.08); }
+    button {
+      padding: 10px 14px;
+      margin: 5px;
+      background: linear-gradient(135deg, rgba(64, 214, 214, 0.18), rgba(64, 214, 214, 0.10));
+      color: var(--color-text);
+      border: 1px solid rgba(64, 214, 214, 0.35);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      font: inherit;
+      transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+    button:hover { background: rgba(255,255,255,0.07); border-color: var(--color-border-strong); }
+    button:active { transform: translateY(1px); }
   </style>
 </head>
 <body>

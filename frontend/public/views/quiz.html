@@ -5,7 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz - RAG AI Tutor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/ai-study-console.css?v=1">
     <style>
+        :root{
+            --q-bg: var(--color-bg);
+            --q-surface: rgba(255, 255, 255, 0.06);
+            --q-surface-2: rgba(255, 255, 255, 0.08);
+            --q-border: rgba(64, 214, 214, 0.18);
+            --q-border-strong: rgba(64, 214, 214, 0.32);
+            --q-text: rgba(255, 255, 255, 0.92);
+            --q-muted: rgba(255, 255, 255, 0.64);
+            --q-accent: var(--color-primary);
+            --q-warning: var(--color-warning);
+            --q-success: var(--color-success);
+            --q-danger: var(--color-danger);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -13,43 +30,46 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: #fff;
+            font-family: var(--font-body);
+            background: var(--q-bg);
+            color: var(--q-text);
             min-height: 100vh;
         }
 
         .navbar {
-            background: rgba(30, 35, 62, 0.95);
-            padding: 1rem 2rem;
+            background: rgba(7, 10, 26, 0.72);
+            padding: var(--space-4) var(--space-6);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+            border-bottom: 1px solid var(--q-border);
+            backdrop-filter: blur(12px);
         }
 
         .brand {
-            font-size: 1.5rem;
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
             font-weight: 700;
-            color: #00ffcc;
+            color: var(--q-accent);
         }
 
         .nav-button {
             background: none;
-            border: 1px solid #00ffcc;
-            color: #00ffcc;
-            padding: 0.5rem 1.5rem;
-            border-radius: 20px;
+            border: 1px solid var(--q-border-strong);
+            color: var(--q-text);
+            padding: 10px 14px;
+            border-radius: var(--radius-pill);
             cursor: pointer;
             font-size: 0.9rem;
-            transition: all 0.3s;
+            transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
             text-decoration: none;
             display: inline-block;
         }
 
         .nav-button:hover {
-            background: #00ffcc;
-            color: #0f0c29;
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(64, 214, 214, 0.45);
+            transform: translateY(-1px);
         }
 
         .container {
@@ -66,7 +86,7 @@
         .quiz-header h1 {
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #00ffcc, #8b2bda);
+            background: linear-gradient(135deg, var(--q-accent), rgba(251, 191, 36, 0.55));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -81,18 +101,18 @@
         }
 
         .level-beginner {
-            background: rgba(255, 193, 7, 0.2);
-            color: #ffc107;
+            background: rgba(251, 191, 36, 0.16);
+            color: rgba(255, 235, 180, 0.92);
         }
 
         .level-intermediate {
-            background: rgba(33, 150, 243, 0.2);
-            color: #2196f3;
+            background: rgba(64, 214, 214, 0.14);
+            color: rgba(255, 255, 255, 0.88);
         }
 
         .level-advanced {
-            background: rgba(76, 175, 80, 0.2);
-            color: #4caf50;
+            background: rgba(52, 211, 153, 0.14);
+            color: rgba(197, 255, 233, 0.92);
         }
 
         .loading {
@@ -103,7 +123,7 @@
 
         .loader {
             border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top: 4px solid #00ffcc;
+            border-top: 4px solid var(--q-accent);
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -130,7 +150,7 @@
         }
 
         .progress-fill {
-            background: linear-gradient(90deg, #00ffcc, #8b2bda);
+            background: linear-gradient(90deg, var(--q-accent), rgba(251, 191, 36, 0.45));
             height: 100%;
             transition: width 0.3s ease;
         }
@@ -138,17 +158,18 @@
         .progress-text {
             text-align: center;
             margin-bottom: 1rem;
-            color: #00ffcc;
+            color: var(--q-accent);
             font-weight: 600;
         }
 
         .question-card {
-            background: rgba(30, 35, 62, 0.8);
+            background: var(--q-surface);
             border-radius: 20px;
             padding: 2.5rem;
             margin-bottom: 2rem;
-            border: 1px solid rgba(0, 255, 204, 0.2);
+            border: 1px solid var(--q-border);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
         }
 
         .question-text {
@@ -178,19 +199,19 @@
         }
 
         .option:hover {
-            background: rgba(0, 255, 204, 0.1);
-            border-color: rgba(0, 255, 204, 0.3);
+            background: rgba(64, 214, 214, 0.10);
+            border-color: rgba(64, 214, 214, 0.25);
             transform: translateX(5px);
         }
 
         .option.selected {
-            background: rgba(0, 255, 204, 0.2);
-            border-color: #00ffcc;
+            background: rgba(64, 214, 214, 0.16);
+            border-color: rgba(64, 214, 214, 0.45);
         }
 
         .option-letter {
-            background: rgba(0, 255, 204, 0.2);
-            color: #00ffcc;
+            background: rgba(64, 214, 214, 0.16);
+            color: rgba(255, 255, 255, 0.88);
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -202,8 +223,8 @@
         }
 
         .option.selected .option-letter {
-            background: #00ffcc;
-            color: #0f0c29;
+            background: rgba(64, 214, 214, 0.95);
+            color: #07101a;
         }
 
         .quiz-actions {
@@ -223,13 +244,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #00ffcc, #00d4aa);
-            color: #0f0c29;
+            background: linear-gradient(135deg, rgba(64, 214, 214, 0.22), rgba(64, 214, 214, 0.10));
+            border: 1px solid rgba(64, 214, 214, 0.35);
+            color: var(--q-text);
         }
 
         .btn-primary:hover {
             transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(0, 255, 204, 0.4);
+            box-shadow: 0 5px 20px rgba(64, 214, 214, 0.22);
         }
 
         .btn-secondary {
@@ -264,13 +286,13 @@
             justify-content: center;
             font-size: 3rem;
             font-weight: 700;
-            background: linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(139, 43, 218, 0.2));
-            border: 3px solid #00ffcc;
+            background: linear-gradient(135deg, rgba(64, 214, 214, 0.14), rgba(251, 191, 36, 0.08));
+            border: 2px solid rgba(64, 214, 214, 0.35);
         }
 
         .percentage {
             font-size: 1.2rem;
-            color: #00ffcc;
+            color: var(--q-accent);
             margin-top: 0.5rem;
         }
 
@@ -279,10 +301,10 @@
             line-height: 1.8;
             margin: 2rem auto;
             max-width: 600px;
-            background: rgba(0, 255, 204, 0.1);
+            background: rgba(64, 214, 214, 0.10);
             padding: 1.5rem;
             border-radius: 15px;
-            border-left: 4px solid #00ffcc;
+            border-left: 3px solid var(--q-accent);
         }
 
         .weak-topics {
@@ -290,7 +312,7 @@
         }
 
         .weak-topics h3 {
-            color: #00ffcc;
+            color: var(--q-accent);
             margin-bottom: 1rem;
         }
 
@@ -416,7 +438,7 @@
             } catch (error) {
                 document.getElementById('quizContent').innerHTML = `
                     <div class="question-card" style="text-align: center;">
-                        <h2 style="color: #ff6b6b; margin-bottom: 1rem;">❌ Error Loading Quiz</h2>
+                        <h2 style="color: var(--q-danger); margin-bottom: 1rem;">❌ Error Loading Quiz</h2>
                         <p>${error.message}</p>
                         <p style="margin-top: 1rem; color: #888;">Make sure you have uploaded documents first.</p>
                         <button class="btn btn-primary" onclick="window.location.href='/views/subjects.html'" style="margin-top: 2rem;">
@@ -431,7 +453,7 @@
             if (!quizData || !quizData.questions || quizData.questions.length === 0) {
                 document.getElementById('quizContent').innerHTML = `
                     <div class="question-card" style="text-align: center;">
-                        <h2 style="color: #ff6b6b; margin-bottom: 1rem;">❌ No Questions Available</h2>
+                        <h2 style="color: var(--q-danger); margin-bottom: 1rem;">❌ No Questions Available</h2>
                         <p>The system could not generate questions from the current content.</p>
                         <button class="btn btn-primary" onclick="window.location.href='/views/subjects.html'" style="margin-top: 2rem;">
                             Return to Dashboard
@@ -592,7 +614,7 @@
 
                     <!-- QUIZ FEEDBACK -->
                     <div class="quiz-feedback-section" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                        <h3 style="text-align: center; margin-bottom: 1.5rem; color: #00ffcc;">📊 How was this quiz?</h3>
+                        <h3 style="text-align: center; margin-bottom: 1.5rem; color: var(--q-accent);">📊 How was this quiz?</h3>
                         <div id="quizFeedbackContainer" style="max-width: 500px; margin: 0 auto;">
                             <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
                                 ${[1, 2, 3, 4, 5].map(star => `
@@ -607,7 +629,7 @@
                                       style="width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); 
                                              padding: 1rem; border-radius: 12px; color: #fff; min-height: 100px; margin-bottom: 1rem; resize: vertical;"></textarea>
                             <button id="submitQuizFeedbackBtn" onclick="submitQuizFeedback()" disabled
-                                    style="width: 100%; background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; 
+                                    style="width: 100%; background: linear-gradient(135deg, rgba(64, 214, 214, 0.22), rgba(64, 214, 214, 0.10)); color: var(--q-text); border: 1px solid rgba(64, 214, 214, 0.35);
                                            padding: 1rem; border-radius: 12px; border: none; font-weight: 600; cursor: not-allowed; opacity: 0.5; transition: all 0.3s;">
                                 Submit Feedback
                             </button>
@@ -675,8 +697,8 @@
             const stars = document.querySelectorAll('.star-btn');
             stars.forEach((star, index) => {
                 if (index < rating) {
-                    star.style.background = 'linear-gradient(135deg, #00ffcc, #00d4aa)';
-                    star.style.borderColor = '#00ffcc';
+                    star.style.background = 'linear-gradient(135deg, rgba(64, 214, 214, 0.22), rgba(64, 214, 214, 0.10))';
+                    star.style.borderColor = 'rgba(64, 214, 214, 0.45)';
                     star.style.transform = 'scale(1.1)';
                 } else {
                     star.style.background = 'rgba(255, 255, 255, 0.05)';
@@ -720,7 +742,7 @@
 
                 // Replace feedback UI with thank you message
                 document.getElementById('quizFeedbackContainer').innerHTML = `
-                    <div style="text-align: center; color: #00ffcc; font-size: 1.1rem;">
+                    <div style="text-align: center; color: var(--q-accent); font-size: 1.1rem;">
                         ✓ Thank you for your feedback!
                     </div>
                 `;

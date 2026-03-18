@@ -482,7 +482,10 @@ async def get_session(
             "content": msg["content"],
             "timestamp": msg["timestamp"].isoformat(),
             "citations": msg.get("citations", []),
-            "chunks": msg.get("chunks", [])
+            "chunks": msg.get("chunks", []),
+            # Include persisted validation so frontend can attach evaluation cards
+            "validation_result": msg.get("validation_result"),
+            "source_mode": msg.get("source_mode")
         })
     
     return ChatSessionDetail(

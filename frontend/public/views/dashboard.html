@@ -4,31 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard — RAG AI Tutor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/ai-study-console.css?v=1">
     <script src="/assets/js/config.js?v=7"></script>
     <script src="/assets/js/auth.js?v=7"></script>
     <style>
         :root {
-            --bg-primary:   #0a0e27;
-            --bg-secondary: #151932;
-            --bg-card:      #1a1f3a;
-            --bg-card2:     #0d112d;
-            --accent:       #00ffcc;
-            --accent-glow:  #00d4ff;
-            --text-primary: #ffffff;
-            --text-muted:   #b8c5d6;
-            --danger:       #ff4444;
-            --warning:      #f59e0b;
-            --success:      #00ffcc;
-            --border:       rgba(0, 255, 204, 0.2);
-            --border-dim:   rgba(0, 255, 204, 0.08);
+            /* Map dashboard theme to AI Study Console tokens */
+            --bg-primary:   var(--color-bg);
+            --bg-secondary: #050713;
+            --bg-card:      rgba(255, 255, 255, 0.05);
+            --bg-card2:     rgba(255, 255, 255, 0.04);
+            --accent:       var(--color-primary);
+            --accent-glow:  rgba(64, 214, 214, 0.75);
+            --text-primary: var(--color-text);
+            --text-muted:   var(--color-muted);
+            --danger:       var(--color-danger);
+            --warning:      var(--color-warning);
+            --success:      var(--color-success);
+            --border:       var(--color-border);
+            --border-dim:   rgba(255, 255, 255, 0.10);
             --radius:       14px;
-            --shadow:       0 4px 24px rgba(0,0,0,0.5);
+            --shadow:       var(--shadow-1);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            font-family: var(--font-body);
+            background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
             display: flex;
@@ -38,7 +42,7 @@
         .sidebar {
             width: 240px;
             min-height: 100vh;
-            background: rgba(13, 17, 45, 0.95);
+            background: rgba(7, 10, 26, 0.70);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -75,8 +79,8 @@
             margin-bottom: 2px;
             border: 1px solid transparent;
         }
-        .nav-item:hover { background: rgba(0,255,204,0.08); color: var(--accent); border-color: var(--border-dim); }
-        .nav-item.active { background: rgba(0,255,204,0.12); color: var(--accent); border-color: var(--border); box-shadow: 0 0 12px rgba(0,255,204,0.1); }
+        .nav-item:hover { background: rgba(64,214,214,0.10); color: var(--accent); border-color: rgba(255,255,255,0.10); }
+        .nav-item.active { background: rgba(64,214,214,0.14); color: var(--accent); border-color: rgba(64,214,214,0.25); box-shadow: 0 0 14px rgba(64,214,214,0.14); }
         .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
         .sidebar-footer { margin-top: auto; padding: 16px 20px; }
         .user-info {
@@ -148,7 +152,7 @@
         }
         .card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
         .card-badge {
-            font-size: 11px; background: rgba(0,255,204,0.12); color: var(--accent);
+            font-size: 11px; background: rgba(64,214,214,0.14); color: var(--accent);
             padding: 3px 10px; border-radius: 20px; font-weight: 600;
             border: 1px solid var(--border);
         }
@@ -159,10 +163,10 @@
         .bar-container { flex: 1; display: flex; align-items: flex-end; width: 100%; }
         .bar {
             width: 100%; border-radius: 4px 4px 0 0;
-            background: linear-gradient(180deg, rgba(0,255,204,0.7), rgba(0,255,204,0.15));
+            background: linear-gradient(180deg, rgba(64,214,214,0.55), rgba(64,214,214,0.12));
             min-height: 4px; transition: height 0.5s ease;
         }
-        .bar.today { background: linear-gradient(180deg, var(--accent), rgba(0,212,255,0.3)); box-shadow: 0 0 8px rgba(0,255,204,0.4); }
+        .bar.today { background: linear-gradient(180deg, var(--accent), rgba(64,214,214,0.22)); box-shadow: 0 0 10px rgba(64,214,214,0.22); }
         .bar-day { font-size: 10px; color: var(--text-muted); }
 
         /* ── Mastery Bars ── */
@@ -170,7 +174,7 @@
         .mastery-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
         .mastery-topic { font-size: 13px; font-weight: 500; }
         .mastery-pct { font-size: 13px; font-weight: 700; }
-        .mastery-bar-bg { height: 7px; background: rgba(0,255,204,0.08); border-radius: 4px; overflow: hidden; }
+        .mastery-bar-bg { height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
         .mastery-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
 
         /* ── Activity Feed ── */
@@ -185,7 +189,7 @@
             font-size: 15px; flex-shrink: 0;
         }
         .activity-icon.chat { background: rgba(0,212,255,0.12); }
-        .activity-icon.quiz { background: rgba(0,255,204,0.12); }
+        .activity-icon.quiz { background: rgba(64,214,214,0.14); }
         .activity-icon.doc  { background: rgba(245,158,11,0.12); }
         .activity-text .title { font-size: 13px; font-weight: 500; }
         .activity-text .sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
@@ -200,7 +204,7 @@
         .quality-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
         .quality-name { font-size: 13px; font-weight: 500; flex: 1; }
         .quality-val { font-size: 14px; font-weight: 700; }
-        .quality-bar-bg { flex: 2; height: 5px; background: rgba(0,255,204,0.08); border-radius: 3px; overflow: hidden; }
+        .quality-bar-bg { flex: 2; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
         .quality-bar-fill { height: 100%; border-radius: 3px; transition: width 0.7s ease; }
 
         /* ── Recommendations ── */
@@ -211,7 +215,7 @@
             border: 1px solid var(--border-dim);
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        .rec-item:hover { border-color: var(--border); box-shadow: 0 0 16px rgba(0,255,204,0.08); }
+        .rec-item:hover { border-color: var(--border); box-shadow: 0 0 16px rgba(64,214,214,0.12); }
         .rec-item:last-child { margin-bottom: 0; }
         .rec-icon { font-size: 22px; flex-shrink: 0; }
         .rec-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
@@ -244,7 +248,7 @@
 
         /* ── Loading skeleton ── */
         .skeleton {
-            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(0,255,204,0.04) 50%, var(--bg-card) 75%);
+            background: linear-gradient(90deg, var(--bg-card) 25%, rgba(64,214,214,0.06) 50%, var(--bg-card) 75%);
             background-size: 200% 100%;
             animation: shimmer 1.4s infinite;
             border-radius: 6px;
@@ -259,8 +263,8 @@
         /* ── Scrollbar ── */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.2); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,204,0.4); }
+        ::-webkit-scrollbar-thumb { background: rgba(64,214,214,0.22); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(64,214,214,0.34); }
 
         /* ── Day Mode Selector ── */
         .day-mode-row {
@@ -279,9 +283,9 @@
             opacity: 0; transition: opacity 0.3s ease;
         }
         .day-mode-card.exam::before   { background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(245,158,11,0.06)); }
-        .day-mode-card.casual::before { background: linear-gradient(135deg, rgba(0,212,255,0.12), rgba(0,255,204,0.06)); }
-        .day-mode-card.productive::before { background: linear-gradient(135deg, rgba(0,255,204,0.12), rgba(0,212,255,0.06)); }
-        .day-mode-card.active { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,255,204,0.15); transform: translateY(-2px); }
+        .day-mode-card.casual::before { background: linear-gradient(135deg, rgba(64,214,214,0.12), rgba(255,255,255,0.05)); }
+        .day-mode-card.productive::before { background: linear-gradient(135deg, rgba(64,214,214,0.12), rgba(255,255,255,0.05)); }
+        .day-mode-card.active { border-color: var(--accent); box-shadow: 0 0 20px rgba(64,214,214,0.16); transform: translateY(-2px); }
         .day-mode-card.active::before { opacity: 1; }
         .day-mode-card:hover:not(.active) { border-color: var(--border); transform: translateY(-1px); }
         .day-mode-emoji { font-size: 26px; margin-bottom: 6px; }
@@ -295,7 +299,7 @@
 
         /* ── Motivational Quote ── */
         .quote-banner {
-            background: linear-gradient(135deg, rgba(0,255,204,0.06), rgba(0,212,255,0.04));
+            background: linear-gradient(135deg, rgba(64,214,214,0.08), rgba(255,255,255,0.05));
             border: 1px solid var(--border-dim);
             border-left: 3px solid var(--accent);
             border-radius: 12px;
@@ -331,10 +335,10 @@
             cursor: pointer;
         }
         .habit-card:hover { border-color: var(--border); transform: translateY(-2px); }
-        .habit-card.done { border-color: var(--accent); background: rgba(0,255,204,0.05); }
+        .habit-card.done { border-color: var(--accent); background: rgba(64,214,214,0.08); }
         .habit-ring-wrap { position: relative; width: 64px; height: 64px; margin: 0 auto 10px; }
         .habit-ring-wrap svg { transform: rotate(-90deg); }
-        .habit-ring-bg { fill: none; stroke: rgba(0,255,204,0.08); stroke-width: 5; }
+        .habit-ring-bg { fill: none; stroke: rgba(255,255,255,0.10); stroke-width: 5; }
         .habit-ring-fill { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
         .habit-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 20px; }
         .habit-label { font-size: 12px; font-weight: 600; }
@@ -447,7 +451,7 @@
                 <svg width="64" height="64" viewBox="0 0 64 64">
                     <circle class="habit-ring-bg" cx="32" cy="32" r="27"/>
                     <circle class="habit-ring-fill" id="ring-study" cx="32" cy="32" r="27"
-                        stroke="#00ffcc"
+                        stroke="#40d6d6"
                         stroke-dasharray="169.6" stroke-dashoffset="169.6"/>
                 </svg>
                 <div class="habit-emoji">📖</div>
@@ -714,7 +718,7 @@
     const DAY_MODE_MESSAGES = {
         exam:       { greeting: `📚 Exam Prep Mode activated, ${name}! Let's crush it.`, color: '#ff4444' },
         casual:     { greeting: `🌅 Casual Day — take it easy and explore, ${name}!`,    color: '#00d4ff' },
-        productive: { greeting: `🚀 Productive Mode on! Let's build something great, ${name}!`, color: '#00ffcc' },
+        productive: { greeting: `🚀 Productive Mode on! Let's build something great, ${name}!`, color: '#40d6d6' },
     };
 
     function setDayMode(mode) {
@@ -955,7 +959,7 @@
             docsEl.innerHTML = `
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
                     ${data.recent_documents.map(d => `
-                        <div style="background:var(--bg-card2);border-radius:10px;padding:12px 14px;border:1px solid var(--border-dim);transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(0,255,204,0.3)'" onmouseout="this.style.borderColor='rgba(0,255,204,0.08)'">
+                        <div style="background:var(--bg-card2);border-radius:10px;padding:12px 14px;border:1px solid var(--border-dim);transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(64,214,214,0.35)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.10)'">
                             <div style="font-size:20px;margin-bottom:6px;">📄</div>
                             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary)">${d.filename}</div>
                             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${d.chunks_count} chunks · ${d.subject}</div>
@@ -986,7 +990,7 @@
         ];
 
         el.innerHTML = `
-            <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(0,255,204,0.05);border-radius:10px;margin-bottom:14px;border:1px solid var(--border-dim);">
+            <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(64,214,214,0.08);border-radius:10px;margin-bottom:14px;border:1px solid var(--border-dim);">
                 <div style="text-align:center;">
                     <div style="font-size:26px;font-weight:700;color:var(--accent)">${verifiedPct}%</div>
                     <div style="font-size:11px;color:var(--text-muted)">Verified Answers</div>
