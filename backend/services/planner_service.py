@@ -1,0 +1,353 @@
+import uuid
+from datetime import date, datetime
+from typing import Optional, Any, List, Dict
+
+def _make_id():
+    return str(uuid.uuid4())
+
+# ─── Day Templates ────────────────────────────────────────────────────────────
+
+TEMPLATE_SCHEDULES: dict[str, list[dict]] = {
+    "wellness": [
+        {"title": "Morning Meditation","category": "mind",   "start": "06:30", "end": "07:00"},
+        {"title": "Yoga / Stretching","category": "workout", "start": "07:00", "end": "08:00"},
+        {"title": "Healthy Breakfast","category": "food",    "start": "08:00", "end": "08:30"},
+        {"title": "Nature Walk",      "category": "workout", "start": "09:00", "end": "10:00"},
+        {"title": "Journaling",       "category": "mind",    "start": "10:30", "end": "11:00"},
+        {"title": "Nutritious Lunch", "category": "food",    "start": "13:00", "end": "14:00"},
+        {"title": "Nap / Rest",       "category": "mind",    "start": "14:30", "end": "15:30"},
+        {"title": "Evening Workout",  "category": "workout", "start": "17:00", "end": "18:00"},
+        {"title": "Light Dinner",     "category": "food",    "start": "19:00", "end": "19:30"},
+        {"title": "Reading",          "category": "mind",    "start": "20:00", "end": "21:00"},
+    ],
+    # User Requested Templates
+    "study_day": [
+        {"title": "Review Goals",      "category": "mind",    "start": "08:00", "end": "08:30"},
+        {"title": "Intensive Study 1", "category": "study",   "start": "09:00", "end": "12:00"},
+        {"title": "Nutritious Lunch",  "category": "food",    "start": "12:00", "end": "13:00"},
+        {"title": "Intensive Study 2", "category": "study",   "start": "13:30", "end": "16:30"},
+        {"title": "Active Break",      "category": "workout", "start": "17:00", "end": "18:00"},
+        {"title": "Evening Review",    "category": "study",   "start": "20:00", "end": "21:30"},
+    ],
+    "productive_day": [
+        {"title": "High Priority Work","category": "study",   "start": "08:30", "end": "11:30"},
+        {"title": "Quick Workout",     "category": "workout", "start": "12:00", "end": "12:45"},
+        {"title": "Power Lunch",       "category": "food",    "start": "13:00", "end": "13:45"},
+        {"title": "Secondary Tasks",   "category": "study",   "start": "14:00", "end": "16:30"},
+        {"title": "Admin & Planning",  "category": "study",   "start": "17:00", "end": "18:00"},
+        {"title": "Mindful Reading",   "category": "mind",    "start": "20:00", "end": "21:00"},
+    ],
+    "casual_wellness_day": [
+        {"title": "Leisurely Morning", "category": "mind",    "start": "09:00", "end": "10:30"},
+        {"title": "Healthy Brunch",    "category": "food",    "start": "11:00", "end": "12:00"},
+        {"title": "Yoga or Walk",      "category": "workout", "start": "13:00", "end": "14:30"},
+        {"title": "Creative Hobby",    "category": "mind",    "start": "15:00", "end": "17:00"},
+        {"title": "Light Reflection",  "category": "mind",    "start": "19:00", "end": "20:00"},
+        {"title": "Sleep Prep",        "category": "mind",    "start": "21:30", "end": "22:00"},
+    ],
+}
+
+# ─── Planner Day ──────────────────────────────────────────────────────────────
+
+async def get_or_create_planner_day(
+    db,
+    user_id: str,
+    target_date: str,
+    template: str = "study",
+    notes: Optional[str] = None,
+    auto_fill: bool = True,
+) -> dict:
+    """
+    Fetch an existing planner day or create one from the template.
+    Uses ISO strings (YYYY-MM-DD) for target_date.
+    """
+    day = await db.planner_days.find_one({
+        "user_id": user_id,
+        "date": target_date,
+    })
+
+    if day:
+        return day
+
+    day_id = _make_id()
+    day = {
+        "id": day_id,
+        "user_id": user_id,
+        "date": target_date,
+        "template": template,
+        "notes": notes,
+        "created_at": datetime.utcnow()
+    }
+    await db.planner_days.insert_one(day)
+
+    if auto_fill:
+        slots = TEMPLATE_SCHEDULES.get(template, [])
+        tasks = []
+        for i, slot in enumerate(slots):
+            tasks.append({
+                "id": _make_id(),
+                "planner_day_id": day_id,
+                "title": slot["title"],
+                "category": slot["category"],
+                "start_time": slot["start"],
+                "end_time": slot["end"],
+                "is_completed": False,
+                "order_index": i,
+                "created_at": datetime.utcnow()
+            })
+        if tasks:
+            await db.planner_tasks.insert_many(tasks)
+
+    return day
+
+async def add_task(
+    db,
+    planner_day_id: str,
+    title: str,
+    category: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    reminder_at: Optional[datetime] = None,
+    notes: Optional[str] = None,
+) -> dict:
+    task_id = _make_id()
+    doc = {
+        "id": task_id,
+        "planner_day_id": planner_day_id,
+        "title": title,
+        "category": category,
+        "start_time": start_time,
+        "end_time": end_time,
+        "reminder_at": reminder_at,
+        "is_completed": False,
+        "order_index": 999, # push to end by default
+        "notes": notes,
+        "created_at": datetime.utcnow()
+    }
+    await db.planner_tasks.insert_one(doc)
+    return doc
+
+async def toggle_task_complete(
+    db, task_id: str
+) -> dict:
+    task = await db.planner_tasks.find_one({"id": task_id})
+    if not task:
+        raise ValueError("Task not found.")
+    
+    new_status = not task.get("is_completed", False)
+    await db.planner_tasks.update_one(
+        {"id": task_id},
+        {"$set": {"is_completed": new_status}}
+    )
+    task["is_completed"] = new_status
+    return task
+
+async def get_day_with_tasks(
+    db, user_id: str, target_date: str
+) -> Optional[dict]:
+    day = await db.planner_days.find_one({
+        "user_id": user_id,
+        "date": target_date,
+    })
+    
+    if day:
+        cursor = db.planner_tasks.find({"planner_day_id": day["id"]}).sort("order_index", 1)
+        day["tasks"] = await cursor.to_list(None)
+    
+    return day
+
+# ─── Activity Logging ─────────────────────────────────────────────────────────
+
+async def log_activity(
+    db,
+    user_id: str,
+    category: str,
+    data: dict,
+    log_date: Optional[str] = None,
+) -> dict:
+    log_id = _make_id()
+    doc = {
+        "id": log_id,
+        "user_id": user_id,
+        "date": log_date or str(date.today()),
+        "category": category,
+        "data": data,
+        "logged_at": datetime.utcnow()
+    }
+    await db.activity_logs.insert_one(doc)
+    return doc
+
+async def get_activity_logs(
+    db,
+    user_id: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
+) -> list:
+    query: dict[str, Any] = {"user_id": user_id}
+    if start_date or end_date:
+        query["date"] = {}
+        if start_date: query["date"]["$gte"] = start_date
+        if end_date: query["date"]["$lte"] = end_date
+    if category:
+        query["category"] = category
+
+    cursor = db.activity_logs.find(query).sort([("date", -1), ("logged_at", -1)])
+    return await cursor.to_list(None)
+
+async def get_daily_summary(db, user_id: str, target_date: str) -> dict:
+    """Aggregate activity data for a single day."""
+    cursor = db.activity_logs.find({
+        "user_id": user_id,
+        "date": target_date,
+    })
+    logs = await cursor.to_list(None)
+
+    summary: dict[str, Any] = {
+        "date": target_date,
+        "workout": {"sessions": [], "total_duration_min": 0, "total_calories_burned": 0},
+        "food":    {"meals": [], "total_calories": 0},
+        "study":   {"topics": [], "total_duration_min": 0},
+        "mind":    {"activities": [], "total_duration_min": 0},
+    }
+
+    for log in logs:
+        d = log.get("data") or {}
+        cat = log.get("category")
+
+        if cat == "workout":
+            summary["workout"]["sessions"].append(d)
+            summary["workout"]["total_duration_min"] += int(d.get("duration_min", 0))
+            summary["workout"]["total_calories_burned"] += int(d.get("calories_burned", 0))
+
+        elif cat == "food":
+            summary["food"]["meals"].append(d)
+            summary["food"]["total_calories"] += int(d.get("total_calories", 0))
+
+        elif cat == "study":
+            summary["study"]["topics"].extend(d.get("topics", []))
+            summary["study"]["total_duration_min"] += int(d.get("duration_min", 0))
+
+        elif cat == "mind":
+            summary["mind"]["activities"].append(d.get("activity", ""))
+            summary["mind"]["total_duration_min"] += int(d.get("duration_min", 0))
+
+    return summary
+
+# ─── Reminders ───────────────────────────────────────────────────────────────
+
+async def add_reminder(db, user_id: str, log_date: str, time_str: str, message: str) -> dict:
+    reminder_id = _make_id()
+    doc = {
+        "id": reminder_id,
+        "reminder_id": reminder_id, # for frontend compat
+        "user_id": user_id,
+        "date": log_date,
+        "time": time_str,
+        "message": message,
+        "is_active": True,
+        "created_at": datetime.utcnow()
+    }
+    await db.planner_reminders.insert_one(doc)
+    return doc
+
+async def get_reminders(db, user_id: str, log_date: str) -> list:
+    cursor = db.planner_reminders.find({"user_id": user_id, "date": log_date, "is_active": True})
+    return await cursor.to_list(None)
+
+async def delete_reminder(db, reminder_id: str) -> bool:
+    res = await db.planner_reminders.update_one(
+        {"id": reminder_id},
+        {"$set": {"is_active": False}}
+    )
+    return res.modified_count > 0
+
+# ─── Unified Calendar ─────────────────────────────────────────────────────────
+
+async def get_unified_calendar(
+    db,
+    user_id: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+) -> list:
+    """
+    Merge tasks, assignments, quizzes, and class events into a single timeline.
+    """
+    events = []
+    
+    # 1. Planner Tasks
+    task_query: Dict[str, Any] = {"user_id": str(user_id)}
+    # Instead, we find all planner_days in range and then their tasks
+    day_query: Dict[str, Any] = {"user_id": str(user_id)}
+    if start_date or end_date:
+        day_query["date"] = {}
+        if start_date: day_query["date"]["$gte"] = start_date
+        if end_date: day_query["date"]["$lte"] = end_date
+    
+    days = await db.planner_days.find(day_query).to_list(None)
+    day_ids = [d["id"] for d in days]
+    day_map = {d["id"]: d["date"] for d in days}
+    
+    if day_ids:
+        tasks = await db.planner_tasks.find({"planner_day_id": {"$in": day_ids}}).to_list(None)
+        for t in tasks:
+            events.append({
+                "id": t["id"],
+                "title": t["title"],
+                "start": f"{day_map[t['planner_day_id']]}T{t.get('start_time', '00:00')}",
+                "end": f"{day_map[t['planner_day_id']]}T{t.get('end_time', '23:59')}",
+                "type": "task",
+                "category": t.get("category", "general"),
+                "completed": t.get("is_completed", False)
+            })
+
+    # 2. LMS Assignments (Deadlines)
+    # First find classes student is enrolled in
+    student_classes = await db.classes.find({"students": user_id}).to_list(None)
+    class_ids = [c["id"] for c in student_classes]
+    
+    if class_ids:
+        assign_query: Dict[str, Any] = {"class_id": {"$in": class_ids}}
+        if start_date: assign_query["due_date"] = {"$gte": start_date}
+        # Note: assignments use "due_date" (string)
+        
+        assignments = await db.lms_assignments.find(assign_query).to_list(None)
+        for a in assignments:
+            events.append({
+                "id": a.get("id") or a.get("assignment_id"),
+                "title": f"Assignment: {a['title']}",
+                "start": a.get("due_date"),
+                "type": "assignment",
+                "color": "#ff4444"
+            })
+            
+        # 3. LMS Quizzes
+        quizzes = await db.lms_quizzes.find(assign_query).to_list(None)
+        for q in quizzes:
+            events.append({
+                "id": q.get("id") or q.get("quiz_id"),
+                "title": f"Quiz: {q['title']}",
+                "start": q.get("due_date") or q.get("created_at").isoformat(),
+                "type": "quiz",
+                "color": "#00ffcc"
+            })
+
+    # 4. Global Calendar Events (Classes, Exams)
+    cal_query: Dict[str, Any] = {"$or": [
+        {"user_id": str(user_id)},
+        {"class_id": {"$in": class_ids}}
+    ]}
+    if start_date: cal_query["start"] = {"$gte": start_date}
+    
+    cal_events = await db.calendar_events.find(cal_query).to_list(None)
+    for ce in cal_events:
+        events.append({
+            "id": ce.get("id"),
+            "title": ce["title"],
+            "start": ce["start"],
+            "end": ce.get("end"),
+            "type": ce.get("type", "event"),
+            "color": ce.get("color")
+        })
+
+    return sorted(events, key=lambda x: x["start"])

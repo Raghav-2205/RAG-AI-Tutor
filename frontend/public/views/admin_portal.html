@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - RAG AI Tutor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
+        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
+        .nav-links { display: flex; gap: 12px; align-items: center; }
+        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); }
+        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
+        .portal-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .portal-header h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .portal-header p { color: #888; margin-bottom: 2rem; }
+        .role-badge { display: inline-block; background: linear-gradient(135deg, rgba(255,68,68,0.3), rgba(255,165,0,0.3)); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; color: #ffaa44; margin-left: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; transition: all 0.3s; animation: fadeIn 0.4s ease-out; }
+        .card:hover { border-color: rgba(0,255,204,0.3); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,255,204,0.1); }
+        .card h3 { color: #00ffcc; margin-bottom: 0.5rem; }
+        .card p { color: #b8c5d6; font-size: 0.9rem; }
+        .card-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+        .stat-number { font-size: 2rem; font-weight: 700; color: #00ffcc; }
+        .stat-label { font-size: 0.8rem; color: #888; }
+        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
+        .module-link { cursor: pointer; }
+        .module-link:hover { background: rgba(0,255,204,0.05); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">🔑 Admin Portal</div>
+        <div class="nav-links">
+            <span id="notif-bell" style="cursor:pointer; position:relative; font-size:1.2rem; margin-right:15px;" onclick="toggleNotifications()">🔔<span id="notif-count" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; font-size:0.6rem; padding:2px 4px; border-radius:50%;">0</span></span>
+            <a href="/views/subjects.html">💬 AI Chat</a>
+            <a href="/views/teacher_portal.html">🎓 Teacher</a>
+            <a href="/views/planner.html">📅 Planner</a>
+            <a href="/views/community.html">🗣️ Community</a>
+            <a href="/views/dashboard.html">📊 Dashboard</a>
+            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+        </div>
+
+    </nav>
+
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1>Admin Dashboard <span class="role-badge">🔑 Admin</span></h1>
+            <p>System overview & management controls</p>
+        </div>
+
+        <div class="section-title">System Overview</div>
+        <div class="grid">
+            <div class="card"><div class="card-icon">👥</div><div class="stat-number" id="totalUsers">—</div><div class="stat-label">Total Users</div></div>
+            <div class="card"><div class="card-icon">📚</div><div class="stat-number" id="totalClasses">—</div><div class="stat-label">Total Classes</div></div>
+            <div class="card"><div class="card-icon">📢</div><div class="stat-number" id="totalNotices">—</div><div class="stat-label">Active Notices</div></div>
+            <div class="card"><div class="card-icon">💬</div><div class="stat-number" id="totalForumPosts">—</div><div class="stat-label">Forum Posts</div></div>
+        </div>
+
+        <div class="section-title">Quick Navigation</div>
+        <div class="grid">
+            <div class="card module-link" onclick="window.location.href='/views/teacher_portal.html'">
+                <div class="card-icon">🎓</div><h3>LMS Management</h3><p>Manage classes, assignments, students</p>
+            </div>
+            <div class="card module-link" onclick="window.location.href='/views/community.html'">
+                <div class="card-icon">🗣️</div><h3>Communication</h3><p>Notice board, updates, forum</p>
+            </div>
+            <div class="card module-link" onclick="window.location.href='/views/planner.html'">
+                <div class="card-icon">📅</div><h3>Planner</h3><p>Day templates, activity tracking</p>
+            </div>
+            <div class="card module-link" onclick="window.location.href='/views/subjects.html'">
+                <div class="card-icon">🤖</div><h3>AI Engine</h3><p>RAG / GRAG chat system</p>
+            </div>
+        </div>
+
+        <div class="section-title">Notice Board</div>
+        <div id="noticeList"><div class="card"><p style="color:#888">Loading...</p></div></div>
+
+        <div class="section-title" style="margin-top:2rem">Academic Data Import</div>
+        <div class="grid">
+            <div class="card" style="border-color: rgba(0,255,204,0.3);">
+                <div class="card-icon">📁</div>
+                <h3>Bulk Enroll Students</h3>
+                <p style="margin-bottom: 1rem;">Upload an Excel sheet of student roll numbers.</p>
+                <input type="file" id="studentsFile" accept=".csv, .xlsx, .xls" style="margin-bottom: 1rem; color: #888;">
+                <button class="btn" onclick="uploadStudents()" style="width: 100%;">Upload Students</button>
+            </div>
+            <div class="card" style="border-color: rgba(255,165,0,0.3);">
+                <div class="card-icon">📅</div>
+                <h3>Upload Timetable</h3>
+                <p style="margin-bottom: 1rem;">Map subjects and teachers to classes.</p>
+                <input type="file" id="timetableFile" accept=".csv, .xlsx, .xls" style="margin-bottom: 1rem; color: #888;">
+                <button class="btn" onclick="uploadTimetable()" style="width: 100%; background: linear-gradient(135deg, #ffaa44, #ff4444);">Upload Timetable</button>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top:2rem">User Management</div>
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table style="width:100%; border-collapse: collapse; text-align: left;">
+                <thead style="background: rgba(255,255,255,0.05);">
+                    <tr>
+                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Name</th>
+                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Email</th>
+                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Role</th>
+                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="userList">
+                    <tr><td colspan="4" style="padding:20px; text-align:center; color:#888">Loading users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/assets/js/config.js?v=7"></script>
+    <script>
+        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+        const TOKEN = localStorage.getItem('token');
+        const headers = { 
+            'Authorization': `Bearer ${TOKEN}`, 
+            'Content-Type': 'application/json' 
+        };
+        
+        if (!TOKEN) window.location.href = '/views/login.html';
+
+        async function loadAdmin() {
+            try {
+                const [classRes, noticeRes, forumRes, userRes] = await Promise.all([
+                    fetch(`${API}/lms/classes`, { headers }),
+                    fetch(`${API}/comm/notices`, { headers }),
+                    fetch(`${API}/comm/forum/posts`, { headers }),
+                    fetch(`${API}/auth/users`, { headers })
+                ]);
+                
+                const classes = await classRes.json();
+                const notices = await noticeRes.json();
+                const posts = await forumRes.json();
+                const users = await userRes.json();
+
+                document.getElementById('totalClasses').textContent = classes.length;
+                document.getElementById('totalNotices').textContent = notices.length;
+                document.getElementById('totalForumPosts').textContent = posts.length;
+                document.getElementById('totalUsers').textContent = users.length;
+
+                // Render Notices
+                const noticeHtml = notices.slice(0, 5).map(n => `<div class="list-item">
+                    <div>
+                        <strong>${n.title}</strong>
+                        <div style="color:#888;font-size:0.8rem">${n.priority} · by ${n.author_name || 'System'}</div>
+                    </div>
+                    <span style="color:#888;font-size:0.8rem">${new Date(n.created_at).toLocaleDateString()}</span>
+                </div>`).join('');
+                document.getElementById('noticeList').innerHTML = noticeHtml || '<div class="card"><p style="color:#888">No notices yet.</p></div>';
+
+                // Render Users
+                renderUsers(users);
+                
+            } catch (err) { 
+                console.error(err); 
+                document.getElementById('userList').innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:#ff4444">Failed to load users: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderUsers(users) {
+            const userList = document.getElementById('userList');
+            if (!users.length) {
+                userList.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:#888">No users found.</td></tr>';
+                return;
+            }
+
+            userList.innerHTML = users.map(u => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:15px;">${u.name}</td>
+                    <td style="padding:15px; color:#888;">${u.email}</td>
+                    <td style="padding:15px;">
+                        <span class="role-badge" style="margin-left:0; color:${getRoleColor(u.role)}; background:rgba(255,255,255,0.05)">${u.role}</span>
+                    </td>
+                    <td style="padding:15px;">
+                        <select onchange="updateRole('${u.id}', this.value)" style="background:#1e233e; color:#e0e6ed; border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:4px 8px; cursor:pointer;">
+                            <option value="Student" ${u.role === 'Student' ? 'selected' : ''}>Student</option>
+                            <option value="Teacher" ${u.role === 'Teacher' ? 'selected' : ''}>Teacher</option>
+                            <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getRoleColor(role) {
+            if (role === 'Admin') return '#ff4444';
+            if (role === 'Teacher') return '#00ffcc';
+            return '#888';
+        }
+
+        async function updateRole(userId, newRole) {
+            try {
+                const res = await fetch(`${API}/auth/users/${userId}/role`, {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify({ role: newRole })
+                });
+                
+                if (!res.ok) throw new Error('Update failed');
+                
+                const data = await res.json();
+                console.log(data.message);
+                // Optionally show a toast/notification
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+                loadAdmin(); // Reload to reset dropdown
+            }
+        }
+
+        async function uploadStudents() {
+            const fileInput = document.getElementById('studentsFile');
+            if(!fileInput.files[0]) return alert("Please select an excel/csv file first.");
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                const btn = event.target;
+                btn.textContent = "Uploading...";
+                const res = await fetch(`${API}/academic/admin/students/bulk-enroll`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${TOKEN}` }, // No content-type so browser sets boundary
+                    body: formData
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.message);
+                    loadAdmin(); // Reload users
+                } else {
+                    alert(data.detail || "Upload failed");
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                event.target.textContent = "Upload Students";
+            }
+        }
+
+        async function uploadTimetable() {
+            const fileInput = document.getElementById('timetableFile');
+            if(!fileInput.files[0]) return alert("Please select a timetable file.");
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            // In a real app we would select the semester
+            const semesterId = "BE_VIII_CSE1"; 
+            
+            try {
+                const btn = event.target;
+                btn.textContent = "Uploading...";
+                const res = await fetch(`${API}/academic/admin/timetable/upload?semester_id=${semesterId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                    body: formData
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.message);
+                } else {
+                    alert(data.detail || "Upload failed");
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                event.target.textContent = "Upload Timetable";
+            }
+        }
+
+        loadAdmin();
+    </script>
+</body>
+</html>

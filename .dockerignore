@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code
+.vscode/
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+
+# Data and local storage (let Docker volumes handle these except for initializing if necessary)
+chroma_data/
+uploads/
+logs/
+database/
+*.db
+*.log
+output.txt
+error.txt
+startup_log.txt
+
+# Ignore Git
+.git/
+
+# Node (if used in frontend builds, although not strictly needed for this container)
+node_modules/
+ru

@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Portal - RAG AI Tutor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
+        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
+        .nav-links { display: flex; gap: 12px; align-items: center; }
+        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); transform: translateY(-1px); }
+        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
+
+        .portal-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .portal-header { margin-bottom: 2rem; }
+        .portal-header h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .portal-header p { color: #888; }
+        .role-badge { display: inline-block; background: linear-gradient(135deg, rgba(138,43,226,0.3), rgba(0,255,204,0.3)); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; color: #d1a3ff; margin-left: 12px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; transition: all 0.3s; }
+        .card:hover { border-color: rgba(0,255,204,0.3); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,255,204,0.1); }
+        .card h3 { color: #00ffcc; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .card p { color: #b8c5d6; font-size: 0.9rem; line-height: 1.5; }
+        .card-icon { font-size: 2rem; margin-bottom: 0.8rem; }
+
+        .module-card { cursor: pointer; }
+        .module-card:hover { background: rgba(0,255,204,0.05); }
+
+        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
+        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #e0e6ed; border: 1px solid rgba(255,255,255,0.2); }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,14,39,0.92); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-card { background: #1e233e; border-radius: 20px; padding: 2rem; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-card h2 { color: #00ffcc; margin-bottom: 1rem; }
+        .modal-card input, .modal-card textarea, .modal-card select { width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; margin-bottom: 12px; font-size: 0.9rem; }
+        .modal-card textarea { min-height: 80px; resize: vertical; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
+
+        .stat-number { font-size: 2rem; font-weight: 700; color: #00ffcc; }
+        .stat-label { font-size: 0.8rem; color: #888; }
+
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; }
+        .list-item:hover { background: rgba(0,255,204,0.05); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card { animation: fadeIn 0.4s ease-out; }
+
+        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">🎓 Teacher Portal</div>
+        <div class="nav-links">
+            <span id="notif-bell" style="cursor:pointer; position:relative; font-size:1.2rem; margin-right:15px;" onclick="toggleNotifications()">🔔<span id="notif-count" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; font-size:0.6rem; padding:2px 4px; border-radius:50%;">0</span></span>
+            <a href="/views/subjects.html">💬 AI Chat</a>
+            <a href="/views/calendar.html" style="border-color: var(--accent); color: var(--accent);">📅 Calendar</a>
+            <a href="/views/community.html">🗣️ Community</a>
+            <a href="/views/dashboard.html">📊 Dashboard</a>
+            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+        </div>
+
+    </nav>
+
+    <div class="portal-container">
+        <div class="portal-header">
+            <h1>Welcome, <span id="teacherName">Teacher</span> <span class="role-badge">👩‍🏫 Teacher</span></h1>
+            <p>Manage your classes, assignments, and students.</p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="btn" onclick="showModal('createClassModal')">➕ Create Class</button>
+            <button class="btn" onclick="showModal('createAssignmentModal')">📝 New Assignment</button>
+            <button class="btn btn-secondary" onclick="showModal('enrollStudentModal')">👤 Enroll Student</button>
+            <button class="btn btn-secondary" onclick="showModal('postNoticeModal')">📢 Post Notice</button>
+        </div>
+
+
+        <!-- Stats -->
+        <div class="section-title">Overview</div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-icon">📚</div>
+                <div class="stat-number" id="classCount">0</div>
+                <div class="stat-label">Your Classes</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">📝</div>
+                <div class="stat-number" id="assignmentCount">0</div>
+                <div class="stat-label">Assignments</div>
+            </div>
+            <div class="card">
+                <div class="card-icon">👥</div>
+                <div class="stat-number" id="studentCount">0</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+
+        <!-- Today's Schedule -->
+        <div class="section-title">Today's Live Schedule</div>
+        <div class="grid" id="todayScheduleList">
+            <div class="card"><p style="color:#888">Loading today's schedule...</p></div>
+        </div>
+
+        <!-- Your Classes -->
+        <div class="section-title">Your Classes</div>
+        <div class="grid" id="classList">
+            <div class="card"><p style="color:#888">Loading classes...</p></div>
+        </div>
+
+        <!-- Recent Assignments -->
+        <div class="section-title">Recent Assignments</div>
+        <div id="assignmentList">
+            <div class="card"><p style="color:#888">Loading assignments...</p></div>
+        </div>
+
+        <!-- Submissions to Grade -->
+        <div class="section-title">Submissions to Grade</div>
+        <div id="submissionList">
+            <div class="card"><p style="color:#888">Loading submissions...</p></div>
+        </div>
+    </div>
+
+    <!-- MANAGE UNITS MODAL -->
+    <div id="manageUnitsModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Curriculum Units</h2>
+            <div id="unitList" style="margin-bottom:1rem"></div>
+            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin-bottom:1rem">
+            <h3>Add New Unit</h3>
+            <input id="unitTitle" placeholder="Unit Title (e.g., Introduction)">
+            <textarea id="unitDesc" placeholder="Unit Description"></textarea>
+            <input id="unitOrder" type="number" value="0" placeholder="Order Index">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('manageUnitsModal')">Close</button>
+                <button class="btn" onclick="addUnit()">Add Unit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPLOAD MATERIAL MODAL -->
+    <div id="uploadMaterialModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Upload Study Material</h2>
+            <input id="matTitle" placeholder="Material Title (e.g., Lecture Notes 1)">
+            <input type="file" id="matFile" style="margin-bottom: 14px;" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt">
+            <p style="text-align:center; margin-bottom:10px; font-size:12px; color:var(--muted)">OR</p>
+            <input id="matUrl" placeholder="File URL or Link" style="margin-bottom: 14px;">
+            <textarea id="matDesc" placeholder="Description (optional)"></textarea>
+            <select id="matUnitId"><option value="">Select Unit (optional)...</option></select>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('uploadMaterialModal')">Cancel</button>
+                <button class="btn" onclick="uploadMaterial()">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW SUBMISSIONS MODAL -->
+    <div id="viewSubmissionsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width:700px">
+            <h2 id="subModalTitle">Submissions</h2>
+            <div id="subListContent" style="margin-bottom:1rem"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('viewSubmissionsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRADE SUBMISSION MODAL -->
+    <div id="gradeModal" class="modal-overlay">
+        <div class="modal-card" style="max-width:400px">
+            <h2>Grade Submission</h2>
+            <div id="gradeStudentName" style="font-weight:600; margin-bottom:10px; color:var(--accent)"></div>
+            <input id="gradeScore" type="number" placeholder="Score (0-100)" style="width:100%; margin-bottom:15px">
+            <textarea id="gradeFeedback" placeholder="Feedback (optional)" style="width:100%; height:100px"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('gradeModal')">Cancel</button>
+                <button class="btn" onclick="submitGrade()">Submit Grade</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE QUIZ MODAL -->
+    <div id="createQuizModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px;">
+            <h2>Create New Quiz</h2>
+            <input id="quizTitle" placeholder="Quiz Title (e.g., Midterm 1)">
+            <textarea id="quizDesc" placeholder="Description"></textarea>
+            <div style="display:flex; gap:10px">
+                <input id="quizTime" type="number" placeholder="Time Limit (mins)">
+                <input id="quizAttempts" type="number" placeholder="Max Attempts" value="1">
+            </div>
+            
+            <div id="questionBuilder" style="margin-top:1rem; border:1px solid rgba(255,255,255,0.1); padding:10px; border-radius:8px; max-height:300px; overflow-y:auto;">
+                <h4>Questions</h4>
+                <div id="mcqList"></div>
+                <button class="btn btn-secondary btn-sm" style="margin-top:10px; width:100%" onclick="addMcqQuestion()">➕ Add Question</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('createQuizModal')">Cancel</button>
+                <button class="btn" onclick="createQuiz()">Create Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANAGE QUIZZES MODAL -->
+    <div id="manageQuizzesModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Class Quizzes</h2>
+            <div id="quizList" style="margin-bottom:1rem"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('manageQuizzesModal')">Close</button>
+                <button class="btn" onclick="showModal('createQuizModal')">Add New Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE CLASS MODAL -->
+    <div id="createClassModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Create New Class</h2>
+            <input id="className" placeholder="Class Name (e.g., Data Structures)" required>
+            <input id="classSection" placeholder="Section (e.g., A)" value="A">
+            <input id="classSubject" placeholder="Subject (e.g., Computer Science)">
+            <textarea id="classDesc" placeholder="Description (optional)"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('createClassModal')">Cancel</button>
+                <button class="btn" onclick="createClass()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE ASSIGNMENT MODAL -->
+    <div id="createAssignmentModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>New Assignment</h2>
+            <select id="assignClassId"><option value="">Select Class...</option></select>
+            <input id="assignTitle" placeholder="Assignment Title" required>
+            <textarea id="assignDesc" placeholder="Description / Instructions"></textarea>
+            <input id="assignDueDate" type="date" placeholder="Due Date">
+            <input id="assignMaxMarks" type="number" value="100" placeholder="Max Marks">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('createAssignmentModal')">Cancel</button>
+                <button class="btn" onclick="createAssignment()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENROLL STUDENT MODAL -->
+    <div id="enrollStudentModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Enroll Student</h2>
+            <select id="enrollClassId"><option value="">Select Class...</option></select>
+            <input id="enrollEmail" type="email" placeholder="Student Email" required>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('enrollStudentModal')">Cancel</button>
+                <button class="btn" onclick="enrollStudent()">Enroll</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POST NOTICE MODAL -->
+    <div id="postNoticeModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2>Post Notice</h2>
+            <input id="noticeTitle" placeholder="Notice Title" required>
+            <textarea id="noticeContent" placeholder="Notice Content"></textarea>
+            <select id="noticePriority">
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+            </select>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('postNoticeModal')">Cancel</button>
+                <button class="btn" onclick="postNotice()">Post</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATTENDANCE MODAL -->
+    <div id="takeAttendanceModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px;">
+            <h2>Take Attendance</h2>
+            <p id="attendanceDateLabel" style="color:#888; margin-bottom:1rem;"></p>
+            <div id="studentAttendanceList" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem;">
+                <!-- Student rows with P/A toggle -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('takeAttendanceModal')">Cancel</button>
+                <button class="btn" onclick="submitAttendance()">Submit Attendance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATIONS MODAL -->
+    <div id="notificationsModal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h2 style="margin:0">Notifications</h2>
+                <button class="btn btn-small btn-secondary" onclick="markAllNotificationsRead()">Mark all as read</button>
+            </div>
+            <div id="notifList" style="max-height:400px; overflow-y:auto;">
+                <p style="color:#888; text-align:center;">No notifications.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('notificationsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLASS INSIGHTS MODAL -->
+    <div id="classInsightsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 700px;">
+            <h2 id="insightsTitle">Class Insights</h2>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                <div class="card" style="padding: 1rem; text-align: center;">
+                    <div class="stat-label">Average Score</div>
+                    <div class="stat-number" id="classAvgScore">0%</div>
+                </div>
+                <div class="card" style="padding: 1rem; text-align: center;">
+                    <div class="stat-label">Engagement</div>
+                    <div class="stat-number" id="classEngagement">0%</div>
+                </div>
+            </div>
+            
+            <div style="height: 200px; margin-top: 1.5rem;">
+                <canvas id="classPerformanceChart"></canvas>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <h3 style="color: #00ffcc; font-size: 1rem; margin-bottom: 0.5rem;">Performance Breakdown</h3>
+                <div id="studentPerformanceList" style="max-height: 200px; overflow-y: auto;">
+                    <!-- Top and low performers -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('classInsightsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('classInsightsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/assets/js/config.js?v=7"></script>
+    <script>
+        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+        const TOKEN = localStorage.getItem('token');
+        const USER = JSON.parse(localStorage.getItem('user') || '{}');
+        const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+        if (!TOKEN) { window.location.href = '/views/login.html'; }
+        document.getElementById('teacherName').textContent = USER.name || 'Teacher';
+
+        function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function hideModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        let cachedClasses = [];
+
+        async function loadData() {
+            try {
+                // Load Today's Schedule Live
+                try {
+                    const todayRes = await fetch(`${API}/academic/teacher/dashboard/today`, { headers });
+                    if (todayRes.ok) {
+                        const todayData = await todayRes.json();
+                        const todayList = document.getElementById('todayScheduleList');
+                        
+                        if (!todayData.classes || todayData.classes.length === 0) {
+                            todayList.innerHTML = `<div class="card"><p style="color:#888">No classes scheduled for today (${todayData.today}).</p></div>`;
+                        } else {
+                            todayList.innerHTML = todayData.classes.map(c => `
+                                <div class="card" style="border-left: 4px solid #ffaa44;">
+                                    <div style="display:flex; justify-content:space-between;">
+                                        <h3>${c.subject_id}</h3>
+                                        <span class="role-badge" style="margin:0">${c.start_time} - ${c.end_time}</span>
+                                    </div>
+                                    <p style="margin:8px 0;">Room: <strong style="color:#00ffcc">${c.room}</strong> | Period: ${c.period_number}</p>
+                                    <button class="btn" style="width:100%; margin-top:10px; padding:8px" onclick="openAttendance('${c.id}')">Mark Attendance</button>
+                                </div>
+                            `).join('');
+                        }
+                    }
+                } catch(e) {
+                    console.error("Live schedule error:", e);
+                }
+
+                // Load classes
+                const classRes = await fetch(`${API}/lms/classes`, { headers });
+                cachedClasses = await classRes.json();
+                document.getElementById('classCount').textContent = cachedClasses.length;
+
+                let totalStudents = 0;
+                const classHtml = cachedClasses.map(c => {
+                    const studentCount = (c.students || []).length;
+                    totalStudents += studentCount;
+                    return `<div class="card">
+                        <div class="card-icon">📘</div>
+                        <h3>${c.name} - ${c.section}</h3>
+                        <p>${c.subject || 'General'} · ${studentCount} students</p>
+                        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openUnits('${c.id}')">📂 Units</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openMaterials('${c.id}')">📄 Materials</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openQuizzes('${c.id}')">🧠 Quizzes</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openAttendance('${c.id}')">✅ Attendance</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='${API}/academic/teacher/reports/export-excel?subject_id=${c.subject || 'General'}'">⏬ Excel</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openInsights('${c.id}', '${c.name}')">📈 Insights</button>
+                            <button class="btn" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='/views/subjects.html?class_id=${c.id}'">💬 Chat</button>
+                        </div>
+
+                    </div>`;
+                }).join('');
+                document.getElementById('classList').innerHTML = classHtml || '<div class="card"><p style="color:#888">No classes yet. Click "Create Class" to start.</p></div>';
+                document.getElementById('studentCount').textContent = totalStudents;
+
+                // Populate class selectors
+                const classOptions = cachedClasses.map(c => `<option value="${c.class_id}">${c.name} (${c.section})</option>`).join('');
+                document.getElementById('assignClassId').innerHTML = '<option value="">Select Class...</option>' + classOptions;
+                document.getElementById('enrollClassId').innerHTML = '<option value="">Select Class...</option>' + classOptions;
+
+                // Load assignments
+                const assignRes = await fetch(`${API}/lms/assignments`, { headers });
+                const assignments = await assignRes.json();
+                document.getElementById('assignmentCount').textContent = assignments.length;
+
+                const assignHtml = assignments.slice(0, 5).map(a => `<div class="list-item">
+                    <div>
+                        <strong>${a.title}</strong>
+                        <div style="color:#888;font-size:0.8rem">Due: ${a.due_date || 'No deadline'} · Max: ${a.max_marks} marks</div>
+                    </div>
+                    <button class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;" onclick="viewSubmissions('${a.assignment_id}')">View Submissions</button>
+                </div>`).join('');
+                document.getElementById('assignmentList').innerHTML = assignHtml || '<div class="card"><p style="color:#888">No assignments yet.</p></div>';
+
+                // Load submissions
+                const subRes = await fetch(`${API}/lms/submissions`, { headers });
+                const submissions = await subRes.json();
+                const ungraded = submissions.filter(s => !s.graded);
+
+                const subHtml = ungraded.slice(0, 5).map(s => `<div class="list-item">
+                    <div>
+                        <strong>${s.student_name || s.student_email}</strong>
+                        <div style="color:#888;font-size:0.8rem">Submitted: ${new Date(s.submitted_at).toLocaleDateString()}</div>
+                    </div>
+                    <button class="btn" style="font-size:0.8rem;padding:6px 12px;" onclick="gradeSubmission('${s.submission_id}')">Grade</button>
+                </div>`).join('');
+                document.getElementById('submissionList').innerHTML = subHtml || '<div class="card"><p style="color:#00ffcc">✅ All submissions graded!</p></div>';
+
+            } catch (err) {
+                console.error('Load error:', err);
+            }
+        }
+
+        async function createClass() {
+            const res = await fetch(`${API}/lms/classes`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    name: document.getElementById('className').value,
+                    section: document.getElementById('classSection').value || 'A',
+                    subject: document.getElementById('classSubject').value || 'General',
+                    description: document.getElementById('classDesc').value
+                })
+            });
+            if (res.ok) { hideModal('createClassModal'); loadData(); }
+            else { alert('Failed to create class'); }
+        }
+
+        async function createAssignment() {
+            const res = await fetch(`${API}/lms/assignments`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    class_id: document.getElementById('assignClassId').value,
+                    title: document.getElementById('assignTitle').value,
+                    description: document.getElementById('assignDesc').value,
+                    due_date: document.getElementById('assignDueDate').value,
+                    max_marks: parseInt(document.getElementById('assignMaxMarks').value) || 100
+                })
+            });
+            if (res.ok) { hideModal('createAssignmentModal'); loadData(); }
+            else { alert('Failed to create assignment'); }
+        }
+
+        async function enrollStudent() {
+            const classId = document.getElementById('enrollClassId').value;
+            const email = document.getElementById('enrollEmail').value;
+            if (!classId || !email) { alert('Please select a class and enter the student email.'); return; }
+            const res = await fetch(`${API}/lms/classes/${classId}/enroll-by-email`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ student_email: email })
+            });
+            const data = await res.json();
+            if (res.ok) { 
+                alert(data.message || 'Student enrolled!');
+                hideModal('enrollStudentModal'); 
+                loadData(); 
+            } else { alert(data.detail || 'Enrollment failed'); }
+        }
+
+        async function postNotice() {
+            const res = await fetch(`${API}/comm/notices`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    title: document.getElementById('noticeTitle').value,
+                    content: document.getElementById('noticeContent').value,
+                    priority: document.getElementById('noticePriority').value
+                })
+            });
+            if (res.ok) { alert('Notice posted!'); hideModal('postNoticeModal'); }
+            else { alert('Failed to post notice'); }
+        }
+
+        let activeSubId = null;
+        function openGrade(subId, userName) {
+            activeSubId = subId;
+            document.getElementById('gradeStudentName').textContent = `Grading: ${userName}`;
+            showModal('gradeModal');
+        }
+
+        async function submitGrade() {
+            const marks = parseInt(document.getElementById('gradeScore').value);
+            const feedback = document.getElementById('gradeFeedback').value;
+            if (isNaN(marks)) { alert('Please enter a valid score'); return; }
+            
+            const res = await fetch(`${API}/lms/submissions/grade`, {
+                method: 'POST', headers, body: JSON.stringify({
+                    submission_id: activeSubId,
+                    marks: marks,
+                    feedback: feedback
+                })
+            });
+            if (res.ok) { 
+                alert('Graded!'); 
+                hideModal('gradeModal'); 
+                if (currentAssignmentId) viewSubmissions(currentAssignmentId); 
+            } else { alert('Grading failed'); }
+        }
+
+        let currentClassId = null;
+        let currentAssignmentId = null;
+
+        function openUnits(classId) {
+            currentClassId = classId;
+            fetch(`${API}/lms/classes/${classId}/units`, { headers })
+                .then(res => res.json())
+                .then(units => {
+                    const list = document.getElementById('unitList');
+                    list.innerHTML = (units || []).map(u => `<div class="list-item">
+                        <span>${u.title}</span>
+                        <span style="color:#888;font-size:0.8rem">#${u.order_index || 0}</span>
+                    </div>`).join('') || '<p style="color:#888">No units defined.</p>';
+                    showModal('manageUnitsModal');
+                });
+        }
+
+        async function addUnit() {
+            const body = {
+                title: document.getElementById('unitTitle').value,
+                description: document.getElementById('unitDesc').value,
+                order_index: parseInt(document.getElementById('unitOrder').value) || 0
+            };
+            const res = await fetch(`${API}/lms/classes/${currentClassId}/units`, {
+                method: 'POST', headers, body: JSON.stringify(body)
+            });
+            if (res.ok) { 
+                document.getElementById('unitTitle').value = '';
+                openUnits(currentClassId); 
+            }
+        }
+
+        async function openMaterials(classId) {
+            currentClassId = classId;
+            // Fetch units to populate the dropdown
+            const unitRes = await fetch(`${API}/lms/classes/${classId}/units`, { headers });
+            const units = await unitRes.json();
+            const options = (units || []).map(u => `<option value="${u.id}">${u.title}</option>`).join('');
+            document.getElementById('matUnitId').innerHTML = '<option value="">Select Unit (optional)...</option>' + options;
+            showModal('uploadMaterialModal');
+        }
+
+        async function uploadMaterial() {
+            let fileUrl = document.getElementById('matUrl').value;
+            const fileInput = document.getElementById('matFile');
+            
+            if (fileInput.files.length > 0) {
+                // Upload file to local server first
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('subject', 'general'); // Or current class subject
+                
+                try {
+                    const uploadRes = await fetch(`${API}/upload/`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                        body: formData
+                    });
+                    
+                    if (uploadRes.ok) {
+                        const uploadData = await uploadRes.json();
+                        fileUrl = `/uploads/${uploadData.filename}`; // Or the real URL it builds
+                    } else {
+                        alert('Failed to process file upload via API.');
+                        return;
+                    }
+                } catch(e) {
+                    console.error("File upload error", e);
+                    alert("Upload error.");
+                    return;
+                }
+            }
+
+            const params = new URLSearchParams({
+                title: document.getElementById('matTitle').value,
+                file_url: fileUrl || "local_file",
+                description: document.getElementById('matDesc').value,
+                unit_id: document.getElementById('matUnitId').value
+            });
+            const res = await fetch(`${API}/lms/classes/${currentClassId}/materials?${params.toString()}`, {
+                method: 'POST', headers
+            });
+            if (res.ok) { 
+                hideModal('uploadMaterialModal'); 
+                alert('Material added successfully!'); 
+                document.getElementById('matTitle').value = '';
+                document.getElementById('matUrl').value = '';
+                document.getElementById('matFile').value = '';
+                document.getElementById('matDesc').value = '';
+            } else { alert('Failed to save material to class'); }
+        }
+
+        async function viewSubmissions(assignmentId) {
+            currentAssignmentId = assignmentId;
+            const res = await fetch(`${API}/lms/submissions`, { headers });
+            const allSubs = await res.json();
+            const subs = allSubs.filter(s => s.assignment_id === assignmentId);
+            
+            const content = document.getElementById('subListContent');
+            content.innerHTML = (subs || []).map(s => `
+                <div class="list-item">
+                    <div>
+                        <strong>${s.student_name || s.student_email || 'Student'}</strong>
+                        <div style="color:#888;font-size:0.8rem">Status: ${s.status} · ${s.points_earned || 0} pts</div>
+                    </div>
+                    <div style="display:flex; gap:8px">
+                        ${s.file_url ? `<a href="${s.file_url}" target="_blank" class="btn btn-secondary" style="font-size:0.75rem; padding:4px 8px; text-decoration:none;">📎 File</a>` : ''}
+                        <button class="btn" style="font-size:0.75rem; padding:4px 8px;" onclick="openGrade('${s.id}', '${s.student_name || s.student_email || 'Student'}')">Grade</button>
+                    </div>
+                </div>
+            `).join('') || '<p style="color:#888; text-align:center">No submissions yet.</p>';
+            showModal('viewSubmissionsModal');
+        }
+
+        async function openQuizzes(classId) {
+            currentClassId = classId;
+            fetch(`${API}/lms/classes/${classId}/quizzes`, { headers })
+                .then(res => res.json())
+                .then(quizzes => {
+                    const list = document.getElementById('quizList');
+                    list.innerHTML = (quizzes || []).map(q => `<div class="list-item">
+                        <span>${q.title}</span>
+                        <button class="btn btn-secondary" style="font-size:0.7rem" onclick="viewQuizStats('${q.id}')">Stats</button>
+                    </div>`).join('') || '<p style="color:#888">No quizzes created.</p>';
+                    showModal('manageQuizzesModal');
+                });
+        }
+
+        let mcqCount = 0;
+        function addMcqQuestion() {
+            mcqCount++;
+            const container = document.getElementById('mcqList');
+            const html = `
+                <div class="mcq-item" id="mcqItem-${mcqCount}" style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:10px; position:relative;">
+                    <button class="btn btn-secondary btn-sm" style="position:absolute; right:10px; top:10px; color:var(--danger)" onclick="document.getElementById('mcqItem-${mcqCount}').remove()">X</button>
+                    <input class="q-title" placeholder="Question Text" style="margin-bottom:8px; font-weight:bold;">
+                    <div style="display:flex; gap:10px; margin-bottom:4px;">
+                        <input type="radio" name="q-${mcqCount}-correct" value="A"><input class="q-optA" placeholder="Option A" style="flex:1">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:4px;">
+                        <input type="radio" name="q-${mcqCount}-correct" value="B"><input class="q-optB" placeholder="Option B" style="flex:1">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:4px;">
+                        <input type="radio" name="q-${mcqCount}-correct" value="C"><input class="q-optC" placeholder="Option C" style="flex:1">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:8px;">
+                        <input type="radio" name="q-${mcqCount}-correct" value="D"><input class="q-optD" placeholder="Option D" style="flex:1">
+                    </div>
+                    <input class="q-points" type="number" placeholder="Points" value="10" style="width:100px;">
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function createQuiz() {
+            const questionNodes = document.querySelectorAll('.mcq-item');
+            const questions = [];
+            
+            questionNodes.forEach((node, i) => {
+                const radios = node.querySelectorAll('input[type="radio"]');
+                let correctLabel = "A";
+                radios.forEach(r => { if(r.checked) correctLabel = r.value; });
+                
+                questions.push({
+                    question: node.querySelector('.q-title').value,
+                    points: parseInt(node.querySelector('.q-points').value) || 10,
+                    options: [
+                        { label: "A", text: node.querySelector('.q-optA').value, is_correct: correctLabel === "A" },
+                        { label: "B", text: node.querySelector('.q-optB').value, is_correct: correctLabel === "B" },
+                        { label: "C", text: node.querySelector('.q-optC').value, is_correct: correctLabel === "C" },
+                        { label: "D", text: node.querySelector('.q-optD').value, is_correct: correctLabel === "D" }
+                    ]
+                });
+            });
+
+            const body = {
+                title: document.getElementById('quizTitle').value,
+                description: document.getElementById('quizDesc').value,
+                time_limit: parseInt(document.getElementById('quizTime').value) || 30,
+                max_attempts: parseInt(document.getElementById('quizAttempts').value) || 1,
+                type: 'quiz',
+                questions: questions
+            };
+            const res = await fetch(`${API}/lms/classes/${currentClassId}/quizzes`, {
+                method: 'POST', headers, body: JSON.stringify(body)
+            });
+            if (res.ok) { 
+                hideModal('createQuizModal'); 
+                openQuizzes(currentClassId);
+                // Reset quiz form
+                document.getElementById('quizTitle').value = '';
+                document.getElementById('quizDesc').value = '';
+                document.getElementById('mcqList').innerHTML = '';
+            } else { alert('Failed to create quiz'); }
+        }
+
+        function viewQuizStats(quizId) {
+            alert('Stats for Quiz ID: ' + quizId);
+        }
+
+        async function openInsights(classId, className) {
+            document.getElementById('insightsTitle').textContent = `Insights: ${className}`;
+            showModal('classInsightsModal');
+
+            try {
+                const res = await fetch(`${API}/analytics/teacher/${classId}`, { headers });
+                const data = await res.json();
+
+                document.getElementById('classAvgScore').textContent = `${Math.round(data.avg_score)}%`;
+                document.getElementById('classEngagement').textContent = `${Math.round(data.engagement_rate * 100)}%`;
+
+                // Render Chart
+                const ctx = document.getElementById('classPerformanceChart').getContext('2d');
+                
+                // Clear old chart if exists (Chart.js doesn't auto-clear canvas)
+                if (window.teacherChart) window.teacherChart.destroy();
+
+                window.teacherChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Avg Performance', 'Target Score'],
+                        datasets: [{
+                            label: 'Score %',
+                            data: [data.avg_score, 75],
+                            backgroundColor: ['#00ffcc', 'rgba(255,255,255,0.1)'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
+                        }
+                    }
+                });
+
+                // Performance List
+                const list = document.getElementById('studentPerformanceList');
+                let html = '<h4>Top Performers</h4>';
+                html += data.top_performing_students.map(s => `
+                    <div class="list-item" style="border-left: 3px solid #00ffcc">
+                        <span>${s.student_id}</span>
+                        <span style="color: #00ffcc; font-weight: 600;">${s.score}%</span>
+                    </div>
+                `).join('') || '<p style="color:#888; font-size:0.8rem">N/A</p>';
+
+                html += '<h4 style="margin-top:1rem">Area for Improvement</h4>';
+                html += data.low_performing_students.map(s => `
+                    <div class="list-item" style="border-left: 3px solid #ff4444">
+                        <span>${s.student_id}</span>
+                        <span style="color: #ff4444; font-weight: 600;">${s.score}%</span>
+                    </div>
+                `).join('') || '<p style="color:#888; font-size:0.8rem">N/A</p>';
+
+                list.innerHTML = html;
+
+            } catch (err) {
+                console.error('Insights error:', err);
+            }
+        }
+
+        // --- Attendance Logic ---
+        async function openAttendance(classId) {
+            currentClassId = classId;
+            const date = new Date().toISOString().split('T')[0];
+            document.getElementById('attendanceDateLabel').textContent = `Date: ${date}`;
+            
+            // Get class details to get student IDs
+            const cls = cachedClasses.find(c => c.id === classId);
+            const studentIds = cls.students || [];
+            
+            if (studentIds.length === 0) {
+                alert('No students enrolled in this class.');
+                return;
+            }
+
+            const list = document.getElementById('studentAttendanceList');
+            list.innerHTML = studentIds.map(sid => `
+                <div class="list-item" data-student-id="${sid}">
+                    <span>${sid}</span>
+                    <div style="display:flex; gap:10px;">
+                        <label><input type="radio" name="att-${sid}" value="present" checked> P</label>
+                        <label><input type="radio" name="att-${sid}" value="absent"> A</label>
+                    </div>
+                </div>
+            `).join('');
+            
+            showModal('takeAttendanceModal');
+        }
+
+        async function submitAttendance() {
+            const date = new Date().toISOString().split('T')[0];
+            const records = [];
+            const rows = document.querySelectorAll('#studentAttendanceList .list-item');
+            rows.forEach(row => {
+                const sid = row.getAttribute('data-student-id');
+                const status = row.querySelector(`input[name="att-${sid}"]:checked`).value;
+                records.push({ student_id: sid, status: status });
+            });
+
+            const res = await fetch(`${API}/lms/classes/${currentClassId}/attendance`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ date: date, records: records })
+            });
+
+            if (res.ok) {
+                alert('Attendance submitted successfully!');
+                hideModal('takeAttendanceModal');
+            } else {
+                alert('Failed to submit attendance');
+            }
+        }
+
+        // --- Notification Logic ---
+        async function updateNotifCount() {
+            try {
+                const res = await fetch(`${API}/notifications/`, { headers });
+                const notifs = await res.json();
+                const unread = notifs.filter(n => !n.is_read).length;
+                const badge = document.getElementById('notif-count');
+                if (unread > 0) {
+                    badge.textContent = unread;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (e) {}
+        }
+
+        async function toggleNotifications() {
+            const overlay = document.getElementById('notificationsModal');
+            if (overlay.style.display === 'flex') {
+                hideModal('notificationsModal');
+                return;
+            }
+
+            const res = await fetch(`${API}/notifications/`, { headers });
+            const notifs = await res.json();
+            const list = document.getElementById('notifList');
+            
+            list.innerHTML = notifs.map(n => `
+                <div class="list-item" style="${n.is_read ? 'opacity:0.6' : 'border-left: 3px solid #00ffcc'}">
+                    <div style="flex:1">
+                        <div style="font-weight:600; color:#00ffcc">${n.title}</div>
+                        <div style="font-size:0.85rem">${n.message}</div>
+                        <div style="font-size:0.7rem; color:#888; margin-top:4px">${new Date(n.created_at).toLocaleString()}</div>
+                    </div>
+                    ${!n.is_read ? `<button class="btn btn-small btn-secondary" onclick="markNotifRead('${n.id}')">✔</button>` : ''}
+                </div>
+            `).join('') || '<p style="color:#888; text-align:center;">No notifications yet.</p>';
+            
+            showModal('notificationsModal');
+        }
+
+        async function markNotifRead(id) {
+            await fetch(`${API}/notifications/${id}/read`, { method: 'POST', headers });
+            toggleNotifications();
+            updateNotifCount();
+        }
+
+        async function markAllNotificationsRead() {
+            await fetch(`${API}/notifications/read-all`, { method: 'POST', headers });
+            toggleNotifications();
+            updateNotifCount();
+        }
+
+        // Periodic update
+        setInterval(updateNotifCount, 30000);
+        updateNotifCount();
+
+        loadData();
+
+    </script>
+</body>
+</html>

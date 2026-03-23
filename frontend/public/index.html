@@ -1,0 +1,179 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>RAG AI Tutor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Global Styles -->
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/auth.css">
+  <link rel="stylesheet" href="assets/css/chat.css">
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="brand">🚀 RAG AI Tutor</div>
+    <div class="nav-links">
+      <a href="javascript:loadView('home')" class="nav-button">Home</a>
+      <a href="javascript:navigateToPage('/views/login.html')" id="loginBtn" class="nav-button">Login</a>
+      <a href="javascript:navigateToPage('/views/signup.html')" id="signupBtn" class="nav-button">Sign Up</a>
+      <button id="logoutBtn" onclick="handleLogout()" style="display: none;">Logout</button>
+      <span id="userGreeting" style="display: none; margin-left: 10px; color: #666;"></span>
+    </div>
+  </nav>
+
+  <!-- DYNAMIC CONTENT -->
+  <main id="app">
+    <div class="loading">Loading...</div>
+  </main>
+
+  <!-- JS (order matters - config must be first) -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/ai.js"></script>
+
+
+
+
+  <script src="assets/js/upload/file_uploader.js"></script>
+  <script src="assets/js/quiz/quiz_component.js"></script>
+  <script src="assets/js/voice/voice_recorder.js"></script>
+
+  <script src="assets/js/subjects.js"></script>
+
+  <!-- Simplified SPA Router -->
+  <script>
+    let currentView = null;
+
+    function navigateToPage(url) {
+      window.location.href = url;
+    }
+
+    async function loadView(view) {
+      console.log(`Loading view: ${view}`);
+
+      try {
+        // Show loading state
+        const app = document.getElementById('app');
+        app.innerHTML = '<div class="loading">Loading...</div>';
+
+        // Use absolute URL to avoid any routing issues
+        const url = `/views/${view}.html`;
+        console.log(`Fetching: ${url}`);
+
+        const res = await fetch(url, {
+          method: 'GET',
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+
+        console.log(`Response status: ${res.status}`);
+
+        if (!res.ok) {
+          throw new Error(`Failed to load view: ${view} (Status: ${res.status})`);
+        }
+
+        const html = await res.text();
+        console.log(`Loaded HTML length: ${html.length}`);
+
+        app.innerHTML = html;
+        currentView = view;
+
+        // Update navbar
+        updateNavbar();
+
+        console.log(`Successfully loaded view: ${view}`);
+
+      } catch (error) {
+        console.error('Failed to load view:', error);
+
+        // Fallback: try to redirect to the actual HTML file
+        if (error.message.includes('404')) {
+          console.log(`Trying direct redirect to /views/${view}.html`);
+          window.location.href = `/views/${view}.html`;
+          return;
+        }
+
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="error" style="text-align: center; padding: 40px;">
+            <h2>Error Loading Page</h2>
+            <p>${error.message}</p>
+            <div style="margin-top: 20px;">
+              <button onclick="tryDirectAccess('${view}')" class="primary" style="margin: 5px;">Try Direct Access</button>
+              <button onclick="loadView('home')" class="secondary" style="margin: 5px;">Go Home</button>
+              <button onclick="location.reload()" class="secondary" style="margin: 5px;">Reload Page</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function tryDirectAccess(view) {
+      window.location.href = `/views/${view}.html`;
+    }
+
+    function updateNavbar() {
+      const loginBtn = document.getElementById('loginBtn');
+      const signupBtn = document.getElementById('signupBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const userGreeting = document.getElementById('userGreeting');
+
+      if (window.auth && window.auth.isAuthenticated) {
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (signupBtn) signupBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        if (userGreeting) {
+          userGreeting.style.display = 'inline';
+          userGreeting.textContent = `Hello, ${window.auth.getDisplayName()}`;
+        }
+      } else {
+        if (loginBtn) loginBtn.style.display = 'inline-block';
+        if (signupBtn) signupBtn.style.display = 'inline-block';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (userGreeting) userGreeting.style.display = 'none';
+      }
+    }
+
+    function handleLogout() {
+      if (window.auth) {
+        window.auth.logout();
+      }
+    }
+
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('DOM loaded, initializing app...');
+
+      // Simple initialization without complex routing
+      try {
+        // Load home view by default
+        console.log('Loading home view');
+        await loadView('home');
+      } catch (error) {
+        console.error('Failed to load initial view:', error);
+        // Show a basic fallback
+        document.getElementById('app').innerHTML = `
+          <div style="text-align: center; padding: 40px;">
+            <h1>Welcome to RAG AI Tutor</h1>
+            <p>Your AI-powered learning assistant</p>
+            <div style="margin-top: 20px;">
+              <a href="/views/login.html" style="display: inline-block; padding: 10px 20px; background: #00f5ff; color: black; text-decoration: none; border-radius: 5px; margin: 5px;">Login</a>
+              <a href="/views/signup.html" style="display: inline-block; padding: 10px 20px; background: #00f5ff; color: black; text-decoration: none; border-radius: 5px; margin: 5px;">Sign Up</a>
+            </div>
+          </div>
+        `;
+      }
+    });
+  </script>
+
+</body>
+
+</html>

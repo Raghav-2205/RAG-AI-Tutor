@@ -1,0 +1,27 @@
+[
+    {
+        "question": "What is the main advantage of RAG over standard LLMs?",
+        "gold_answer": "RAG reduces hallucinations by grounding answers in retrieved documents.",
+        "subject": "AI"
+    },
+    {
+        "question": "How does Hybrid Search work?",
+        "gold_answer": "Hybrid Search combines keyword-based search (BM25) with semantic vector search to improve retrieval accuracy.",
+        "subject": "AI"
+    },
+    {
+        "question": "Explain the role of the Cross-Encoder.",
+        "gold_answer": "The Cross-Encoder reranks retrieved documents by scoring the semantic similarity between the query and each document, improving precision.",
+        "subject": "AI"
+    },
+    {
+        "question": "What is catastrophic forgetting?",
+        "gold_answer": "Catastrophic forgetting is when a neural network forgets previously learned information upon learning new information.",
+        "subject": "Deep Learning"
+    },
+    {
+        "question": "Define overfitting.",
+        "gold_answer": "Overfitting occurs when a model learns the training data too well, including noise, negatively impacting its performance on new data.",
+        "subject": "Machine Learning"
+    }
+]

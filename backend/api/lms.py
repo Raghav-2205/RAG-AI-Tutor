@@ -1,0 +1,512 @@
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+
+from backend.utils.db import get_db
+from backend.api.auth import get_current_user
+import backend.services.lms_service as lms_service
+
+router = APIRouter()
+
+# ─── Dependency: require role ──────────────────────────────────────────────────
+
+def require_role(*roles: str):
+    def _dep(current_user=Depends(get_current_user)):
+        user_role = current_user.get("role", "student").lower()
+        if user_role not in [r.lower() for r in roles]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access restricted to: {roles}",
+            )
+        return current_user
+    return _dep
+
+
+# ─── Schemas ──────────────────────────────────────────────────────────────────
+
+class CreateClassIn(BaseModel):
+    name: str
+    section: Optional[str] = None
+    description: Optional[str] = None
+    subject: Optional[str] = None
+
+class EnrollIn(BaseModel):
+    join_code: str
+
+class RemoveStudentIn(BaseModel):
+    student_id: str
+
+class CreateUnitIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    order_index: int = 0
+
+class CreateAssignmentIn(BaseModel):
+    class_id: str
+    title: str
+    description: Optional[str] = None
+    type: str = "homework"
+    due_date: Optional[datetime] = None
+    max_points: float = 100
+    allow_late: bool = False
+    unit_id: Optional[str] = None
+
+class SubmitAssignmentIn(BaseModel):
+    assignment_id: Optional[str] = None
+    content: Optional[str] = None
+    file_url: Optional[str] = None
+
+class GradeSubmissionIn(BaseModel):
+    submission_id: str
+    points_earned: float
+    feedback: Optional[str] = None
+
+    # Also accept alternative field names for legacy compat
+    marks: Optional[float] = None
+
+    def get_points(self) -> float:
+        return self.points_earned if self.points_earned is not None else (self.marks or 0.0)
+
+class QuizQuestionIn(BaseModel):
+    question: str
+    type: str
+    options: Optional[list] = None
+    answer_key: Optional[str] = None
+    points: float = 1
+    explanation: Optional[str] = None
+
+class CreateQuizIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    type: str = "quiz"
+    time_limit: Optional[int] = None
+    max_attempts: int = 1
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    questions: Optional[list[QuizQuestionIn]] = None
+
+class SubmitQuizIn(BaseModel):
+    answers: dict  # {question_id: answer}
+
+class AttendanceRecordIn(BaseModel):
+    student_id: str
+    status: str # 'present' or 'absent'
+
+class MarkAttendanceIn(BaseModel):
+    date: str # YYYY-MM-DD
+    records: list[AttendanceRecordIn]
+
+
+# ─── Class Routes ─────────────────────────────────────────────────────────────
+
+@router.post("/classes", summary="Teacher: create a class")
+async def create_class(
+    body: CreateClassIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    cls = await lms_service.create_class(
+        db, str(current_user["_id"]), body.name, body.section, body.description, body.subject
+    )
+    return {"id": cls["id"], "name": cls.get("name"), "join_code": cls.get("join_code")}
+
+@router.get("/classes", summary="Get classes (teacher: own | student: enrolled)")
+async def list_classes(
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    role = current_user.get("role", "student").lower()
+    user_id = str(current_user["_id"])
+    if role in ("teacher", "admin"):
+        classes = await lms_service.get_classes_for_teacher(db, user_id)
+    else:
+        classes = await lms_service.get_classes_for_student(db, user_id)
+    
+    # ensure "class_id" compatibility so old code works transparently
+    return [
+        {
+            "id": c.get("id"), "class_id": c.get("id"), "name": c.get("name"), "section": c.get("section"),
+            "subject": c.get("subject"), "join_code": c.get("join_code"),
+            "description": c.get("description"), "students": c.get("students")
+        }
+        for c in classes
+    ]
+
+@router.post("/classes/enroll", summary="Student: join a class via join code")
+async def enroll(
+    body: EnrollIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student", "teacher", "admin")),
+):
+    try:
+        enrollment = await lms_service.enroll_student(db, body.join_code, str(current_user["_id"]))
+        return {"message": "Enrolled successfully", "class_id": enrollment["class_id"]}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+class EnrollByEmailIn(BaseModel):
+    student_email: str
+
+@router.post("/classes/{class_id}/enroll-by-email", summary="Teacher: enroll student by email")
+async def enroll_by_email(
+    class_id: str,
+    body: EnrollByEmailIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    from bson import ObjectId
+    student = await db.users.find_one({"email": body.student_email.lower()})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found with that email.")
+    student_id = str(student["_id"])
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found.")
+    if student_id in cls.get("students", []):
+        return {"message": "Student already enrolled.", "student_id": student_id}
+    await db.classes.update_one({"id": class_id}, {"$push": {"students": student_id}})
+    return {"message": "Student enrolled successfully.", "student_id": student_id, "student_name": student.get("name", "")}
+
+@router.delete("/classes/{class_id}/students", summary="Teacher: remove a student")
+async def remove_student(
+    class_id: str,
+    body: RemoveStudentIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    removed = await lms_service.remove_student(db, class_id, body.student_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Enrollment not found.")
+    return {"message": "Student removed from class."}
+
+@router.get("/classes/{class_id}/students", summary="Teacher: list enrolled students")
+async def get_students(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    student_ids = await lms_service.get_enrolled_students(db, class_id)
+    return {"class_id": class_id, "student_ids": student_ids, "count": len(student_ids)}
+
+# ─── Curriculum & Materials ───────────────────────────────────────────────────
+
+@router.get("/classes/{class_id}/units", summary="List curriculum units for a class")
+async def list_units(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    cursor = db.curriculum_units.find({"class_id": class_id}).sort("order_index", 1)
+    units = await cursor.to_list(None)
+    return [
+        {"id": u["id"], "title": u["title"], "description": u.get("description"), "order_index": u.get("order_index", 0)}
+        for u in units
+    ]
+
+@router.post("/classes/{class_id}/units", summary="Teacher: add curriculum unit")
+async def create_unit(
+    class_id: str,
+    body: CreateUnitIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    unit = await lms_service.create_unit(db, class_id, body.title, body.description, body.order_index)
+    return {"id": unit["id"], "title": unit["title"]}
+
+@router.post("/classes/{class_id}/materials", summary="Teacher: upload material")
+async def upload_material(
+    class_id: str,
+    title: str,
+    file_url: str,
+    file_type: Optional[str] = None,
+    unit_id: Optional[str] = None,
+    description: Optional[str] = None,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    mat = await lms_service.add_material(
+        db, class_id, str(current_user["_id"]), title, file_url, file_type,
+        None, unit_id, description,
+    )
+    return {"id": mat["id"], "title": mat["title"], "file_url": mat["file_url"]}
+
+@router.get("/classes/{class_id}/materials", summary="List class materials")
+async def list_materials(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    materials = await lms_service.get_materials(db, class_id)
+    return [
+        {
+            "id": m["id"], "title": m.get("title"), "description": m.get("description"),
+            "file_url": m.get("file_url"), "file_type": m.get("file_type"),
+            "unit_id": m.get("unit_id"), "created_at": m.get("created_at"),
+        }
+        for m in materials
+    ]
+
+# ─── Assignments ──────────────────────────────────────────────────────────────
+
+@router.post("/assignments", summary="Teacher: create assignment")
+async def create_assignment(
+    body: CreateAssignmentIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    assignment = await lms_service.create_assignment(
+        db, body.class_id, str(current_user["_id"]),
+        body.title, body.description, body.due_date,
+        body.max_points, body.allow_late, None, body.unit_id, body.type,
+    )
+    return {"id": assignment["id"], "assignment_id": assignment["id"], "title": assignment["title"], "due_date": assignment["due_date"]}
+
+@router.get("/classes/{class_id}/assignments", summary="List class assignments")
+async def list_assignments(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    assignments = await lms_service.get_assignments(db, class_id)
+    return [
+        {
+            "id": a["id"], "assignment_id": a["id"], "title": a["title"], "type": a.get("type"),
+            "due_date": a.get("due_date"), "max_points": float(a.get("max_points") or 0),
+        }
+        for a in assignments
+    ]
+
+@router.get("/assignments", summary="List assignments across user's classes")
+async def list_assignments_all(
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    # This matches the legacy endpoint expected by frontend portals
+    role = current_user.get("role", "student").lower()
+    user_id = str(current_user["_id"])
+
+    if role in ("teacher", "admin"):
+        # assignments across all this teacher's classes
+        c_cursor = db.classes.find({"teacher_id": user_id})
+        classes = await c_cursor.to_list(None)
+    else:
+        # assignments across this student's classes
+        c_cursor = db.classes.find({"students": user_id})
+        classes = await c_cursor.to_list(None)
+
+    class_ids = [c["id"] for c in classes]
+    cursor = db.assignments.find({"class_id": {"$in": class_ids}})
+    assignments = await cursor.to_list(None)
+
+    return [
+        {
+            "id": a["id"], "assignment_id": a["id"], "title": a.get("title"), "type": a.get("type"),
+            "due_date": a.get("due_date"), "max_marks": float(a.get("max_points") or 0),
+        }
+        for a in assignments
+    ]
+
+# Legacy /submissions POST removed — use /assignments/{assignment_id}/submit instead
+
+@router.post("/assignments/{assignment_id}/submit", summary="Student: submit assignment")
+async def submit_assignment(
+    assignment_id: str,
+    body: SubmitAssignmentIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student", "teacher")), # teacher for testing
+):
+    sub = await lms_service.submit_assignment(
+        db, assignment_id, str(current_user["_id"]), body.content, body.file_url
+    )
+    return {"id": sub["id"], "submission_id": sub["id"], "status": sub["status"], "submitted_at": sub["submitted_at"]}
+
+@router.get("/submissions", summary="Teacher: view all submissions across classes")
+async def global_submissions(
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    user_id = str(current_user["_id"])
+    c_cursor = db.classes.find({"teacher_id": user_id})
+    classes = await c_cursor.to_list(None)
+    class_ids = [c["id"] for c in classes]
+    a_cursor = db.assignments.find({"class_id": {"$in": class_ids}})
+    assignments = await a_cursor.to_list(None)
+    assignment_ids = [a["id"] for a in assignments]
+    s_cursor = db.submissions.find({"assignment_id": {"$in": assignment_ids}})
+    subs = await s_cursor.to_list(None)
+
+    return [
+        {
+            "id": s["id"], "submission_id": s["id"], "student_id": s["student_id"], "status": s.get("status"),
+            "points_earned": s.get("points_earned"), "submitted_at": s.get("submitted_at"),
+            "student_name": f"Student {str(s['student_id'])[:4]}", "graded": s.get("status") == "graded",
+            "student_email": f"student_{str(s['student_id'])[:4]}@example.com"
+        }
+        for s in subs
+    ]
+
+@router.post("/submissions/grade", summary="Teacher: grade a submission")
+async def grade_submission(
+    body: GradeSubmissionIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    try:
+        points = body.get_points()
+        sub = await lms_service.grade_submission(
+            db, body.submission_id, str(current_user["_id"]), points, body.feedback
+        )
+        return {"id": sub["id"], "submission_id": sub["id"], "status": sub["status"], "points_earned": sub["points_earned"]}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/students/me/submissions", summary="Student: view own submissions")
+async def my_submissions(
+    class_id: Optional[str] = None,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student", "teacher")),
+):
+    subs = await lms_service.get_student_submissions(db, str(current_user["_id"]), class_id)
+    return [
+        {
+            "id": s["id"], "submission_id": s["id"], "assignment_id": s["assignment_id"],
+            "status": s.get("status"), "points_earned": s.get("points_earned"),
+            "feedback": s.get("feedback"), "submitted_at": s.get("submitted_at"),
+        }
+        for s in subs
+    ]
+
+# ─── Quizzes ──────────────────────────────────────────────────────────────────
+
+@router.post("/classes/{class_id}/quizzes", summary="Teacher: create quiz/test")
+async def create_quiz(
+    class_id: str,
+    body: CreateQuizIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    questions = [q.dict() for q in body.questions] if body.questions else None
+    quiz = await lms_service.create_quiz(
+        db, class_id, str(current_user["_id"]),
+        body.title, body.description, body.type,
+        body.time_limit, body.max_attempts,
+        body.start_time, body.end_time, questions,
+    )
+    return {"id": quiz["id"], "title": quiz["title"], "is_published": quiz.get("is_published", False)}
+
+@router.get("/classes/{class_id}/quizzes", summary="List class quizzes")
+async def list_quizzes(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    cursor = db.lms_quizzes.find({"class_id": class_id})
+    quizzes = await cursor.to_list(None)
+    return [
+        {"id": q["id"], "title": q.get("title"), "description": q.get("description"), "time_limit": q.get("time_limit")}
+        for q in quizzes
+    ]
+
+@router.get("/quizzes", summary="List all quizzes across classes")
+async def global_quizzes(
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    role = current_user.get("role", "student").lower()
+    user_id = str(current_user["_id"])
+    if role in ("teacher", "admin"):
+        c_cursor = db.classes.find({"teacher_id": user_id})
+    else:
+        c_cursor = db.classes.find({"students": user_id})
+    
+    classes = await c_cursor.to_list(None)
+    class_ids = [c["id"] for c in classes]
+    q_cursor = db.lms_quizzes.find({"class_id": {"$in": class_ids}})
+    quizzes = await q_cursor.to_list(None)
+    return [
+        {"id": q["id"], "title": q.get("title"), "class_id": q["class_id"], "due_date": q.get("end_time")}
+        for q in quizzes
+    ]
+
+@router.get("/quizzes/{quiz_id}", summary="Get quiz details and questions")
+async def get_quiz(
+    quiz_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    quiz = await db.lms_quizzes.find_one({"id": quiz_id})
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    q_cursor = db.quiz_questions.find({"quiz_id": quiz_id}).sort("order_index", 1)
+    questions = await q_cursor.to_list(None)
+    
+    return {
+        "quiz_id": quiz["id"],
+        "title": quiz.get("title"),
+        "description": quiz.get("description"),
+        "questions": [
+            {
+                "id": q["id"],
+                "question": q["question"],
+                "options": q.get("options", []),
+                "type": q.get("type", "mcq"),
+                "points": q.get("points", 1)
+            }
+            for q in questions
+        ]
+    }
+
+@router.post("/quizzes/{quiz_id}/attempt", summary="Student: submit quiz attempt")
+async def attempt_quiz(
+    quiz_id: str,
+    body: SubmitQuizIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student", "teacher")),
+):
+    try:
+        attempt = await lms_service.submit_quiz_attempt(
+            db, quiz_id, str(current_user["_id"]), body.answers
+        )
+        return {
+            "id": attempt.get("id"),
+            "score": attempt.get("score"),
+            "max_score": attempt.get("max_score"),
+            "percentage": attempt.get("percentage"),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ─── Attendance ──────────────────────────────────────────────────────────────
+
+@router.post("/classes/{class_id}/attendance", summary="Teacher: mark bulk attendance")
+async def take_attendance(
+    class_id: str,
+    body: MarkAttendanceIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    records = [r.dict() for r in body.records]
+    await lms_service.mark_attendance(db, class_id, body.date, records)
+    return {"message": "Attendance marked successfully."}
+
+@router.get("/students/me/attendance", summary="Student: view own attendance")
+async def my_attendance(
+    class_id: Optional[str] = None,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student", "teacher")),
+):
+    results = await lms_service.get_student_attendance(db, str(current_user["_id"]), class_id)
+    return results
+
+@router.get("/classes/{class_id}/attendance/stats", summary="Teacher: view class stats")
+async def class_attendance_stats(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    stats = await lms_service.get_class_attendance_stats(db, class_id)
+    return stats
+

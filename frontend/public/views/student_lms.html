@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Classes — RAG AI Tutor</title>
+    <meta name="description" content="Student LMS portal — view enrolled classes, assignments, quizzes, and grades.">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/assets/js/config.js?v=8"></script>
+    <script src="/assets/js/auth.js?v=8"></script>
+    <style>
+        :root {
+            --bg: #07091e;
+            --bg2: #0d112d;
+            --card: #121630;
+            --card2: #1a1f3a;
+            --accent: #00ffcc;
+            --accent2: #00d4ff;
+            --purple: #7c3aed;
+            --pink: #ec4899;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --success: #00ffcc;
+            --text: #f0f4ff;
+            --muted: #8b9cb8;
+            --border: rgba(0,255,204,0.18);
+            --border-dim: rgba(0,255,204,0.07);
+            --radius: 16px;
+            --shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        /* ── Navbar ── */
+        nav.topbar {
+            height: 65px;
+            background: rgba(13,17,45,0.96);
+            border-bottom: 1px solid var(--border-dim);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 28px;
+            backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .brand { color: var(--accent); font-weight: 700; font-size: 1.1rem; display:flex; align-items:center; gap:8px; }
+        .nav-links { display: flex; gap: 10px; align-items: center; }
+        .nav-links a, .nav-links button {
+            color: var(--muted); text-decoration: none; font-size: 0.9rem;
+            padding: 7px 14px; border-radius: 8px; border: 1px solid transparent;
+            transition: all 0.2s; background: none; cursor: pointer;
+        }
+        .nav-links a:hover, .nav-links button:hover { color: var(--accent); border-color: var(--border-dim); background: rgba(0,255,204,0.06); }
+        .nav-links .active { color: var(--accent); background: rgba(0,255,204,0.1); border-color: var(--border); }
+        .logout { color: var(--danger) !important; }
+
+        /* ── Layout ── */
+        .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+        .page-header { margin-bottom: 32px; }
+        .page-header h1 {
+            font-size: 28px; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .page-header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
+
+        /* ── Tabs ── */
+        .tabs { display: flex; gap: 4px; margin-bottom: 28px; background: var(--card); border-radius: 12px; padding: 5px; border: 1px solid var(--border-dim); width: fit-content; }
+        .tab-btn {
+            padding: 9px 22px; border-radius: 9px; border: none; background: none;
+            color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer;
+            transition: all 0.25s; display: flex; align-items: center; gap: 7px;
+        }
+        .tab-btn.active { background: linear-gradient(135deg, rgba(0,255,204,0.15), rgba(0,212,255,0.1)); color: var(--accent); }
+        .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            padding: 22px;
+            transition: all 0.25s;
+        }
+        .card:hover { border-color: var(--border); box-shadow: 0 4px 24px rgba(0,255,204,0.06); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+
+        /* ── Class Card ── */
+        .class-card {
+            background: var(--card);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .class-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--border); }
+        .class-card-header {
+            height: 6px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+        }
+        .class-card-body { padding: 20px; }
+        .class-icon { font-size: 28px; margin-bottom: 10px; }
+        .class-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+        .class-meta { font-size: 12px; color: var(--muted); display: flex; gap: 12px; margin-bottom: 14px; }
+        .class-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+        .tag-accent { background: rgba(0,255,204,0.12); color: var(--accent); border: 1px solid var(--border); }
+        .tag-warn { background: rgba(245,158,11,0.12); color: var(--warn); border: 1px solid rgba(245,158,11,0.2); }
+        .tag-purple { background: rgba(124,58,237,0.12); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+
+        /* ── Assignment Row ── */
+        .assignment-row {
+            display: flex; align-items: center; gap: 16px;
+            padding: 15px 18px; border-radius: 12px;
+            border: 1px solid var(--border-dim);
+            background: var(--card2);
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        .assignment-row:hover { border-color: var(--border); background: rgba(26,31,58,0.8); }
+        .assignment-icon { font-size: 22px; flex-shrink: 0; }
+        .assignment-info { flex: 1; min-width: 0; }
+        .assignment-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .assignment-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+        .assignment-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* ── Status badges ── */
+        .status-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+        .status-pending { background: rgba(245,158,11,0.15); color: var(--warn); }
+        .status-submitted { background: rgba(0,212,255,0.12); color: var(--accent2); }
+        .status-graded { background: rgba(0,255,204,0.12); color: var(--accent); }
+        .status-late { background: rgba(239,68,68,0.12); color: var(--danger); }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer;
+            font-weight: 600; font-size: 13px; transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #07091e; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
+        .btn-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.12); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* ── Join Code ── */
+        .join-code-display {
+            font-family: monospace; font-size: 22px; letter-spacing: 4px;
+            color: var(--accent); font-weight: 700;
+            background: rgba(0,255,204,0.08); border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 10px; text-align: center;
+        }
+
+        /* ── Empty state ── */
+        .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; }
+        .empty p { font-size: 14px; }
+
+        /* ── Loading ── */
+        .skeleton { background: linear-gradient(90deg, var(--card) 25%, rgba(0,255,204,0.04) 50%, var(--card) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 10px; height: 80px; margin-bottom: 12px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Modal ── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(7,9,30,0.92); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.open { display: flex; animation: fadeIn 0.2s ease; }
+        .modal-card { background: var(--card2); border: 1px solid var(--border); border-radius: 20px; padding: 32px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; }
+        .modal-card h2 { color: var(--accent); margin-bottom: 20px; font-size: 1.3rem; }
+        .modal-card input, .modal-card textarea, .modal-card select {
+            width: 100%; padding: 11px 14px; margin-bottom: 14px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px; color: var(--text); font-size: 0.9rem; font-family: inherit;
+        }
+        .modal-card input:focus, .modal-card textarea:focus { outline: none; border-color: var(--accent); }
+        .modal-card textarea { min-height: 100px; resize: vertical; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+        /* ── Grade circle ── */
+        .grade-circle {
+            width: 48px; height: 48px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 13px; flex-shrink: 0;
+        }
+
+        /* ── Material item ── */
+        .material-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 13px 16px; border-radius: 10px;
+            border: 1px solid var(--border-dim); background: var(--card2);
+            margin-bottom: 8px; transition: all 0.2s;
+        }
+        .material-item:hover { border-color: var(--border); }
+        .material-type-icon { font-size: 22px; flex-shrink: 0; }
+        .material-info { flex: 1; }
+        .material-name { font-size: 13px; font-weight: 600; }
+        .material-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<nav class="topbar">
+    <div class="brand">🎓 RAG AI Tutor · <span style="color:var(--muted); font-weight:400; font-size:0.9rem;">My Classes</span></div>
+    <div class="nav-links">
+        <a href="/views/dashboard.html">📊 Dashboard</a>
+        <a href="/views/subjects.html">💬 AI Tutor</a>
+        <a href="/views/student_lms.html" class="active">📚 My Classes</a>
+        <a href="/views/analytics.html">📈 Analytics</a>
+        <a href="/views/planner.html">📅 Planner</a>
+        <a href="/views/community.html">🗣️ Community</a>
+        <button class="logout" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="page-header">
+        <h1>📚 My Learning Hub</h1>
+        <p id="greetingText">Loading your classes and assignments...</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-classes" onclick="switchTab('classes')">📚 Classes</button>
+        <button class="tab-btn" id="tab-assignments" onclick="switchTab('assignments')">📝 Assignments</button>
+        <button class="tab-btn" id="tab-quizzes" onclick="switchTab('quizzes')">🧠 Quizzes</button>
+        <button class="tab-btn" id="tab-grades" onclick="switchTab('grades')">🏅 Grades</button>
+        <button class="tab-btn" id="tab-timetable" onclick="switchTab('timetable')">📅 Timetable</button>
+    </div>
+
+    <!-- Classes Tab -->
+    <div id="panel-classes">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div style="font-size:14px; color:var(--muted);" id="classCount">Loading...</div>
+            <button class="btn btn-primary" onclick="openModal('joinModal')">➕ Join a Class</button>
+        </div>
+        <div class="grid" id="classList">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Assignments Tab -->
+    <div id="panel-assignments" style="display:none;">
+        <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm active-filter" id="filter-all" onclick="filterAssignments('all')">All</button>
+            <button class="btn btn-secondary btn-sm" id="filter-pending" onclick="filterAssignments('pending')">⏳ Pending</button>
+            <button class="btn btn-secondary btn-sm" id="filter-submitted" onclick="filterAssignments('submitted')">✅ Submitted</button>
+            <button class="btn btn-secondary btn-sm" id="filter-graded" onclick="filterAssignments('graded')">🏅 Graded</button>
+        </div>
+        <div id="assignmentList">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Quizzes Tab -->
+    <div id="panel-quizzes" style="display:none;">
+        <div id="quizList">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Grades Tab -->
+    <div id="panel-grades" style="display:none;">
+        <div id="gradeList">
+            <div class="skeleton"></div>
+        </div>
+    </div>
+
+    <!-- Timetable Tab -->
+    <div id="panel-timetable" style="display:none;">
+        <div class="grid" style="margin-bottom: 20px;">
+            <div class="card" style="border-left: 4px solid var(--accent);">
+                <h3>📊 Attendance Overview</h3>
+                <h1 id="overallAttendanceText" style="color:var(--accent); margin:10px 0;">--%</h1>
+                <p style="color:var(--muted); font-size:13px;" id="attendanceBreakdown">Present: -- | Absent: --</p>
+            </div>
+            <div class="card" style="border-left: 4px solid #7c3aed;">
+                <h3 id="todayNameLabel">📅 Today's Classes</h3>
+                <div id="studentTodayClasses" style="margin-top:10px; font-size:14px; color:var(--text);">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JOIN CLASS MODAL -->
+<div id="joinModal" class="modal-overlay">
+    <div class="modal-card">
+        <h2>➕ Join a Class</h2>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Enter the 8-character join code given by your teacher.</p>
+        <input id="joinCodeInput" maxlength="8" placeholder="E.g. ABC123XY" style="text-transform:uppercase; text-align:center; font-size:1.3rem; letter-spacing:4px; font-family:monospace;">
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('joinModal')">Cancel</button>
+            <button class="btn btn-primary" id="joinBtn" onclick="joinClass()">Join Class</button>
+        </div>
+    </div>
+</div>
+
+<!-- SUBMIT ASSIGNMENT MODAL -->
+<div id="submitModal" class="modal-overlay">
+    <div class="modal-card">
+        <h2 id="submitModalTitle">📝 Submit Assignment</h2>
+        <p id="submitModalDesc" style="color:var(--muted); font-size:13px; margin-bottom:16px;"></p>
+        <textarea id="submitContent" placeholder="Write your answer or description here..."></textarea>
+        <input id="submitFileUrl" placeholder="File URL / Google Drive link (optional)">
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('submitModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAssignment()">Submit</button>
+        </div>
+    </div>
+</div>
+
+<!-- CLASS DETAIL MODAL -->
+<div id="classDetailModal" class="modal-overlay">
+    <div class="modal-card" style="max-width:640px;">
+        <h2 id="classDetailTitle">Class</h2>
+        <div id="classMaterialsList" style="margin-bottom:20px;"></div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('classDetailModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+const TOKEN = localStorage.getItem('token');
+if (!TOKEN) window.location.href = '/views/login.html';
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+document.getElementById('greetingText').textContent = `Welcome back, ${user.name || 'Student'}! Here's your learning hub.`;
+
+// ─── Tab Management ───────────────────────────────────────────────────────────
+const panels = ['classes', 'assignments', 'quizzes', 'grades', 'timetable'];
+function switchTab(tab) {
+    panels.forEach(p => {
+        document.getElementById(`panel-${p}`).style.display = p === tab ? 'block' : 'none';
+        document.getElementById(`tab-${p}`).classList.toggle('active', p === tab);
+    });
+    if (tab === 'assignments') loadAssignments();
+    if (tab === 'quizzes') loadQuizzes();
+    if (tab === 'grades') loadGrades();
+    if (tab === 'timetable') loadTimetable();
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ─── Classes ──────────────────────────────────────────────────────────────────
+let allClasses = [];
+let allAssignments = [];
+let allSubmissions = [];
+
+async function loadClasses() {
+    try {
+        const res = await fetch(`${API}/lms/classes`, { headers });
+        allClasses = await res.json();
+        document.getElementById('classCount').textContent = `${allClasses.length} class${allClasses.length !== 1 ? 'es' : ''} enrolled`;
+
+        const colorPairs = [
+            ['#00ffcc','#00d4ff'], ['#7c3aed','#ec4899'], ['#f59e0b','#ef4444'],
+            ['#00d4ff','#7c3aed'], ['#00ffcc','#7c3aed'],
+        ];
+
+        const html = allClasses.map((c, i) => {
+            const [c1, c2] = colorPairs[i % colorPairs.length];
+            const students = (c.students || []).length;
+            return `<div class="class-card" onclick="openClassDetail('${c.id}', '${escHtml(c.name)}')">
+                <div class="class-card-header" style="background:linear-gradient(90deg,${c1},${c2})"></div>
+                <div class="class-card-body">
+                    <div class="class-icon">📘</div>
+                    <div class="class-name">${escHtml(c.name)}${c.section ? ' — ' + escHtml(c.section) : ''}</div>
+                    <div class="class-meta">
+                        <span>📖 ${escHtml(c.subject || 'General')}</span>
+                        <span>👥 ${students} student${students !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="class-actions">
+                        <button onclick="event.stopPropagation(); openClassDetail('${c.id}', '${escHtml(c.name)}')" class="btn btn-secondary btn-sm">📂 Materials</button>
+                        <button onclick="event.stopPropagation(); switchTab('assignments')" class="btn btn-secondary btn-sm">📝 Assignments</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        document.getElementById('classList').innerHTML = html || `<div class="empty"><div class="empty-icon">📭</div><p>No classes joined yet.</p><br><button class="btn btn-primary" onclick="openModal('joinModal')">➕ Join a Class</button></div>`;
+    } catch (e) {
+        console.error(e);
+        document.getElementById('classList').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><p>Failed to load classes.</p></div>';
+    }
+}
+
+async function openClassDetail(classId, className) {
+    document.getElementById('classDetailTitle').textContent = `📂 ${className} — Materials`;
+    document.getElementById('classMaterialsList').innerHTML = '<p style="color:var(--muted)">Loading...</p>';
+    openModal('classDetailModal');
+    try {
+        const res = await fetch(`${API}/lms/classes/${classId}/materials`, { headers });
+        const mats = await res.json();
+        if (!mats.length) {
+            document.getElementById('classMaterialsList').innerHTML = '<div class="empty" style="padding:30px"><div class="empty-icon">📭</div><p>No materials uploaded yet.</p></div>';
+            return;
+        }
+        const typeIcon = ft => {
+            if (!ft) return '📄';
+            const f = ft.toLowerCase();
+            if (f.includes('pdf')) return '📕';
+            if (f.includes('video') || f.includes('mp4')) return '🎬';
+            if (f.includes('image') || f.includes('jpg') || f.includes('png')) return '🖼️';
+            if (f.includes('ppt') || f.includes('slides')) return '📊';
+            return '📄';
+        };
+        document.getElementById('classMaterialsList').innerHTML = mats.map(m => `
+            <div class="material-item">
+                <div class="material-type-icon">${typeIcon(m.file_type)}</div>
+                <div class="material-info">
+                    <div class="material-name">${escHtml(m.title)}</div>
+                    <div class="material-meta">${m.description ? escHtml(m.description) + ' · ' : ''}${m.file_type || 'Document'}</div>
+                </div>
+                <a href="${m.file_url}" target="_blank" class="btn btn-secondary btn-sm">⬇ Download</a>
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('classMaterialsList').innerHTML = '<p style="color:var(--danger)">Failed to load materials.</p>';
+    }
+}
+
+// ─── Join Class ───────────────────────────────────────────────────────────────
+async function joinClass() {
+    const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+    if (code.length < 4) { alert('Please enter a valid join code.'); return; }
+    const btn = document.getElementById('joinBtn');
+    btn.disabled = true; btn.textContent = 'Joining...';
+    try {
+        const res = await fetch(`${API}/lms/classes/enroll`, {
+            method: 'POST', headers, body: JSON.stringify({ join_code: code })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert('🎉 ' + (data.message || 'Joined successfully!'));
+            closeModal('joinModal');
+            document.getElementById('joinCodeInput').value = '';
+            loadClasses();
+        } else {
+            alert(data.detail || 'Failed to join class');
+        }
+    } catch (e) { alert('Network error'); }
+    btn.disabled = false; btn.textContent = 'Join Class';
+}
+
+// ─── Assignments ──────────────────────────────────────────────────────────────
+let currentAssignmentId = null;
+let assignmentFilter = 'all';
+
+async function loadAssignments() {
+    document.getElementById('assignmentList').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    try {
+        const [aRes, sRes] = await Promise.all([
+            fetch(`${API}/lms/assignments`, { headers }),
+            fetch(`${API}/lms/students/me/submissions`, { headers })
+        ]);
+        allAssignments = await aRes.json();
+        allSubmissions = await sRes.json();
+        renderAssignments();
+    } catch (e) {
+        document.getElementById('assignmentList').innerHTML = '<div class="empty"><p>Failed to load assignments.</p></div>';
+    }
+}
+
+function renderAssignments() {
+    const submissionMap = {};
+    allSubmissions.forEach(s => { submissionMap[s.assignment_id] = s; });
+
+    const now = new Date();
+    let filtered = allAssignments;
+    if (assignmentFilter !== 'all') {
+        filtered = allAssignments.filter(a => {
+            const sub = submissionMap[a.assignment_id || a.id];
+            const status = sub ? sub.status : 'pending';
+            return status === assignmentFilter;
+        });
+    }
+
+    if (!filtered.length) {
+        document.getElementById('assignmentList').innerHTML = '<div class="empty"><div class="empty-icon">✅</div><p>No assignments to show.</p></div>';
+        return;
+    }
+
+    const html = filtered.map(a => {
+        const sub = submissionMap[a.assignment_id || a.id];
+        const status = sub ? sub.status : 'pending';
+        const due = a.due_date ? new Date(a.due_date) : null;
+        const isOverdue = due && due < now && status === 'pending';
+        const dueStr = due ? due.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : 'No deadline';
+        const pts = sub?.points_earned != null ? `${sub.points_earned} / ${a.max_marks || a.max_points || '?'} pts` : '';
+        const gradeColor = sub?.points_earned != null ? (sub.points_earned / (a.max_marks || a.max_points || 100) >= 0.8 ? '#00ffcc' : sub.points_earned / (a.max_marks || a.max_points || 100) >= 0.6 ? '#f59e0b' : '#ef4444') : '';
+
+        return `<div class="assignment-row">
+            <div class="assignment-icon">${status === 'graded' ? '🏅' : status === 'submitted' ? '✅' : isOverdue ? '⚠️' : '📝'}</div>
+            <div class="assignment-info">
+                <div class="assignment-title">${escHtml(a.title)}</div>
+                <div class="assignment-sub">Due: ${dueStr}${isOverdue ? ' <span style="color:var(--danger)">· Overdue</span>' : ''}</div>
+            </div>
+            <span class="status-badge status-${isOverdue && status === 'pending' ? 'late' : status}">${status === 'graded' ? '🏅 Graded' : status === 'submitted' ? '✅ Submitted' : isOverdue ? '⚠️ Overdue' : '⏳ Pending'}</span>
+            ${pts ? `<div style="font-size:13px; font-weight:700; color:${gradeColor}; flex-shrink:0;">${pts}</div>` : ''}
+            ${status === 'pending' || status === 'late' ? `<button class="btn btn-primary btn-sm" onclick="openSubmit('${a.assignment_id || a.id}', '${escHtml(a.title)}', '${escHtml(a.description || '')}')">Submit</button>` : ''}
+            ${sub?.feedback ? `<button class="btn btn-secondary btn-sm" onclick="alert('Feedback: ${escHtml(sub.feedback)}')">💬 Feedback</button>` : ''}
+        </div>`;
+    }).join('');
+
+    document.getElementById('assignmentList').innerHTML = html;
+}
+
+function filterAssignments(filter) {
+    assignmentFilter = filter;
+    document.querySelectorAll('[id^="filter-"]').forEach(b => b.classList.toggle('active-filter', b.id === `filter-${filter}`));
+    renderAssignments();
+}
+
+function openSubmit(assignmentId, title, desc) {
+    currentAssignmentId = assignmentId;
+    document.getElementById('submitModalTitle').textContent = `📝 ${title}`;
+    document.getElementById('submitModalDesc').textContent = desc || '';
+    document.getElementById('submitContent').value = '';
+    document.getElementById('submitFileUrl').value = '';
+    openModal('submitModal');
+}
+
+async function submitAssignment() {
+    const content = document.getElementById('submitContent').value;
+    const fileUrl = document.getElementById('submitFileUrl').value;
+    if (!content && !fileUrl) { alert('Please enter your answer or provide a file URL.'); return; }
+    try {
+        const res = await fetch(`${API}/lms/assignments/${currentAssignmentId}/submit`, {
+            method: 'POST', headers, body: JSON.stringify({ content, file_url: fileUrl })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert('✅ Assignment submitted successfully!');
+            closeModal('submitModal');
+            loadAssignments();
+        } else {
+            alert(data.detail || 'Submission failed');
+        }
+    } catch (e) { alert('Network error'); }
+}
+
+// ─── Quizzes ──────────────────────────────────────────────────────────────────
+async function loadQuizzes() {
+    document.getElementById('quizList').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    try {
+        const res = await fetch(`${API}/lms/quizzes`, { headers });
+        const quizzes = await res.json();
+        if (!quizzes.length) {
+            document.getElementById('quizList').innerHTML = '<div class="empty"><div class="empty-icon">🧠</div><p>No quizzes available yet.</p></div>';
+            return;
+        }
+        document.getElementById('quizList').innerHTML = quizzes.map(q => `
+            <div class="assignment-row">
+                <div class="assignment-icon">🧠</div>
+                <div class="assignment-info">
+                    <div class="assignment-title">${escHtml(q.title)}</div>
+                    <div class="assignment-sub">${q.due_date ? 'Due: ' + new Date(q.due_date).toLocaleDateString('en-IN') : 'No deadline'}</div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="window.location.href='/views/quiz.html?quiz_id=${q.id}'">Take Quiz</button>
+            </div>
+        `).join('');
+    } catch (e) {
+        document.getElementById('quizList').innerHTML = '<div class="empty"><p>Failed to load quizzes.</p></div>';
+    }
+}
+
+// ─── Grades ───────────────────────────────────────────────────────────────────
+async function loadGrades() {
+    document.getElementById('gradeList').innerHTML = '<div class="skeleton"></div>';
+    try {
+        const [aRes, sRes] = await Promise.all([
+            fetch(`${API}/lms/assignments`, { headers }),
+            fetch(`${API}/lms/students/me/submissions`, { headers })
+        ]);
+        const assignments = await aRes.json();
+        const submissions = await sRes.json();
+
+        const aMap = {};
+        assignments.forEach(a => { aMap[a.id || a.assignment_id] = a; });
+
+        const graded = submissions.filter(s => s.status === 'graded');
+        if (!graded.length) {
+            document.getElementById('gradeList').innerHTML = '<div class="empty"><div class="empty-icon">🏅</div><p>No graded submissions yet.</p></div>';
+            return;
+        }
+
+        const totalPts = graded.reduce((s, sub) => s + (sub.points_earned || 0), 0);
+        const maxPts = graded.reduce((s, sub) => {
+            const a = aMap[sub.assignment_id];
+            return s + (a?.max_marks || a?.max_points || 100);
+        }, 0);
+        const avg = maxPts > 0 ? Math.round(totalPts / maxPts * 100) : 0;
+
+        let html = `<div class="card" style="margin-bottom:20px; text-align:center;">
+            <div style="font-size:36px; font-weight:700; color:${avg >= 80 ? 'var(--accent)' : avg >= 60 ? 'var(--warn)' : 'var(--danger)'};">${avg}%</div>
+            <div style="font-size:13px; color:var(--muted); margin-top:4px;">Overall Average (${graded.length} graded)</div>
+        </div>`;
+
+        html += graded.map(s => {
+            const a = aMap[s.assignment_id] || {};
+            const max = a.max_marks || a.max_points || 100;
+            const pct = Math.round((s.points_earned || 0) / max * 100);
+            const color = pct >= 80 ? '#00ffcc' : pct >= 60 ? '#f59e0b' : '#ef4444';
+            return `<div class="assignment-row">
+                <div class="grade-circle" style="background:rgba(0,255,204,0.08); border:2px solid ${color}; color:${color};">${pct}%</div>
+                <div class="assignment-info">
+                    <div class="assignment-title">${escHtml(a.title || 'Assignment')}</div>
+                    <div class="assignment-sub">${s.points_earned} / ${max} points${s.feedback ? ' · ' + escHtml(s.feedback.slice(0,60)) + (s.feedback.length > 60 ? '...' : '') : ''}</div>
+                </div>
+                <span class="status-badge status-graded">🏅 Graded</span>
+            </div>`;
+        }).join('');
+
+        document.getElementById('gradeList').innerHTML = html;
+    } catch (e) {
+        document.getElementById('gradeList').innerHTML = '<div class="empty"><p>Failed to load grades.</p></div>';
+    }
+}
+
+// ─── Timetable & Attendance ───────────────────────────────────────────────────
+async function loadTimetable() {
+    try {
+        const [ttRes, attRes] = await Promise.all([
+            fetch(`${API}/academic/student/timetable/today`, { headers }),
+            fetch(`${API}/academic/student/attendance/summary`, { headers })
+        ]);
+
+        if (ttRes.ok) {
+            const ttData = await ttRes.json();
+            document.getElementById('todayNameLabel').textContent = `📅 Today's Classes (${ttData.today})`;
+            if(!ttData.classes || ttData.classes.length === 0) {
+                document.getElementById('studentTodayClasses').innerHTML = '<p style="color:var(--muted)">No classes scheduled for today.</p>';
+            } else {
+                document.getElementById('studentTodayClasses').innerHTML = ttData.classes.map(c => `
+                    <div style="padding:8px 0; border-bottom:1px solid var(--border-dim);">
+                        <strong style="color:var(--accent2)">Period ${c.period_number}</strong>
+                        <span style="color:var(--muted)">(${c.start_time} - ${c.end_time})</span>
+                        <div style="margin-top:4px;">${c.subject_id} — Room <b>${c.room}</b></div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        if (attRes.ok) {
+            const attData = await attRes.json();
+            if(!attData.error) {
+                const pct = attData.overall_percentage;
+                const pctColor = pct >= 75 ? 'var(--accent)' : pct >= 65 ? 'var(--warn)' : 'var(--danger)';
+                document.getElementById('overallAttendanceText').textContent = `${pct}%`;
+                document.getElementById('overallAttendanceText').style.color = pctColor;
+                document.getElementById('attendanceBreakdown').textContent = `Present: ${attData.present} | Absent: ${attData.absent}`;
+            } else {
+                document.getElementById('attendanceBreakdown').textContent = 'Attendance stats not available.';
+            }
+        }
+    } catch(e) {
+        console.error("Timetable load error", e);
+    }
+}
+
+// ─── WebSocket Live Attendance ────────────────────────────────────────────────
+function connectAttendanceWS() {
+    if(!user.roll_number) return;
+    
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.host; // fallback
+    const apiParts = API.split('//');
+    const wsUrl = apiParts.length > 1 
+        ? `${wsProto}//${apiParts[1]}/academic/ws/attendance/${user.roll_number}`
+        : `${wsProto}//${wsHost}${API}/academic/ws/attendance/${user.roll_number}`;
+
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.type === "attendance_update") {
+            alert(`🔔 Live Update: ${data.message} (${data.status})`);
+            // Automatically reload the timetable & attendance data
+            if (document.getElementById('panel-timetable').style.display === 'block') {
+                loadTimetable();
+            }
+        }
+    };
+    
+    ws.onclose = function() {
+        console.log("WebSocket connection closed. Retrying in 5s...");
+        setTimeout(connectAttendanceWS, 5000);
+    };
+    
+    ws.onerror = function(err) {
+        console.error("WebSocket error:", err);
+    };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadClasses();
+connectAttendanceWS();
+</script>
+</body>
+</html>

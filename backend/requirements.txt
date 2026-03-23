@@ -1,0 +1,10 @@
+﻿fastapi==0.104.1
+uvicorn==0.24.0
+pymongo[srv]==4.6.0
+python-dotenv==1.0.0
+bcrypt==4.1.2
+motor==3.3.2
+python-multipart==0.0.6
+chromadb
+chromadb
+chromadb
