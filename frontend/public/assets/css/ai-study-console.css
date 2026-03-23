@@ -664,7 +664,7 @@ a:hover {
   max-width: var(--content-max);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: var(--space-2);
   align-items: end;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -716,6 +716,19 @@ a:hover {
 .asc-send[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Microphone Recording Pulse */
+@keyframes micPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+}
+
+.recording {
+  color: #ff4444 !important;
+  animation: micPulse 1.5s infinite;
+  border-radius: 50%;
 }
 
 /* Typing indicator */

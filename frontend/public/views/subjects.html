@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/ai-study-console.css?v=1" />
+    <link rel="stylesheet" href="/assets/css/ai-study-console.css?v=2" />
 </head>
 
 <body>
@@ -19,6 +19,10 @@
             <div class="asc-brand__sub">AI Study Console</div>
         </div>
         <div class="asc-topbar__actions">
+            <button class="btn icon-btn" id="ttsToggleBtn" type="button" aria-label="Toggle Voice Response"
+                title="Voice Responses: OFF">
+                🔈
+            </button>
             <button class="btn icon-btn" id="sidebarToggle" type="button" aria-label="Open sessions sidebar"
                 aria-controls="sidebar" aria-expanded="false" title="Sessions">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -100,6 +104,9 @@
                 <div class="asc-composer__inner">
                     <textarea id="chatInput" class="asc-textarea" rows="1" placeholder="Message RAG AI Tutor…"
                         aria-label="Message input"></textarea>
+                    <button id="micBtn" class="asc-send" type="button" aria-label="Dictate message" title="Dictate Message" style="background: transparent; box-shadow: none; font-size: 1.2rem; border-color: transparent;">
+                        🎤
+                    </button>
                     <button id="sendBtn" class="asc-send" type="submit" aria-label="Send message">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M22 2 11 13" />
@@ -149,7 +156,7 @@
     <script src="/assets/js/config.js?v=7"></script>
     <script src="/assets/js/auth.js?v=7"></script>
     <script src="/assets/js/ai.js?v=7"></script>
-    <script type="module" src="/src/chat/chat-ui.js?v=1"></script>
+    <script type="module" src="/src/chat/chat-ui.js?v=2"></script>
 
 </body>
 

@@ -6,6 +6,7 @@ import { SessionList } from "../sidebar/session-list.js";
 import { MessageRenderer } from "./message-renderer.js";
 import { StreamHandler } from "./stream-handler.js";
 import { renderValidationStrip } from "../components/validation-card.js";
+import { VoiceManager } from "./voice.js";
 
 class ChatApp {
   constructor() {
@@ -33,6 +34,8 @@ class ChatApp {
     this.composer = qs(document, "#composer");
     this.input = qs(document, "#chatInput");
     this.sendBtn = qs(document, "#sendBtn");
+    
+    this.ttsToggleBtn = qs(document, "#ttsToggleBtn");
 
     this.confirmModal = new ConfirmModal();
     this.citationModal = new CitationModal({ apiBase: this.apiBase });
@@ -45,6 +48,10 @@ class ChatApp {
       activeChatId: this.activeChatId,
       onSelect: (chatId) => this.switchToChat(chatId),
       onDeleteRequest: (chatId, session) => this.confirmDelete(chatId, session)
+    });
+
+    this.voiceManager = new VoiceManager("chatInput", "micBtn", () => {
+        // Optional callback when speech is recognized; e.g. resize textarea
     });
 
     this._bindUi();
@@ -78,6 +85,16 @@ class ChatApp {
     });
 
     on(this.sidebarToggle, "click", () => this.toggleSidebar());
+
+    if (this.ttsToggleBtn) {
+        on(this.ttsToggleBtn, "click", () => {
+            const isEnabled = !this.voiceManager.ttsEnabled;
+            this.voiceManager.toggleTTS(isEnabled);
+            this.ttsToggleBtn.title = isEnabled ? "Voice Responses: ON" : "Voice Responses: OFF";
+            this.ttsToggleBtn.innerHTML = isEnabled ? "🔊" : "🔈";
+            this.ttsToggleBtn.classList.toggle("active", isEnabled);
+        });
+    }
 
     on(this.newChatBtn, "click", () => this.newChat());
     on(this.emptyNewChatBtn, "click", () => this.newChat());
@@ -305,6 +322,7 @@ class ChatApp {
         }
 
         this.scrollToBottom();
+        this.voiceManager.readAloud(finalText);
       },
       onError: (err) => {
         const msg = err?.message || "Failed to contact AI";
