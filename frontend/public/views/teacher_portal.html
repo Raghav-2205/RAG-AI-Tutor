@@ -152,7 +152,7 @@
         <div class="modal-card">
             <h2>Upload Study Material</h2>
             <input id="matTitle" placeholder="Material Title (e.g., Lecture Notes 1)">
-            <input type="file" id="matFile" style="margin-bottom: 14px;" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt">
+            <input type="file" id="matFile" multiple style="margin-bottom: 14px;" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt">
             <p style="text-align:center; margin-bottom:10px; font-size:12px; color:var(--muted)">OR</p>
             <input id="matUrl" placeholder="File URL or Link" style="margin-bottom: 14px;">
             <textarea id="matDesc" placeholder="Description (optional)"></textarea>
@@ -343,6 +343,13 @@
                 </div>
             </div>
 
+            <div style="margin-top: 1.5rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+                <h3 style="color: #00ffcc; font-size: 1rem; margin-bottom: 0.5rem;">⚡ Live Interactions</h3>
+                <div id="liveActivityContainer" style="max-height: 150px; overflow-y: auto;">
+                    Loading...
+                </div>
+            </div>
+
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="hideModal('classInsightsModal')">Close</button>
             </div>
@@ -418,18 +425,19 @@
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openMaterials('${c.id}')">📄 Materials</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openQuizzes('${c.id}')">🧠 Quizzes</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openAttendance('${c.id}')">✅ Attendance</button>
-                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='${API}/academic/teacher/reports/export-excel?subject_id=${c.subject || 'General'}'">⏬ Excel</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='${API}/lms/classes/${c.id}/export-excel?token=${TOKEN}'">⏬ Export Data</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="document.getElementById('excelUpload_${c.id}').click()">⏫ Upload Excel</button>
+                            <input type="file" id="excelUpload_${c.id}" style="display:none" accept=".xlsx,.xls,.csv" onchange="uploadClassExcel('${c.id}', this.files)">
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openInsights('${c.id}', '${c.name}')">📈 Insights</button>
                             <button class="btn" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='/views/subjects.html?class_id=${c.id}'">💬 Chat</button>
                         </div>
-
                     </div>`;
                 }).join('');
                 document.getElementById('classList').innerHTML = classHtml || '<div class="card"><p style="color:#888">No classes yet. Click "Create Class" to start.</p></div>';
                 document.getElementById('studentCount').textContent = totalStudents;
 
                 // Populate class selectors
-                const classOptions = cachedClasses.map(c => `<option value="${c.class_id}">${c.name} (${c.section})</option>`).join('');
+                const classOptions = cachedClasses.map(c => `<option value="${c.id}">${c.name} (${c.section || 'General'})</option>`).join('');
                 document.getElementById('assignClassId').innerHTML = '<option value="">Select Class...</option>' + classOptions;
                 document.getElementById('enrollClassId').innerHTML = '<option value="">Select Class...</option>' + classOptions;
 
@@ -597,30 +605,48 @@
             const fileInput = document.getElementById('matFile');
             
             if (fileInput.files.length > 0) {
-                // Upload file to local server first
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-                formData.append('subject', 'general'); // Or current class subject
-                
-                try {
-                    const uploadRes = await fetch(`${API}/upload/`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${TOKEN}` }, 
-                        body: formData
-                    });
+                // Upload files to local server first
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[i]);
+                    formData.append('subject', 'general'); // Or current class subject
                     
-                    if (uploadRes.ok) {
-                        const uploadData = await uploadRes.json();
-                        fileUrl = `/uploads/${uploadData.filename}`; // Or the real URL it builds
-                    } else {
-                        alert('Failed to process file upload via API.');
-                        return;
+                    try {
+                        const uploadRes = await fetch(`${API}/upload/`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                            body: formData
+                        });
+                        
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            let currentFileUrl = `/uploads/${uploadData.filename}`; // Or the real URL it builds
+                            
+                            const params = new URLSearchParams({
+                                title: document.getElementById('matTitle').value || fileInput.files[i].name,
+                                file_url: currentFileUrl,
+                                description: document.getElementById('matDesc').value,
+                                unit_id: document.getElementById('matUnitId').value
+                            });
+                            const res = await fetch(`${API}/lms/classes/${currentClassId}/materials?${params.toString()}`, {
+                                method: 'POST', headers
+                            });
+                        } else {
+                            alert('Failed to process file upload via API.');
+                        }
+                    } catch(e) {
+                        console.error("File upload error", e);
+                        alert("Upload error.");
                     }
-                } catch(e) {
-                    console.error("File upload error", e);
-                    alert("Upload error.");
-                    return;
                 }
+                
+                hideModal('uploadMaterialModal'); 
+                alert('Material(s) added successfully!'); 
+                document.getElementById('matTitle').value = '';
+                document.getElementById('matUrl').value = '';
+                document.getElementById('matFile').value = '';
+                document.getElementById('matDesc').value = '';
+                return;
             }
 
             const params = new URLSearchParams({
@@ -808,8 +834,53 @@
 
                 list.innerHTML = html;
 
+                // Fetch Live Activity
+                document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#888">Loading live activity...</p>';
+                try {
+                    const liveRes = await fetch(`${API}/lms/classes/${classId}/live-activity`, { headers });
+                    if(liveRes.ok) {
+                        const liveData = await liveRes.json();
+                        let liveHtml = `<p style="color:#00ffcc; font-weight:bold;">🟢 ${liveData.online} Students Online Now</p>`;
+                        if(liveData.recent_logs && liveData.recent_logs.length > 0) {
+                            liveHtml += liveData.recent_logs.map(l => `
+                                <div style="font-size:0.85rem; color:#bbb; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <span style="color:#fff;">${l.student_name}</span> completed action: <span style="color:#00ffcc">${l.action}</span> 
+                                    <span style="float:right; color:#666;">${new Date(l.time).toLocaleTimeString()}</span>
+                                </div>
+                            `).join('');
+                        } else {
+                            liveHtml += `<p style="color:#888; font-size:0.8rem;">No recent activity in the last 5 minutes.</p>`;
+                        }
+                        document.getElementById('liveActivityContainer').innerHTML = liveHtml;
+                    }
+                } catch(e) {
+                    document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#ff4444">Failed to load live activity</p>';
+                }
+
             } catch (err) {
                 console.error('Insights error:', err);
+            }
+        }
+
+        async function uploadClassExcel(classId, files) {
+            if(!files || files.length === 0) return;
+            const formData = new FormData();
+            formData.append("file", files[0]);
+            try {
+                const res = await fetch(`${API}/lms/classes/${classId}/upload-excel`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                    body: formData
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert('Upload Success: ' + data.message);
+                    loadData();
+                } else {
+                    alert('Error: ' + JSON.stringify(data));
+                }
+            } catch(e) {
+                alert('Upload failed: ' + e);
             }
         }
 

@@ -154,7 +154,7 @@ async def upload_document(
 
             try:
                 from backend.services.grag_service import build_or_update_knowledge_graph
-                full_text = "\n".join(pages)
+                full_text = "\n".join([p.get("text", "") if isinstance(p, dict) else str(p) for p in pages])
                 await build_or_update_knowledge_graph(db, chat_id, user_id, full_text, source=file.filename)
             except Exception as e:
                 logger.warning(f"Failed to update GRAG knowledge graph: {e}")
@@ -188,7 +188,7 @@ async def upload_document(
 
     try:
         from backend.services.grag_service import build_or_update_knowledge_graph
-        full_text = "\n".join(pages)
+        full_text = "\n".join([p.get("text", "") if isinstance(p, dict) else str(p) for p in pages])
         await build_or_update_knowledge_graph(db, chat_id, user_id, full_text, source=file.filename)
     except Exception as e:
         logger.warning(f"Failed to update initial GRAG knowledge graph: {e}")

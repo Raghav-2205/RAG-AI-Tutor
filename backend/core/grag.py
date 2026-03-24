@@ -17,7 +17,7 @@ class GRAGPipeline:
         4. Store graph in-memory
         """
         logger.info(f"[GRAG] Building Knowledge Graph from {len(chunks)} chunks")
-        combined_text = "\n\n".join([c.get("text", "") for c in chunks])
+        combined_text = "\n\n".join([c.get("text", "") if isinstance(c, dict) else str(c) for c in chunks])
         if len(combined_text) > 15000:
             combined_text = combined_text[:15000] # Safety limit
             
@@ -47,6 +47,8 @@ class GRAGPipeline:
                 logger.warning("[GRAG] Could not parse JSON from LLM response")
         except Exception as e:
             logger.error(f"[GRAG] Failed to build graph: {e}")
+            
+        return self.graph
             
     def traverse_graph(self, query: str) -> str:
         """

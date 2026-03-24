@@ -138,7 +138,32 @@ async def get_teacher_analytics(db, class_id: str) -> Dict[str, Any]:
     top_performers = student_avg_map[:3]
     low_performers = student_avg_map[-3:] if len(student_avg_map) > 3 else []
 
-    # 4. Engagement Rate
+    # 4. Engagement Score Calculation (Attendance + Tests + Chat)
+    
+    # A. Attendance (40 pts)
+    att_cursor = db.attendance.find({"class_id": class_id})
+    att_records = await att_cursor.to_list(None)
+    
+    student_att_totals = {sid: {"present": 0, "total": 0} for sid in student_ids}
+    for r in att_records:
+        for rec in r.get("records", []):
+            sid = rec.get("student_id")
+            if sid in student_att_totals:
+                student_att_totals[sid]["total"] += 1
+                if rec.get("status") == "present":
+                    student_att_totals[sid]["present"] += 1
+                    
+    # B. Test Participation (40 pts)
+    student_quiz_counts = {sid: 0 for sid in student_ids}
+    for qid in quiz_ids:
+        attempts_cursor = db.quiz_attempts.find({"quiz_id": qid, "is_complete": True})
+        q_attempts = await attempts_cursor.to_list(None)
+        q_sids = set(a.get("student_id") for a in q_attempts if a.get("student_id"))
+        for sid in q_sids:
+            if sid in student_quiz_counts:
+                student_quiz_counts[sid] += 1
+                
+    # C. Chat/Activity Interactions (20 pts)
     now = datetime.utcnow()
     week_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d")
     engagement_cursor = db.activity_logs.find({
@@ -147,9 +172,41 @@ async def get_teacher_analytics(db, class_id: str) -> Dict[str, Any]:
     })
     logs = await engagement_cursor.to_list(None)
     
-    active_students = len(set(log["user_id"] for log in logs))
-    # Return as 0-100 percentage
-    engagement_rate = round((active_students / len(student_ids)) * 100, 1) if student_ids else 0.0
+    student_interactions = {sid: 0 for sid in student_ids}
+    for log in logs:
+        sid = log.get("user_id")
+        if sid in student_interactions:
+            student_interactions[sid] += 1
+            
+    # Calculate Engagement Score per student
+    total_quizzes = len(quiz_ids)
+    all_engagement_scores = []
+    active_count = 0
+    
+    for sid in student_ids:
+        # Attendance 40%
+        att_pts = 0.0
+        if student_att_totals[sid]["total"] > 0:
+            att_pts = (student_att_totals[sid]["present"] / student_att_totals[sid]["total"]) * 40.0
+            
+        # Test Participation 40%
+        test_pts = 0.0
+        if total_quizzes > 0:
+            test_pts = (student_quiz_counts[sid] / total_quizzes) * 40.0
+            
+        # Chat 20% (Max 20 pts, 1 log = 4 pts)
+        chat_pts = min(20.0, student_interactions[sid] * 4.0)
+        
+        score = att_pts + test_pts + chat_pts
+        all_engagement_scores.append(score)
+        
+        # Track active
+        if student_interactions[sid] > 0 or student_quiz_counts[sid] > 0:
+            active_count += 1
+            
+    # Class Average Engagement
+    engagement_rate = round(sum(all_engagement_scores) / len(all_engagement_scores), 1) if all_engagement_scores else 0.0
+    active_students = active_count
 
     return {
         "class_id": class_id,

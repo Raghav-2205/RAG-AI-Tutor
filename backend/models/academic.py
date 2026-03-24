@@ -1,7 +1,7 @@
 # backend/models/academic.py
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from datetime import date
+from typing import List, Optional, Dict
+from datetime import date, datetime
 from pydantic_core import core_schema
 from typing import Any
 from pydantic import GetJsonSchemaHandler
@@ -97,3 +97,45 @@ class StudentProfile(BaseModel):
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
+
+# 📝 6. LMS Class Mode
+class LMSClass(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    teacher_id: str
+    class_name: str
+    subject: str
+    students: List[str] = []
+    created_at: date = Field(default_factory=date.today)
+
+# 📝 7. SlipTest (Timed Quizzes)
+class SlipTestQuestion(BaseModel):
+    question: str
+    options: List[str]
+    correct_answer: str
+
+class SlipTest(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    class_id: str
+    title: str
+    questions: List[SlipTestQuestion]
+    duration: int # minutes
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+
+# 📝 8. Test Submission
+class TestSubmission(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    test_id: str
+    answers: Dict[str, str] # e.g. {"q1": "Option A"}
+    score: float
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+
+# 📝 9. Interaction Log (For Engagement Analytics)
+class InteractionLog(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    student_id: str
+    class_id: str
+    messages_count: int = 0
+    last_active: datetime = Field(default_factory=datetime.utcnow)
+    engagement_score: float = 0.0

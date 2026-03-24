@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from bson import ObjectId
 
 from backend.utils.db import get_db
 from backend.api.auth import get_current_user
@@ -168,6 +169,134 @@ async def enroll_by_email(
         return {"message": "Student already enrolled.", "student_id": student_id}
     await db.classes.update_one({"id": class_id}, {"$push": {"students": student_id}})
     return {"message": "Student enrolled successfully.", "student_id": student_id, "student_name": student.get("name", "")}
+
+from fastapi import UploadFile, File
+from fastapi.responses import StreamingResponse
+import io
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+@router.post("/classes/{class_id}/upload-excel", summary="Teacher: Bulk enroll via Excel")
+async def upload_excel(
+    class_id: str,
+    file: UploadFile = File(...),
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    if not pd:
+        raise HTTPException(status_code=500, detail="Pandas is missing. Run: pip install pandas openpyxl")
+        
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found.")
+
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content)) if file.filename.endswith('.csv') else pd.read_excel(io.BytesIO(content))
+        current_students = set(cls.get("students", []))
+        added_count = 0
+        from backend.auth import get_password_hash
+        
+        for index, row in df.iterrows():
+            email = str(row.get("email", "")).strip().lower()
+            if not email or email == "nan": continue
+            
+            student = await db.users.find_one({"email": email})
+            if not student:
+                name = str(row.get("name", email.split("@")[0]))
+                new_user = {
+                    "name": name,
+                    "email": email,
+                    "hashed_password": get_password_hash("default123"),
+                    "role": "student",
+                    "created_at": datetime.utcnow()
+                }
+                res = await db.users.insert_one(new_user)
+                student_id = str(res.inserted_id)
+            else:
+                student_id = str(student["_id"])
+                
+            if student_id not in current_students:
+                current_students.add(student_id)
+                added_count += 1
+
+        await db.classes.update_one({"id": class_id}, {"$set": {"students": list(current_students)}})
+        return {"message": f"Successfully enrolled {added_count} students.", "added_count": added_count}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
+
+@router.get("/classes/{class_id}/export-excel", summary="Teacher: Export Class Data (Attendance & Tests)")
+async def export_class_excel(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    if not pd:
+        raise HTTPException(status_code=500, detail="Pandas is missing.")
+        
+    from backend.services.analytics_service import get_teacher_analytics
+    stats = await get_teacher_analytics(db, class_id)
+    
+    cls = await db.classes.find_one({"id": class_id})
+    student_ids = cls.get("students", [])
+    users = await db.users.find({"_id": {"$in": [ObjectId(sid) for sid in student_ids] if student_ids else []}}).to_list(None)
+    user_map = {str(u["_id"]): u.get("name", u.get("email")) for u in users}
+
+    # Gather rows using the analytics data which calculates scores properly
+    rows = []
+    for sid in student_ids:
+        rows.append({
+            "Student Name": user_map.get(sid, "Unknown"),
+            "Engagement Score (%)": next((s["score"] for s in stats.get("top_performing_students", []) + stats.get("low_performing_students", []) if s["student_id"] == sid), "N/A"),
+        })
+
+    df = pd.DataFrame(rows)
+    stream = io.BytesIO()
+    with pd.ExcelWriter(stream, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name="Class Analytics")
+    
+    stream.seek(0)
+    headers = {'Content-Disposition': f'attachment; filename="class_{class_id}_analytics.xlsx"'}
+    return StreamingResponse(stream, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+from datetime import timedelta
+@router.get("/classes/{class_id}/live-activity", summary="Teacher: Live student interactions (Polling)")
+async def get_live_activity(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls: raise HTTPException(status_code=404, detail="Class not found.")
+    
+    student_ids = cls.get("students", [])
+    if not student_ids: return {"online": 0, "recent_logs": []}
+    
+    # 5 minutes ago = "online"
+    five_mins_ago = (datetime.utcnow() - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%S")
+    cursor = db.activity_logs.find({
+        "user_id": {"$in": student_ids},
+        "date": {"$gte": five_mins_ago}
+    }).sort("date", -1).limit(10)
+    
+    logs = await cursor.to_list(None)
+    online_count = len(set(log["user_id"] for log in logs))
+    
+    # Optional: fetch names
+    users = await db.users.find({"_id": {"$in": [ObjectId(sid) for sid in set(log["user_id"] for log in logs)]}}).to_list(None)
+    user_map = {str(u["_id"]): u.get("name", "Student") for u in users}
+    
+    formatted_logs = []
+    for log in logs:
+        formatted_logs.append({
+            "student_name": user_map.get(log.get("user_id"), "Unknown"),
+            "action": log.get("category", "activity"),
+            "time": log.get("date")
+        })
+        
+    return {"online": online_count, "recent_logs": formatted_logs}
 
 @router.delete("/classes/{class_id}/students", summary="Teacher: remove a student")
 async def remove_student(

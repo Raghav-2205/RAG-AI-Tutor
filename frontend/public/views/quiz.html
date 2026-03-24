@@ -376,6 +376,24 @@
         let currentQuestion = 0;
         let answers = [];
         let quizResult = null;
+        let timerInterval = null;
+
+        function startTimer(minutes) {
+            let secondsLeft = minutes * 60;
+            timerInterval = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alert("Time's up! Submitting automatically.");
+                    submitQuiz();
+                    return;
+                }
+                const m = Math.floor(secondsLeft / 60);
+                const s = secondsLeft % 60;
+                const timerEl = document.getElementById('quizTimer');
+                if(timerEl) timerEl.textContent = `⏱️ ${m}:${s.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
 
         // Check authentication
         const token = localStorage.getItem('token');
@@ -425,6 +443,10 @@
 
                 renderQuiz();
 
+                if (quizData.time_limit) {
+                    startTimer(quizData.time_limit);
+                }
+
             } catch (error) {
                 document.getElementById('quizContent').innerHTML = `
                     <div class="question-card" style="text-align: center;">
@@ -461,7 +483,10 @@
                     <div class="level-badge level-beginner">Diagnostic Quiz</div>
                 </div>
 
-                <div class="progress-text">Question ${currentQuestion + 1} of ${quizData.questions.length}</div>
+                <div class="progress-text">
+                    Question ${currentQuestion + 1} of ${quizData.questions.length} 
+                    <span id="quizTimer" style="float:right; color:#ffc107;"></span>
+                </div>
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${progress}%"></div>
                 </div>
@@ -517,8 +542,9 @@
         }
 
         async function submitQuiz() {
-            if (answers.includes(null)) {
-                alert('Please answer all questions before submitting.');
+            if (timerInterval) clearInterval(timerInterval);
+            if (answers.includes(null) && !window.confirm("You have unanswered questions. Submit anyway?")) {
+                if(quizData.time_limit) startTimer(Math.max(1, quizData.time_limit)); // rough resume
                 return;
             }
 
