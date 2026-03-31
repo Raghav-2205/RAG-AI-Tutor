@@ -120,8 +120,7 @@ async function handleLogin(event) {
 
     if (result.success) {
         const role = window.auth.user?.role || 'Student';
-        if (role === 'Admin') window.location.href = '/views/admin_portal.html';
-        else if (role === 'Teacher') window.location.href = '/views/teacher_portal.html';
+        if (role === 'Admin' || role === 'Teacher') window.location.href = '/views/lms.html';
         else window.location.href = '/views/dashboard.html';
     } else {
         alert(result.error);
@@ -146,8 +145,7 @@ async function handleSignup(event) {
 
     if (result.success) {
         const userRole = window.auth.user?.role || role || 'Student';
-        if (userRole === 'Admin') window.location.href = '/views/admin_portal.html';
-        else if (userRole === 'Teacher') window.location.href = '/views/teacher_portal.html';
+        if (userRole === 'Admin' || userRole === 'Teacher') window.location.href = '/views/lms.html';
         else window.location.href = '/views/dashboard.html';
     } else {
         alert(result.error);

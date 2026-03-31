@@ -203,6 +203,12 @@
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.2); border-radius: 3px; }
+        /* ── Active Filter Button ── */
+        .active-filter {
+            background: rgba(0,255,204,0.15) !important;
+            color: var(--accent) !important;
+            border-color: var(--border) !important;
+        }
     </style>
 </head>
 <body>
@@ -299,6 +305,7 @@
         <h2>➕ Join a Class</h2>
         <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Enter the 8-character join code given by your teacher.</p>
         <input id="joinCodeInput" maxlength="8" placeholder="E.g. ABC123XY" style="text-transform:uppercase; text-align:center; font-size:1.3rem; letter-spacing:4px; font-family:monospace;">
+        <div id="joinMsg" style="display:none; padding:8px 12px; border-radius:8px; font-size:13px; margin-top:8px;"></div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal('joinModal')">Cancel</button>
             <button class="btn btn-primary" id="joinBtn" onclick="joinClass()">Join Class</button>
@@ -313,6 +320,7 @@
         <p id="submitModalDesc" style="color:var(--muted); font-size:13px; margin-bottom:16px;"></p>
         <textarea id="submitContent" placeholder="Write your answer or description here..."></textarea>
         <input id="submitFileUrl" placeholder="File URL / Google Drive link (optional)">
+        <div id="submitMsg" style="display:none; padding:8px 12px; border-radius:8px; font-size:13px; margin-top:8px;"></div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal('submitModal')">Cancel</button>
             <button class="btn btn-primary" onclick="submitAssignment()">Submit</button>
@@ -339,6 +347,18 @@ const user = JSON.parse(localStorage.getItem('user') || '{}');
 const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 
 document.getElementById('greetingText').textContent = `Welcome back, ${user.name || 'Student'}! Here's your learning hub.`;
+
+// ─── Inline Message Helper ────────────────────────────────────────────────────
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.style.background = type === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(0,255,204,0.1)';
+    el.style.color = type === 'error' ? '#ef4444' : '#00ffcc';
+    el.style.border = type === 'error' ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(0,255,204,0.3)';
+    if (type !== 'error') setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
 
 // ─── Tab Management ───────────────────────────────────────────────────────────
 const panels = ['classes', 'assignments', 'quizzes', 'grades', 'timetable'];
@@ -368,7 +388,9 @@ let allSubmissions = [];
 async function loadClasses() {
     try {
         const res = await fetch(`${API}/lms/classes`, { headers });
+        if (!res.ok) throw new Error('API error');
         allClasses = await res.json();
+        allClasses = Array.isArray(allClasses) ? allClasses : [];
         document.getElementById('classCount').textContent = `${allClasses.length} class${allClasses.length !== 1 ? 'es' : ''} enrolled`;
 
         const colorPairs = [
@@ -376,9 +398,19 @@ async function loadClasses() {
             ['#00d4ff','#7c3aed'], ['#00ffcc','#7c3aed'],
         ];
 
+        // Fetch attendance stats concurrently for each class
+        const attResults = await Promise.allSettled(
+            allClasses.map(c => fetch(`${API}/lms/classes/${c.id}/attendance/stats`, { headers }).then(r => r.ok ? r.json() : null))
+        );
+
         const html = allClasses.map((c, i) => {
             const [c1, c2] = colorPairs[i % colorPairs.length];
             const students = (c.students || []).length;
+            const attData = attResults[i].status === 'fulfilled' ? attResults[i].value : null;
+            const attPct = attData?.overall_percentage ?? attData?.attendance_percentage ?? null;
+            const attBadge = attPct !== null
+                ? `<span class="tag ${attPct >= 75 ? 'tag-accent' : 'tag-warn'}" style="margin-top:8px">📅 ${attPct}% attendance</span>`
+                : '';
             return `<div class="class-card" onclick="openClassDetail('${c.id}', '${escHtml(c.name)}')">
                 <div class="class-card-header" style="background:linear-gradient(90deg,${c1},${c2})"></div>
                 <div class="class-card-body">
@@ -388,9 +420,11 @@ async function loadClasses() {
                         <span>📖 ${escHtml(c.subject || 'General')}</span>
                         <span>👥 ${students} student${students !== 1 ? 's' : ''}</span>
                     </div>
-                    <div class="class-actions">
+                    ${attBadge}
+                    <div class="class-actions" style="margin-top:12px">
                         <button onclick="event.stopPropagation(); openClassDetail('${c.id}', '${escHtml(c.name)}')" class="btn btn-secondary btn-sm">📂 Materials</button>
                         <button onclick="event.stopPropagation(); switchTab('assignments')" class="btn btn-secondary btn-sm">📝 Assignments</button>
+                        <button onclick="event.stopPropagation(); window.location.href='/views/subjects.html?class_id=${c.id}'" class="btn btn-secondary btn-sm">💬 AI Chat</button>
                     </div>
                 </div>
             </div>`;
@@ -441,7 +475,7 @@ async function openClassDetail(classId, className) {
 // ─── Join Class ───────────────────────────────────────────────────────────────
 async function joinClass() {
     const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
-    if (code.length < 4) { alert('Please enter a valid join code.'); return; }
+    if (code.length < 4) { showMsg('joinMsg', '❌ Please enter a valid join code.', 'error'); return; }
     const btn = document.getElementById('joinBtn');
     btn.disabled = true; btn.textContent = 'Joining...';
     try {
@@ -450,14 +484,12 @@ async function joinClass() {
         });
         const data = await res.json();
         if (res.ok) {
-            alert('🎉 ' + (data.message || 'Joined successfully!'));
-            closeModal('joinModal');
-            document.getElementById('joinCodeInput').value = '';
-            loadClasses();
+            showMsg('joinMsg', '🎉 ' + (data.message || 'Joined successfully!'), 'success');
+            setTimeout(() => { closeModal('joinModal'); document.getElementById('joinCodeInput').value = ''; loadClasses(); }, 1200);
         } else {
-            alert(data.detail || 'Failed to join class');
+            showMsg('joinMsg', '❌ ' + (data.detail || 'Failed to join class'), 'error');
         }
-    } catch (e) { alert('Network error'); }
+    } catch (e) { showMsg('joinMsg', '❌ Network error', 'error'); }
     btn.disabled = false; btn.textContent = 'Join Class';
 }
 
@@ -507,17 +539,20 @@ function renderAssignments() {
         const dueStr = due ? due.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : 'No deadline';
         const pts = sub?.points_earned != null ? `${sub.points_earned} / ${a.max_marks || a.max_points || '?'} pts` : '';
         const gradeColor = sub?.points_earned != null ? (sub.points_earned / (a.max_marks || a.max_points || 100) >= 0.8 ? '#00ffcc' : sub.points_earned / (a.max_marks || a.max_points || 100) >= 0.6 ? '#f59e0b' : '#ef4444') : '';
+        const feedbackHtml = sub?.feedback ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;border-left:2px solid var(--accent)">💬 ${escHtml(sub.feedback)}</div>` : '';
 
-        return `<div class="assignment-row">
-            <div class="assignment-icon">${status === 'graded' ? '🏅' : status === 'submitted' ? '✅' : isOverdue ? '⚠️' : '📝'}</div>
-            <div class="assignment-info">
-                <div class="assignment-title">${escHtml(a.title)}</div>
-                <div class="assignment-sub">Due: ${dueStr}${isOverdue ? ' <span style="color:var(--danger)">· Overdue</span>' : ''}</div>
+        return `<div class="assignment-row" style="flex-direction:column;align-items:stretch">
+            <div style="display:flex;align-items:center;gap:16px">
+                <div class="assignment-icon">${status === 'graded' ? '🏅' : status === 'submitted' ? '✅' : isOverdue ? '⚠️' : '📝'}</div>
+                <div class="assignment-info">
+                    <div class="assignment-title">${escHtml(a.title)}</div>
+                    <div class="assignment-sub">Due: ${dueStr}${isOverdue ? ' <span style="color:var(--danger)">· Overdue</span>' : ''}</div>
+                </div>
+                <span class="status-badge status-${isOverdue && status === 'pending' ? 'late' : status}">${status === 'graded' ? '🏅 Graded' : status === 'submitted' ? '✅ Submitted' : isOverdue ? '⚠️ Overdue' : '⏳ Pending'}</span>
+                ${pts ? `<div style="font-size:13px; font-weight:700; color:${gradeColor}; flex-shrink:0;">${pts}</div>` : ''}
+                ${status === 'pending' || status === 'late' ? `<button class="btn btn-primary btn-sm" onclick="openSubmit('${a.assignment_id || a.id}', '${escHtml(a.title)}', '${escHtml(a.description || '')}')">Submit</button>` : ''}
             </div>
-            <span class="status-badge status-${isOverdue && status === 'pending' ? 'late' : status}">${status === 'graded' ? '🏅 Graded' : status === 'submitted' ? '✅ Submitted' : isOverdue ? '⚠️ Overdue' : '⏳ Pending'}</span>
-            ${pts ? `<div style="font-size:13px; font-weight:700; color:${gradeColor}; flex-shrink:0;">${pts}</div>` : ''}
-            ${status === 'pending' || status === 'late' ? `<button class="btn btn-primary btn-sm" onclick="openSubmit('${a.assignment_id || a.id}', '${escHtml(a.title)}', '${escHtml(a.description || '')}')">Submit</button>` : ''}
-            ${sub?.feedback ? `<button class="btn btn-secondary btn-sm" onclick="alert('Feedback: ${escHtml(sub.feedback)}')">💬 Feedback</button>` : ''}
+            ${feedbackHtml}
         </div>`;
     }).join('');
 
@@ -542,20 +577,19 @@ function openSubmit(assignmentId, title, desc) {
 async function submitAssignment() {
     const content = document.getElementById('submitContent').value;
     const fileUrl = document.getElementById('submitFileUrl').value;
-    if (!content && !fileUrl) { alert('Please enter your answer or provide a file URL.'); return; }
+    if (!content && !fileUrl) { showMsg('submitMsg', '❌ Please enter your answer or a file URL.', 'error'); return; }
     try {
         const res = await fetch(`${API}/lms/assignments/${currentAssignmentId}/submit`, {
             method: 'POST', headers, body: JSON.stringify({ content, file_url: fileUrl })
         });
         const data = await res.json();
         if (res.ok) {
-            alert('✅ Assignment submitted successfully!');
-            closeModal('submitModal');
-            loadAssignments();
+            showMsg('submitMsg', '✅ Submitted successfully!', 'success');
+            setTimeout(() => { closeModal('submitModal'); loadAssignments(); }, 1200);
         } else {
-            alert(data.detail || 'Submission failed');
+            showMsg('submitMsg', '❌ ' + (data.detail || 'Submission failed'), 'error');
         }
-    } catch (e) { alert('Network error'); }
+    } catch (e) { showMsg('submitMsg', '❌ Network error', 'error'); }
 }
 
 // ─── Quizzes ──────────────────────────────────────────────────────────────────
@@ -563,21 +597,29 @@ async function loadQuizzes() {
     document.getElementById('quizList').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
     try {
         const res = await fetch(`${API}/lms/quizzes`, { headers });
-        const quizzes = await res.json();
+        const raw = await res.json();
+        const quizzes = Array.isArray(raw) ? raw : [];
         if (!quizzes.length) {
             document.getElementById('quizList').innerHTML = '<div class="empty"><div class="empty-icon">🧠</div><p>No quizzes available yet.</p></div>';
             return;
         }
-        document.getElementById('quizList').innerHTML = quizzes.map(q => `
-            <div class="assignment-row">
+        document.getElementById('quizList').innerHTML = quizzes.map(q => {
+            const statusClass = q.submitted ? 'status-submitted' : 'status-pending';
+            const statusLabel = q.submitted ? (q.score != null ? `🏅 ${q.score}%` : '✅ Submitted') : '⏳ Pending';
+            const btnLabel = q.submitted ? 'Review' : 'Take Quiz';
+            const btnClass = q.submitted ? 'btn-secondary' : 'btn-primary';
+            const timeLimitBadge = q.time_limit ? `<span class="tag tag-warn">⏱ ${q.time_limit} min</span>` : '';
+            return `<div class="assignment-row">
                 <div class="assignment-icon">🧠</div>
                 <div class="assignment-info">
                     <div class="assignment-title">${escHtml(q.title)}</div>
                     <div class="assignment-sub">${q.due_date ? 'Due: ' + new Date(q.due_date).toLocaleDateString('en-IN') : 'No deadline'}</div>
+                    ${timeLimitBadge}
                 </div>
-                <button class="btn btn-primary btn-sm" onclick="window.location.href='/views/quiz.html?quiz_id=${q.id}'">Take Quiz</button>
-            </div>
-        `).join('');
+                <span class="status-badge ${statusClass}">${statusLabel}</span>
+                <button class="btn ${btnClass} btn-sm" onclick="window.location.href='/views/lms_quiz.html?quiz_id=${q.id}'">${btnLabel}</button>
+            </div>`;
+        }).join('');
     } catch (e) {
         document.getElementById('quizList').innerHTML = '<div class="empty"><p>Failed to load quizzes.</p></div>';
     }
@@ -658,6 +700,25 @@ async function loadTimetable() {
                     </div>
                 `).join('');
             }
+        } else {
+            // Timetable API not available — load from enrolled classes instead
+            document.getElementById('todayNameLabel').textContent = '📅 Enrolled Classes';
+            const classRes = await fetch(`${API}/lms/classes`, { headers });
+            if (classRes.ok) {
+                const classes = await classRes.json();
+                const cls = Array.isArray(classes) ? classes : [];
+                if (cls.length) {
+                    document.getElementById('studentTodayClasses').innerHTML = cls.map(c => `
+                        <div style="padding:8px 0; border-bottom:1px solid var(--border-dim);">
+                            <strong style="color:var(--accent2)">${escHtml(c.name)}</strong>
+                            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${escHtml(c.subject||'General')} · ${escHtml(c.section||'')}</div>
+                        </div>`).join('');
+                } else {
+                    document.getElementById('studentTodayClasses').innerHTML = '<p style="color:var(--muted)">No classes enrolled yet.</p>';
+                }
+            } else {
+                document.getElementById('studentTodayClasses').innerHTML = '<p style="color:var(--muted)">Timetable not configured.</p>';
+            }
         }
 
         if (attRes.ok) {
@@ -671,9 +732,14 @@ async function loadTimetable() {
             } else {
                 document.getElementById('attendanceBreakdown').textContent = 'Attendance stats not available.';
             }
+        } else {
+            // Fall back to per-class attendance
+            document.getElementById('overallAttendanceText').textContent = 'N/A';
+            document.getElementById('attendanceBreakdown').textContent = 'Use class cards to view attendance.';
         }
     } catch(e) {
         console.error("Timetable load error", e);
+        document.getElementById('studentTodayClasses').innerHTML = '<p style="color:var(--muted)">Could not load schedule.</p>';
     }
 }
 

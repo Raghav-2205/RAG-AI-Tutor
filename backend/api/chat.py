@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 class ChatRequest(BaseModel):
     message: str
     subject: Optional[str] = "general"
-    chat_id: Optional[str] = None  # NEW: Optional chat session ID
+    chat_id: Optional[str] = None  # Optional chat session ID
+    class_id: Optional[str] = None  # NEW: link to LMS class
 
 
 class ChatResponse(BaseModel):
@@ -116,6 +117,7 @@ async def chat(
             "chat_id": chat_id,
             "user_id": user_id,
             "subject": request.subject,
+            "class_id": request.class_id,  # NEW: store LMS class context
             "title": generate_title(request.message),
             "messages": [],
             "created_at": datetime.utcnow(),
@@ -223,7 +225,7 @@ async def chat(
         }
     )
     
-    # --- STEP 6: LOG FEEDBACK INFLUENCE ---
+    # --- STEP 6: LOG FEEDBACK INFLUENCE + ACTIVITY LOG ---
     if feedback_adjusted:
         await feedback_analyzer.log_feedback_influence(
             user_id=user_id,
@@ -231,6 +233,18 @@ async def chat(
             adjustment_type="prompt_adjustment",
             details={"reason": reason, "subject": request.subject}
         )
+
+    # Log chat interaction as activity (feeds engagement analytics)
+    try:
+        await db.activity_logs.insert_one({
+            "user_id": user_id,
+            "category": "chat",
+            "class_id": session.get("class_id") or request.class_id,
+            "date": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "data": {"subject": request.subject, "chat_id": chat_id}
+        })
+    except Exception:
+        pass  # Non-critical
     
     response = ChatResponse(
         answer=rag_result["answer"],

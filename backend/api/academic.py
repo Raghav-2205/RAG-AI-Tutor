@@ -115,7 +115,8 @@ async def upload_college_timetable(semester_id: str, file: UploadFile = File(...
 @router.get("/teacher/dashboard/today")
 async def teacher_today_schedule(current_teacher = Depends(get_current_user)):
     """Gets teacher's classes for today based on TimetableSlot."""
-    if current_teacher["role"] != "Teacher":
+    role = current_teacher.get("role", "").lower()
+    if role not in ("teacher", "admin"):
         raise HTTPException(status_code=403, detail="Teacher access required")
         
     today_name = datetime.now().strftime("%A") # e.g., 'Wednesday'
@@ -129,7 +130,8 @@ async def teacher_today_schedule(current_teacher = Depends(get_current_user)):
     slots = await slots_cursor.to_list(length=10)
     for slot in slots:
         slot["_id"] = str(slot["_id"])
-        
+    
+    # Return gracefully even if no timetable is set up
     return {"today": today_name, "classes": slots}
 
 @router.get("/teacher/reports/export-excel")

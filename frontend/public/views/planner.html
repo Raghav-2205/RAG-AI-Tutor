@@ -36,8 +36,18 @@
         .btn-small { font-size: 0.8rem; padding: 6px 14px; }
 
         .schedule-list { background: rgba(30,35,62,0.6); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
-        .schedule-item { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-        .schedule-item:last-child { border-bottom: none; }
+        .schedule-item { 
+            display: flex; align-items: center; gap: 16px; padding: 16px; 
+            background: rgba(26, 31, 58, 0.6); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 12px; margin-bottom: 10px; 
+            transition: all 0.3s; 
+        }
+        .schedule-item:hover { 
+            background: rgba(26, 31, 58, 0.9); 
+            border-color: rgba(0,255,204,0.2); 
+            transform: translateX(4px); 
+        }
         .schedule-time { font-weight: 700; color: #00ffcc; min-width: 60px; font-size: 0.95rem; }
         .schedule-activity { flex: 1; color: #e0e6ed; }
         .schedule-category { font-size: 0.75rem; color: #888; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 12px; }
@@ -60,6 +70,23 @@
         .suggestions-box { background: rgba(30,35,62,0.9); border: 1px solid rgba(0,255,204,0.15); border-radius: 16px; padding: 1.5rem; }
         .suggestion-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #b8c5d6; font-size: 0.9rem; line-height: 1.5; }
         .suggestion-item:last-child { border-bottom: none; }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(168, 85, 247, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
+        }
+        .ai-btn {
+            background: linear-gradient(135deg, #a855f7, #6366f1);
+            color: #fff; border: none; padding: 10px 20px; border-radius: 10px;
+            cursor: pointer; font-weight: 700; font-size: 0.95rem;
+            transition: all 0.3s;
+            animation: pulseGlow 2.5s infinite;
+        }
+        .ai-btn:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #b86bf8, #7376f5);
+        }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .template-card, .schedule-item, .summary-card { animation: fadeIn 0.4s ease-out; }
@@ -84,9 +111,12 @@
         <p class="subtitle">Plan your day, track activities, get AI suggestions</p>
 
         <!-- Date Picker -->
-        <div class="date-picker">
-            <input type="date" id="planDate" />
-            <button class="btn btn-small" onclick="goToday()">Today</button>
+        <div class="date-picker" style="justify-content: space-between;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <input type="date" id="planDate" />
+                <button class="btn btn-small" onclick="goToday()">Today</button>
+            </div>
+            <button class="ai-btn" onclick="generateSmartPlan()">✨ Auto-Generate AI Plan (7 Days)</button>
         </div>
 
         <!-- Day Templates -->
@@ -110,7 +140,7 @@
         </div>
 
         <!-- Schedule -->
-        <div class="section-title">Today's Schedule</div>
+        <div class="section-title">Your Schedule</div>
         <div class="schedule-list" id="scheduleList">
             <p style="color:#888; text-align:center;">Select a template or date to load schedule</p>
         </div>
@@ -201,20 +231,79 @@
             loadPlan();
         }
 
+        async function generateSmartPlan() {
+            const date = getDate();
+            if (!date) { alert('Please select a starting date first'); return; }
+            
+            const btn = document.querySelector('button[onclick="generateSmartPlan()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Analyzing Coursework...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API}/planner/plans/generate`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ start_date: date, days: 7 })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(`✅ Success: ${data.message}\nYour schedule is now synchronized!`);
+                    loadPlan();
+                } else {
+                    const error = await res.json();
+                    alert(`❌ Failed: ${error.detail || 'Unknown error'}`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert(`❌ Network error while generating AI plan.`);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
         async function loadPlan() {
             const date = getDate();
             if (!date) return;
 
+            const startDate = new Date(date);
+            const endDate = new Date(date);
+            endDate.setDate(startDate.getDate() + 6);
+            const endDateStr = endDate.toISOString().split('T')[0];
+
             try {
-                const res = await fetch(`${API}/planner/plans/${date}`, { headers });
+                const res = await fetch(`${API}/planner/plans/range?start=${date}&end=${endDateStr}`, { headers });
                 if (res.ok) {
-                    const plan = await res.json();
-                    renderSchedule(plan.tasks || []);
-                    // Highlight active template
+                    const days = await res.json();
+                    const scheduleList = document.getElementById('scheduleList');
+                    
+                    if (!days || days.length === 0) {
+                        scheduleList.innerHTML = '<p style="color:#888;text-align:center;">No plan for this date range. Select a template above or ask AI to generate one.</p>';
+                    } else {
+                        let html = '';
+                        days.forEach(day => {
+                            const dateObj = new Date(day.date);
+                            // To prevent JS UTC offset issues:
+                            const dayName = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                            
+                            html += `<h3 style="color: #b8c5d6; margin-top: 24px; margin-bottom: 12px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">🗓️ ${dayName}</h3>`;
+                            
+                            if (day.tasks && day.tasks.length > 0) {
+                                html += renderSchedule(day.tasks);
+                            } else {
+                                html += `<p style="color:#888; font-size:0.9rem; margin-bottom: 10px;">Free Day - No tasks scheduled.</p>`;
+                            }
+                        });
+                        scheduleList.innerHTML = html;
+                    }
+                    
+                    // Highlight active template based on the first day
                     document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
-                    if (plan.template) {
+                    if (days.length > 0 && days[0].template) {
                         document.querySelectorAll('.template-card').forEach(card => {
-                            if (card.getAttribute('onclick').includes(plan.template)) card.classList.add('active');
+                            if (card.getAttribute('onclick').includes(days[0].template)) card.classList.add('active');
                         });
                     }
                 } else {
@@ -228,7 +317,7 @@
         }
 
         function renderSchedule(tasks) {
-            const html = tasks.map((t) => {
+            return tasks.map((t) => {
                 const done = t.is_completed;
                 const emoji = CATEGORY_EMOJIS[t.category] || '📌';
                 return `<div class="schedule-item">
@@ -238,7 +327,6 @@
                     <span class="schedule-category">${t.category}</span>
                 </div>`;
             }).join('');
-            document.getElementById('scheduleList').innerHTML = html || '<p style="color:#888;text-align:center;">Empty schedule</p>';
         }
 
         async function toggleComplete(taskId) {

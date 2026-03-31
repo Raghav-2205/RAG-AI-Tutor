@@ -54,6 +54,16 @@
         .card { animation: fadeIn 0.4s ease-out; }
 
         .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
+
+        /* Toast Notification */
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: #1e233e; border: 1px solid rgba(0,255,204,0.3); border-radius: 12px; padding: 12px 20px; color: #e0e6ed; font-size: 0.9rem; animation: slideIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,255,204,0.15); min-width: 260px; }
+        .toast.error { border-color: rgba(255,68,68,0.4); }
+        .toast.success { border-color: rgba(0,255,204,0.5); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* Badge */
+        .stat-chip { display: inline-block; background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; color: #00ffcc; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -355,13 +365,6 @@
             </div>
         </div>
     </div>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="hideModal('classInsightsModal')">Close</button>
-            </div>
-        </div>
-    </div>
 
 
     <script src="/assets/js/config.js?v=7"></script>
@@ -409,25 +412,36 @@
 
                 // Load classes
                 const classRes = await fetch(`${API}/lms/classes`, { headers });
-                cachedClasses = await classRes.json();
+                if (!classRes.ok) throw new Error(`Classes API failed with status ${classRes.status}`);
+                const classData = await classRes.json();
+                cachedClasses = Array.isArray(classData) ? classData : [];
                 document.getElementById('classCount').textContent = cachedClasses.length;
 
                 let totalStudents = 0;
                 const classHtml = cachedClasses.map(c => {
                     const studentCount = (c.students || []).length;
                     totalStudents += studentCount;
-                    return `<div class="card">
-                        <div class="card-icon">📘</div>
-                        <h3>${c.name} - ${c.section}</h3>
+                    const joinCode = c.join_code ? `<span class="stat-chip">🔑 ${c.join_code}</span>` : '';
+                    return `<div class="card" id="class-card-${c.id}">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                            <div class="card-icon">📘</div>
+                            <div style="display:flex; gap:6px">
+                                <button title="Edit Class" style="background:rgba(0,255,204,0.1); border:1px solid rgba(0,255,204,0.2); color:#00ffcc; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="openEditClass('${c.id}','${c.name}','${c.section||''}','${c.subject||''}','${c.description||''}')">✏️</button>
+                                <button title="Delete Class" style="background:rgba(255,68,68,0.1); border:1px solid rgba(255,68,68,0.2); color:#ff4444; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="deleteClass('${c.id}','${c.name}')">🗑️</button>
+                            </div>
+                        </div>
+                        <h3>${c.name}${c.section ? ' — ' + c.section : ''}</h3>
                         <p>${c.subject || 'General'} · ${studentCount} students</p>
+                        ${joinCode}
                         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openStudents('${c.id}')">👥 Students</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openUnits('${c.id}')">📂 Units</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openMaterials('${c.id}')">📄 Materials</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openQuizzes('${c.id}')">🧠 Quizzes</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openAttendance('${c.id}')">✅ Attendance</button>
-                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='${API}/lms/classes/${c.id}/export-excel?token=${TOKEN}'">⏬ Export Data</button>
-                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="document.getElementById('excelUpload_${c.id}').click()">⏫ Upload Excel</button>
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="document.getElementById('excelUpload_${c.id}').click()">⏫ Bulk Enroll</button>
                             <input type="file" id="excelUpload_${c.id}" style="display:none" accept=".xlsx,.xls,.csv" onchange="uploadClassExcel('${c.id}', this.files)">
+                            <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="exportClassData('${c.id}')">⏬ Export</button>
                             <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem" onclick="openInsights('${c.id}', '${c.name}')">📈 Insights</button>
                             <button class="btn" style="padding:4px 10px; font-size:0.75rem" onclick="window.location.href='/views/subjects.html?class_id=${c.id}'">💬 Chat</button>
                         </div>
@@ -475,32 +489,55 @@
         }
 
         async function createClass() {
+            const name = document.getElementById('className').value.trim();
+            if (!name) { showToast('❌ Class name is required', 'error'); return; }
             const res = await fetch(`${API}/lms/classes`, {
                 method: 'POST', headers,
                 body: JSON.stringify({
-                    name: document.getElementById('className').value,
+                    name: name,
                     section: document.getElementById('classSection').value || 'A',
                     subject: document.getElementById('classSubject').value || 'General',
                     description: document.getElementById('classDesc').value
                 })
             });
-            if (res.ok) { hideModal('createClassModal'); loadData(); }
-            else { alert('Failed to create class'); }
+            if (res.ok) {
+                const data = await res.json();
+                showToast(`✅ Class "${name}" created! Join code: ${data.join_code}`, 'success');
+                hideModal('createClassModal');
+                document.getElementById('className').value = '';
+                document.getElementById('classDesc').value = '';
+                loadData();
+            } else {
+                const err = await res.json();
+                showToast('❌ ' + (err.detail || 'Failed to create class'), 'error');
+            }
         }
 
         async function createAssignment() {
+            const classId = document.getElementById('assignClassId').value;
+            const title = document.getElementById('assignTitle').value.trim();
+            if (!classId) { showToast('❌ Please select a class', 'error'); return; }
+            if (!title) { showToast('❌ Please enter a title', 'error'); return; }
             const res = await fetch(`${API}/lms/assignments`, {
                 method: 'POST', headers,
                 body: JSON.stringify({
-                    class_id: document.getElementById('assignClassId').value,
-                    title: document.getElementById('assignTitle').value,
+                    class_id: classId,
+                    title: title,
                     description: document.getElementById('assignDesc').value,
-                    due_date: document.getElementById('assignDueDate').value,
-                    max_marks: parseInt(document.getElementById('assignMaxMarks').value) || 100
+                    due_date: document.getElementById('assignDueDate').value || null,
+                    max_points: parseInt(document.getElementById('assignMaxMarks').value) || 100
                 })
             });
-            if (res.ok) { hideModal('createAssignmentModal'); loadData(); }
-            else { alert('Failed to create assignment'); }
+            if (res.ok) {
+                showToast('✅ Assignment created!', 'success');
+                hideModal('createAssignmentModal');
+                document.getElementById('assignTitle').value = '';
+                document.getElementById('assignDesc').value = '';
+                loadData();
+            } else {
+                const err = await res.json();
+                showToast('❌ ' + (err.detail || 'Failed to create assignment'), 'error');
+            }
         }
 
         async function enrollStudent() {
@@ -520,16 +557,24 @@
         }
 
         async function postNotice() {
-            const res = await fetch(`${API}/comm/notices`, {
+            const title = document.getElementById('noticeTitle').value.trim();
+            const content = document.getElementById('noticeContent').value.trim();
+            const priority = document.getElementById('noticePriority').value;
+            if (!title) { showToast('❌ Title is required', 'error'); return; }
+            // FIX C10: Use /api/announcements — that's the registered backend endpoint
+            const res = await fetch(`${API}/announcements`, {
                 method: 'POST', headers,
-                body: JSON.stringify({
-                    title: document.getElementById('noticeTitle').value,
-                    content: document.getElementById('noticeContent').value,
-                    priority: document.getElementById('noticePriority').value
-                })
+                body: JSON.stringify({ title, content, priority })
             });
-            if (res.ok) { alert('Notice posted!'); hideModal('postNoticeModal'); }
-            else { alert('Failed to post notice'); }
+            if (res.ok) {
+                showToast('📢 Notice posted successfully!', 'success');
+                hideModal('postNoticeModal');
+                document.getElementById('noticeTitle').value = '';
+                document.getElementById('noticeContent').value = '';
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast('❌ ' + (err.detail || 'Failed to post notice'), 'error');
+            }
         }
 
         let activeSubId = null;
@@ -772,8 +817,44 @@
             } else { alert('Failed to create quiz'); }
         }
 
-        function viewQuizStats(quizId) {
-            alert('Stats for Quiz ID: ' + quizId);
+        async function viewQuizStats(quizId) {
+            // Replace placeholder alert with real API call
+            try {
+                const res = await fetch(`${API}/lms/quizzes/${quizId}/analytics`, { headers });
+                if (!res.ok) { showToast('❌ Failed to load quiz stats', 'error'); return; }
+                const data = await res.json();
+
+                const container = document.createElement('div');
+                container.style.cssText = 'position:fixed;inset:0;background:rgba(10,14,39,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;';
+                container.innerHTML = `
+                    <div style="background:#1e233e;border-radius:20px;padding:2rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid rgba(0,255,204,0.2);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                            <h2 style="color:#00ffcc;margin:0;">📊 ${data.title || 'Quiz'} Stats</h2>
+                            <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#888;font-size:1.5rem;cursor:pointer;">✕</button>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                            <div style="background:rgba(0,255,204,0.08);border:1px solid rgba(0,255,204,0.2);border-radius:12px;padding:1rem;text-align:center;">
+                                <div style="font-size:2rem;font-weight:700;color:#00ffcc;">${data.avg_score}%</div>
+                                <div style="color:#888;font-size:0.8rem;">Avg Score</div>
+                            </div>
+                            <div style="background:rgba(0,255,204,0.08);border:1px solid rgba(0,255,204,0.2);border-radius:12px;padding:1rem;text-align:center;">
+                                <div style="font-size:2rem;font-weight:700;color:#00ffcc;">${data.attempt_count}</div>
+                                <div style="color:#888;font-size:0.8rem;">Attempts</div>
+                            </div>
+                        </div>
+                        <h3 style="color:#b8c5d6;font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.8rem;">Student Results</h3>
+                        ${data.results.length === 0 ? '<p style="color:#888;text-align:center;">No attempts yet.</p>' : data.results.map((r, i) => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;border-left:3px solid ${r.percentage >= 80 ? '#00ffcc' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">
+                                <span style="color:#e0e6ed;">${i + 1}. ${r.student_name}</span>
+                                <span style="font-weight:700;color:${r.percentage >= 80 ? '#00ffcc' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">${r.percentage}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                document.body.appendChild(container);
+            } catch(e) {
+                showToast('Error loading quiz stats: ' + e.message, 'error');
+            }
         }
 
         async function openInsights(classId, className) {
@@ -781,11 +862,11 @@
             showModal('classInsightsModal');
 
             try {
-                const res = await fetch(`${API}/analytics/teacher/${classId}`, { headers });
+                const res = await fetch(`${API}/lms/classes/${classId}/analytics`, { headers });
                 const data = await res.json();
 
-                document.getElementById('classAvgScore').textContent = `${Math.round(data.avg_score)}%`;
-                document.getElementById('classEngagement').textContent = `${Math.round(data.engagement_rate * 100)}%`;
+                document.getElementById('classAvgScore').textContent = `${Math.round(data.avg_quiz_score || 0)}%`;
+                document.getElementById('classEngagement').textContent = `${Math.round(data.attendance_pct || 0)}%`;
 
                 // Render Chart
                 const ctx = document.getElementById('classPerformanceChart').getContext('2d');
@@ -814,25 +895,35 @@
                     }
                 });
 
-                // Performance List
+                // Performance List — fetch per-student names via engagement endpoint
                 const list = document.getElementById('studentPerformanceList');
-                let html = '<h4>Top Performers</h4>';
-                html += data.top_performing_students.map(s => `
-                    <div class="list-item" style="border-left: 3px solid #00ffcc">
-                        <span>${s.student_id}</span>
-                        <span style="color: #00ffcc; font-weight: 600;">${s.score}%</span>
-                    </div>
-                `).join('') || '<p style="color:#888; font-size:0.8rem">N/A</p>';
-
-                html += '<h4 style="margin-top:1rem">Area for Improvement</h4>';
-                html += data.low_performing_students.map(s => `
-                    <div class="list-item" style="border-left: 3px solid #ff4444">
-                        <span>${s.student_id}</span>
-                        <span style="color: #ff4444; font-weight: 600;">${s.score}%</span>
-                    </div>
-                `).join('') || '<p style="color:#888; font-size:0.8rem">N/A</p>';
-
-                list.innerHTML = html;
+                list.innerHTML = '<p style="color:#888;font-size:0.8rem;">Loading student breakdown...</p>';
+                try {
+                    const engRes = await fetch(`${API}/lms/classes/${classId}/students/engagement`, { headers });
+                    if (engRes.ok) {
+                        const engData = await engRes.json();
+                        const students = engData.students || [];
+                        const sorted = [...students].sort((a, b) => (b.avg_score || 0) - (a.avg_score || 0));
+                        let html = '<h4 style="color:#00ffcc;font-size:0.9rem;margin-bottom:0.5rem;">🏆 All Students</h4>';
+                        if (sorted.length === 0) {
+                            html += '<p style="color:#888;font-size:0.8rem;">No student data yet.</p>';
+                        } else {
+                            html += sorted.map((s, i) => {
+                                const score = s.avg_score != null ? s.avg_score + '%' : 'N/A';
+                                const color = s.avg_score == null ? '#888' : s.avg_score >= 70 ? '#00ffcc' : '#ff6b6b';
+                                return `<div class="list-item" style="border-left:3px solid ${color};">
+                                    <span style="color:#e0e6ed;">${i+1}. ${s.name || s.email || 'Unknown'}</span>
+                                    <span style="font-weight:600;color:${color};">${score}</span>
+                                </div>`;
+                            }).join('');
+                        }
+                        list.innerHTML = html;
+                    } else {
+                        list.innerHTML = '<p style="color:#888;font-size:0.8rem;">No analytics yet.</p>';
+                    }
+                } catch(engErr) {
+                    list.innerHTML = '<p style="color:#888;font-size:0.8rem;">Could not load student breakdown.</p>';
+                }
 
                 // Fetch Live Activity
                 document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#888">Loading live activity...</p>';
@@ -874,13 +965,13 @@
                 });
                 const data = await res.json();
                 if(res.ok) {
-                    alert('Upload Success: ' + data.message);
+                    showToast('✅ ' + data.message, 'success');
                     loadData();
                 } else {
-                    alert('Error: ' + JSON.stringify(data));
+                    showToast('❌ Error: ' + (data.detail || JSON.stringify(data)), 'error');
                 }
             } catch(e) {
-                alert('Upload failed: ' + e);
+                showToast('Upload failed: ' + e, 'error');
             }
         }
 
@@ -895,22 +986,45 @@
             const studentIds = cls.students || [];
             
             if (studentIds.length === 0) {
-                alert('No students enrolled in this class.');
+                showToast('⚠️ No students enrolled in this class.', 'error');
                 return;
             }
 
+            // Load real student names
             const list = document.getElementById('studentAttendanceList');
-            list.innerHTML = studentIds.map(sid => `
-                <div class="list-item" data-student-id="${sid}">
-                    <span>${sid}</span>
-                    <div style="display:flex; gap:10px;">
-                        <label><input type="radio" name="att-${sid}" value="present" checked> P</label>
-                        <label><input type="radio" name="att-${sid}" value="absent"> A</label>
-                    </div>
-                </div>
-            `).join('');
-            
+            list.innerHTML = '<p style="color:#888">Loading students...</p>';
             showModal('takeAttendanceModal');
+
+            try {
+                const studRes = await fetch(`${API}/lms/classes/${classId}/students`, { headers });
+                const studData = await studRes.json();
+                const students = studData.students || [];
+                
+                // Fall back to IDs if API fails
+                const rows = students.length > 0 ? students : studentIds.map(sid => ({id: sid, name: sid, email: ''}));
+                list.innerHTML = rows.map(s => `
+                    <div class="list-item" data-student-id="${s.id}">
+                        <div>
+                            <div style="font-weight:600;color:#e0e6ed;">${s.name || s.email || s.id}</div>
+                            ${s.email && s.name ? `<div style="font-size:0.75rem;color:#888;">${s.email}</div>` : ''}
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="present" checked style="margin-right:4px;"> <span style="color:#00ffcc;">P</span></label>
+                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="absent" style="margin-right:4px;"> <span style="color:#ff6b6b;">A</span></label>
+                        </div>
+                    </div>
+                `).join('');
+            } catch(e) {
+                list.innerHTML = studentIds.map(sid => `
+                    <div class="list-item" data-student-id="${sid}">
+                        <span style="color:#888;font-family:monospace;font-size:0.8rem;">${sid}</span>
+                        <div style="display:flex; gap:10px;">
+                            <label><input type="radio" name="att-${sid}" value="present" checked> P</label>
+                            <label><input type="radio" name="att-${sid}" value="absent"> A</label>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         async function submitAttendance() {
@@ -929,10 +1043,10 @@
             });
 
             if (res.ok) {
-                alert('Attendance submitted successfully!');
+                showToast('✅ Attendance submitted!', 'success');
                 hideModal('takeAttendanceModal');
             } else {
-                alert('Failed to submit attendance');
+                showToast('❌ Failed to submit attendance', 'error');
             }
         }
 
@@ -993,8 +1107,166 @@
         setInterval(updateNotifCount, 30000);
         updateNotifCount();
 
+        // ─── Toast Notifications ────────────────────────────────────
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // ─── Export Class Data ──────────────────────────────────────
+        async function exportClassData(classId) {
+            try {
+                const res = await fetch(`${API}/lms/classes/${classId}/export-excel`, { headers });
+                if (!res.ok) { showToast('❌ Export failed', 'error'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `class_${classId}_analytics.xlsx`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('✅ Export downloaded!', 'success');
+            } catch(e) {
+                showToast('Export error: ' + e, 'error');
+            }
+        }
+
+        // ─── Student Roster ─────────────────────────────────────────
+        async function openStudents(classId) {
+            currentClassId = classId;
+            const modal = document.getElementById('studentsModal');
+            document.getElementById('studentsModalTitle').textContent = 'Enrolled Students';
+            document.getElementById('studentsModalList').innerHTML = '<p style="color:#888">Loading...</p>';
+            modal.style.display = 'flex';
+            try {
+                const res = await fetch(`${API}/lms/classes/${classId}/students`, { headers });
+                const data = await res.json();
+                const students = data.students || [];
+                if (students.length === 0) {
+                    document.getElementById('studentsModalList').innerHTML = '<p style="color:#888">No students enrolled yet.</p>';
+                    return;
+                }
+                document.getElementById('studentsModalList').innerHTML = students.map(s => `
+                    <div class="list-item">
+                        <div>
+                            <div style="font-weight:600;color:#e0e6ed">${s.name}</div>
+                            <div style="font-size:0.8rem;color:#888">${s.email}</div>
+                        </div>
+                        <button style="background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.2);color:#ff4444;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.8rem" onclick="removeStudent('${classId}','${s.id}','${s.name}')">Remove</button>
+                    </div>
+                `).join('');
+            } catch(e) {
+                document.getElementById('studentsModalList').innerHTML = `<p style="color:#ff4444">Error: ${e}</p>`;
+            }
+        }
+
+        async function removeStudent(classId, studentId, studentName) {
+            if (!confirm(`Remove ${studentName} from class?`)) return;
+            try {
+                const res = await fetch(`${API}/lms/classes/${classId}/students`, {
+                    method: 'DELETE',
+                    headers,
+                    body: JSON.stringify({ student_id: studentId })
+                });
+                if (res.ok) {
+                    showToast(`✅ ${studentName} removed.`, 'success');
+                    openStudents(classId); // Refresh list
+                } else {
+                    showToast('❌ Failed to remove student', 'error');
+                }
+            } catch(e) {
+                showToast('Error: ' + e, 'error');
+            }
+        }
+
+        // ─── Edit Class ─────────────────────────────────────────────
+        let editingClassId = null;
+        function openEditClass(id, name, section, subject, description) {
+            editingClassId = id;
+            document.getElementById('editClassName').value = name;
+            document.getElementById('editClassSection').value = section;
+            document.getElementById('editClassSubject').value = subject;
+            document.getElementById('editClassDescription').value = description;
+            showModal('editClassModal');
+        }
+
+        async function submitEditClass() {
+            const body = {
+                name: document.getElementById('editClassName').value.trim(),
+                section: document.getElementById('editClassSection').value.trim() || null,
+                subject: document.getElementById('editClassSubject').value.trim() || null,
+                description: document.getElementById('editClassDescription').value.trim() || null,
+            };
+            try {
+                const res = await fetch(`${API}/lms/classes/${editingClassId}`, {
+                    method: 'PUT', headers, body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    showToast('✅ Class updated!', 'success');
+                    hideModal('editClassModal');
+                    loadData();
+                } else {
+                    const err = await res.json();
+                    showToast('❌ ' + (err.detail || 'Update failed'), 'error');
+                }
+            } catch(e) {
+                showToast('Error: ' + e, 'error');
+            }
+        }
+
+        // ─── Delete Class ────────────────────────────────────────────
+        async function deleteClass(classId, className) {
+            if (!confirm(`Archive "${className}"? Students will lose access.`)) return;
+            try {
+                const res = await fetch(`${API}/lms/classes/${classId}`, {
+                    method: 'DELETE', headers
+                });
+                if (res.ok) {
+                    showToast(`🗑️ "${className}" archived.`, 'success');
+                    document.getElementById(`class-card-${classId}`)?.remove();
+                    loadData();
+                } else {
+                    showToast('❌ Failed to delete class', 'error');
+                }
+            } catch(e) {
+                showToast('Error: ' + e, 'error');
+            }
+        }
+
         loadData();
 
     </script>
+
+    <!-- Student Roster Modal -->
+    <div class="modal-overlay" id="studentsModal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal-card" style="max-width:580px">
+            <h2 id="studentsModalTitle">👥 Students</h2>
+            <div id="studentsModalList" style="max-height:400px; overflow-y:auto; margin-top:12px"></div>
+            <div class="modal-actions"><button class="btn btn-secondary" onclick="document.getElementById('studentsModal').style.display='none'">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Edit Class Modal -->
+    <div class="modal-overlay" id="editClassModal" onclick="if(event.target===this)hideModal('editClassModal')">
+        <div class="modal-card">
+            <h2>✏️ Edit Class</h2>
+            <input id="editClassName" placeholder="Class Name" />
+            <input id="editClassSection" placeholder="Section (e.g. A)" />
+            <input id="editClassSubject" placeholder="Subject" />
+            <textarea id="editClassDescription" placeholder="Description"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideModal('editClassModal')">Cancel</button>
+                <button class="btn" onclick="submitEditClass()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
 </body>
 </html>

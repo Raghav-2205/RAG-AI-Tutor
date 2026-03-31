@@ -358,12 +358,30 @@ async def mark_attendance(
         "records": records,
         "created_at": datetime.utcnow()
     }
-    # Upsert: one record per class per day
+    # Upsert: one nested doc per class per day (for bulk queries)
     await db.attendance.update_one(
         {"class_id": class_id, "date": date_str},
         {"$set": doc},
         upsert=True
     )
+    # CRITICAL FIX: Also sync flat per-student records into attendance_records
+    # This collection is what the student stats endpoint reads from.
+    for rec in records:
+        student_id = rec.get("student_id")
+        status = rec.get("status", "absent")
+        if not student_id:
+            continue
+        await db.attendance_records.update_one(
+            {"class_id": class_id, "student_id": student_id, "date": date_str},
+            {"$set": {
+                "class_id": class_id,
+                "student_id": student_id,
+                "date": date_str,
+                "status": status,
+                "updated_at": datetime.utcnow()
+            }},
+            upsert=True
+        )
     return doc
 
 async def get_student_attendance(db, student_id: str, class_id: Optional[str] = None) -> list:

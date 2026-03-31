@@ -5,6 +5,17 @@ from typing import Optional, Any, List, Dict
 def _make_id():
     return str(uuid.uuid4())
 
+def _clean(doc: dict) -> dict:
+    """Remove MongoDB _id and serialize ObjectIds."""
+    if doc is None:
+        return doc
+    out = {}
+    for k, v in doc.items():
+        if k == "_id":
+            continue
+        out[k] = str(v) if hasattr(v, "__class__") and type(v).__name__ == "ObjectId" else v
+    return out
+
 # ─── Day Templates ────────────────────────────────────────────────────────────
 
 TEMPLATE_SCHEDULES: dict[str, list[dict]] = {
@@ -67,7 +78,7 @@ async def get_or_create_planner_day(
     })
 
     if day:
-        return day
+        return _clean(day)
 
     day_id = _make_id()
     day = {
@@ -98,7 +109,7 @@ async def get_or_create_planner_day(
         if tasks:
             await db.planner_tasks.insert_many(tasks)
 
-    return day
+    return _clean(day)
 
 async def add_task(
     db,
@@ -107,7 +118,7 @@ async def add_task(
     category: Optional[str] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
-    reminder_at: Optional[datetime] = None,
+    reminder_at=None,
     notes: Optional[str] = None,
 ) -> dict:
     task_id = _make_id()
@@ -120,12 +131,12 @@ async def add_task(
         "end_time": end_time,
         "reminder_at": reminder_at,
         "is_completed": False,
-        "order_index": 999, # push to end by default
+        "order_index": 999,
         "notes": notes,
         "created_at": datetime.utcnow()
     }
     await db.planner_tasks.insert_one(doc)
-    return doc
+    return _clean(doc)
 
 async def toggle_task_complete(
     db, task_id: str
@@ -152,9 +163,36 @@ async def get_day_with_tasks(
     
     if day:
         cursor = db.planner_tasks.find({"planner_day_id": day["id"]}).sort("order_index", 1)
-        day["tasks"] = await cursor.to_list(None)
+        tasks = await cursor.to_list(None)
+        day["tasks"] = [_clean(t) for t in tasks]
     
-    return day
+    return _clean(day)
+
+async def get_range_with_tasks(
+    db, user_id: str, start_date: str, end_date: str
+) -> List[dict]:
+    cursor = db.planner_days.find({
+        "user_id": user_id,
+        "date": {"$gte": start_date, "$lte": end_date}
+    }).sort("date", 1)
+    
+    days = await cursor.to_list(None)
+    day_ids = [d["id"] for d in days]
+    
+    tasks_cursor = db.planner_tasks.find({"planner_day_id": {"$in": day_ids}}).sort([("planner_day_id", 1), ("start_time", 1), ("order_index", 1)])
+    tasks = await tasks_cursor.to_list(None)
+    
+    tasks_by_day = {}
+    for t in tasks:
+        tasks_by_day.setdefault(t["planner_day_id"], []).append(_clean(t))
+        
+    cleaned_days = []
+    for d in days:
+        cd = _clean(d)
+        cd["tasks"] = tasks_by_day.get(d["id"], [])
+        cleaned_days.append(cd)
+        
+    return cleaned_days
 
 # ─── Activity Logging ─────────────────────────────────────────────────────────
 

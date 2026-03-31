@@ -17,6 +17,7 @@ from backend.utils.db import init_db, db_manager
 from backend.api import auth, chat, upload, quiz, feedback, ingest, rag, dashboard
 from backend.api import lms, planner, communication, suggestions, grag, notifications, analytics, calendar
 from backend.api import gamification
+from backend.api import announcements, events
 
 
 # Logging Setup
@@ -29,10 +30,36 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting RAG AI Tutor...")
     await init_db()
     os.makedirs(settings.upload_dir, exist_ok=True)
+    await create_indexes()
     yield
     # Shutdown
     logger.info("🛑 Shutting down...")
     await db_manager.disconnect()
+
+async def create_indexes():
+    """Create MongoDB indexes for performance."""
+    try:
+        db = db_manager.db
+        await db.classes.create_index("teacher_id")
+        await db.classes.create_index("join_code", unique=True, sparse=True)
+        await db.classes.create_index("students")
+        await db.assignments.create_index("class_id")
+        await db.assignments.create_index("due_date")
+        await db.submissions.create_index([("assignment_id", 1), ("student_id", 1)])
+        await db.lms_quizzes.create_index("class_id")
+        await db.quiz_questions.create_index("quiz_id")
+        await db.quiz_attempts.create_index([("quiz_id", 1), ("student_id", 1)])
+        await db.attendance_records.create_index([("class_id", 1), ("date", 1)])
+        await db.attendance_records.create_index("student_id")
+        await db.activity_logs.create_index([("user_id", 1), ("date", -1)])
+        await db.planner_days.create_index([("user_id", 1), ("date", 1)])
+        await db.announcements.create_index([("created_at", -1)])
+        await db.announcements.create_index("author_id")
+        await db.events.create_index([("date", 1)])
+        await db.events.create_index("author_id")
+        logger.info("✅ MongoDB indexes created successfully.")
+    except Exception as e:
+        logger.warning(f"⚠️ Index creation warning (non-fatal): {e}")
 
 app = FastAPI(title="RAG AI Tutor", lifespan=lifespan)
 
@@ -68,6 +95,8 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(calendar.router, prefix="/api", tags=["Calendar"])
 app.include_router(gamification.router, prefix="/api/gamification", tags=["Gamification"])
+app.include_router(announcements.router, prefix="/api/announcements", tags=["Announcements"])
+app.include_router(events.router, prefix="/api/events", tags=["Events"])
 
 from backend.api import academic
 app.include_router(academic.router, prefix="/api/academic", tags=["Academic LMS"])

@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LMS — RAG AI Tutor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/lms.css">
+<script src="/assets/js/notifications.js"></script>
+</head>
+<body class="lms-body">
+
+<div class="lms-shell">
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="lms-sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">R</div>
+    <span class="logo-text">RAG LMS</span>
+  </div>
+  <nav id="sidebarMenu"></nav>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<div class="lms-main">
+  <!-- Navbar -->
+  <header class="lms-navbar">
+    <div class="nav-left">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+      <div class="search-box">
+        <span>🔍</span>
+        <input id="globalSearch" placeholder="Search..." oninput="handleGlobalSearch(this.value)">
+      </div>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+      <a href="/views/dashboard.html" class="btn btn-secondary" style="font-size:13px;padding:6px 14px;text-decoration:none;border-radius:8px;display:flex;align-items:center;gap:5px;">📊 My Dashboard</a>
+      <button class="nav-icon-btn" id="notifBtn" title="Notifications">
+        🔔<span class="nav-badge hidden" id="notifBadge">0</span>
+      </button>
+      <div class="nav-user" id="navUser">
+        <div class="nav-user-info">
+          <div class="nav-user-name" id="navUserName"></div>
+          <div class="nav-user-role" id="navUserRole"></div>
+        </div>
+        <div class="avatar" id="navAvatar"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="lms-content" id="contentArea">
+    <div class="skeleton skeleton-chart"></div>
+  </main>
+</div>
+</div>
+
+<!-- Toast container -->
+<div class="lms-toast-wrap" id="toastWrap"></div>
+
+<!-- ═══ FORM MODAL ═══ -->
+<div class="lms-modal-overlay" id="formModal">
+  <div class="lms-modal">
+    <h2 id="formModalTitle">Form</h2>
+    <div id="formModalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeFormModal()">Cancel</button>
+      <button class="btn btn-primary" id="formModalSubmit">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ BOOTSTRAP ═══
+const API = localStorage.getItem('api_base_url') || '/api';
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/views/login.html';
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+const ROLE = (user.role || 'student').toLowerCase();
+const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+// Role guard: redirect pure students unless they came from dashboard with allow_student flag
+const _params = new URLSearchParams(location.search);
+if (ROLE === 'student' && !_params.has('allow_student')) {
+  window.location.href = '/views/dashboard.html';
+}
+
+// Read initial page from URL param (e.g. ?page=assignments)
+const _initialPage = _params.get('page') || 'home';
+
+// Set user info
+document.getElementById('navUserName').textContent = user.name || 'User';
+document.getElementById('navUserRole').textContent = ROLE;
+document.getElementById('navAvatar').textContent = (user.name || 'U')[0].toUpperCase();
+
+// ═══ SIDEBAR MENU (Role-based) ═══
+const menuConfig = [
+  { label: 'MENU', items: [
+    { icon: '🏠', id: 'home',          text: 'Home',          roles: ['teacher','student','admin'] },
+    { icon: '📚', id: 'classes',       text: 'Classes',       roles: ['teacher','student','admin'] },
+    { icon: '👩‍🎓', id: 'students',      text: 'Students',      roles: ['teacher','admin'] },
+    { icon: '📝', id: 'assignments',   text: 'Assignments',   roles: ['teacher','student','admin'] },
+    { icon: '🧠', id: 'quizzes',       text: 'Exams',         roles: ['teacher','student','admin'] },
+    { icon: '📊', id: 'results',       text: 'Results',       roles: ['teacher','student','admin'] },
+    { icon: '✅', id: 'attendance',    text: 'Attendance',    roles: ['teacher','student','admin'] },
+    { icon: '📅', id: 'events',        text: 'Events',        roles: ['teacher','student','admin'] },
+    { icon: '📢', id: 'announcements', text: 'Announcements', roles: ['teacher','student','admin'] },
+  ]},
+  { label: 'OTHER', items: [
+    { icon: '💬', id: 'chat',    text: 'AI Chat',  roles: ['teacher','student','admin'], href: '/views/subjects.html' },
+    { icon: '📈', id: 'analytics', text: 'Analytics', roles: ['teacher','admin'], href: '/views/analytics.html' },
+    { icon: '👤', id: 'profile', text: 'Profile',  roles: ['teacher','student','admin'], href: '/views/profile.html' },
+    { icon: '🚪', id: 'logout',  text: 'Logout',   roles: ['teacher','student','admin'] },
+  ]}
+];
+
+let currentPage = _initialPage;
+
+function buildSidebar() {
+  const nav = document.getElementById('sidebarMenu');
+  nav.innerHTML = menuConfig.map(group => {
+    const items = group.items.filter(i => i.roles.includes(ROLE));
+    if (!items.length) return '';
+    return `<div class="menu-group">
+      <div class="menu-label">${group.label}</div>
+      ${items.map(i => `<button class="menu-item ${i.id === currentPage ? 'active' : ''}" 
+        data-page="${i.id}" ${i.href ? `data-href="${i.href}"` : ''} onclick="navTo('${i.id}', this)">
+        <span class="mi-icon">${i.icon}</span>
+        <span class="mi-label">${i.text}</span>
+      </button>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function navTo(page, el) {
+  if (page === 'logout') { localStorage.clear(); window.location.href = '/views/login.html'; return; }
+  const item = menuConfig.flatMap(g => g.items).find(i => i.id === page);
+  if (item && item.href) { window.location.href = item.href; return; }
+
+  currentPage = page;
+  document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  loadPage(page);
+}
+
+// ═══ THEME ═══
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('lms-theme', isDark ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = isDark ? '🌙' : '☀️';
+}
+if (localStorage.getItem('lms-theme') === 'dark') {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  document.querySelector('.theme-toggle').textContent = '☀️';
+}
+
+// ═══ TOAST ═══
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'lms-toast ' + type;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ═══ FORM MODAL ═══
+function openFormModal(title, bodyHtml, onSubmit) {
+  document.getElementById('formModalTitle').textContent = title;
+  document.getElementById('formModalBody').innerHTML = bodyHtml;
+  document.getElementById('formModalSubmit').onclick = onSubmit;
+  document.getElementById('formModal').classList.add('open');
+}
+function closeFormModal() { document.getElementById('formModal').classList.remove('open'); }
+
+// ═══ HELPERS ═══
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+async function apiFetch(url, opts = {}) {
+  try {
+    const res = await fetch(API + url, { headers, ...opts });
+    if (res.status === 401) { localStorage.clear(); window.location.href='/views/login.html'; return null; }
+    return res;
+  } catch(e) { toast('Network error', 'error'); return null; }
+}
+function handleGlobalSearch(q) {
+  const lower = (q||'').toLowerCase();
+  // Filter all visible table rows
+  document.querySelectorAll('.lms-table tbody tr').forEach(r => {
+    r.style.display = !lower || r.textContent.toLowerCase().includes(lower) ? '' : 'none';
+  });
+  // Filter announcement items
+  document.querySelectorAll('.announcement-item').forEach(el => {
+    el.style.display = !lower || el.textContent.toLowerCase().includes(lower) ? '' : 'none';
+  });
+}
+
+// ═══ PAGE ROUTER ═══
+async function loadPage(page) {
+  const area = document.getElementById('contentArea');
+  area.innerHTML = '<div class="skeleton skeleton-chart" style="margin-bottom:16px"></div><div class="skeleton skeleton-chart"></div>';
+  
+  try {
+    switch(page) {
+      case 'home':          await renderHome(area); break;
+      case 'classes':       await renderClasses(area); break;
+      case 'students':      await renderStudents(area); break;
+      case 'assignments':   await renderAssignments(area); break;
+      case 'quizzes':       await renderQuizzes(area); break;
+      case 'results':       await renderResults(area); break;
+      case 'attendance':    await renderAttendance(area); break;
+      case 'events':        await renderEvents(area); break;
+      case 'announcements': await renderAnnouncements(area); break;
+      default:              area.innerHTML = '<p>Page not found.</p>';
+    }
+  } catch(e) { area.innerHTML = `<p style="color:var(--lms-danger)">Error: ${e.message}</p>`; console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: HOME
+// ═══════════════════════════════════════════════════
+async function renderHome(area) {
+  const res = await apiFetch('/lms/classes');
+  const raw = await res?.json();
+  const cls = Array.isArray(raw) ? raw : [];
+
+  if (ROLE === 'teacher' || ROLE === 'admin') {
+    const totalStudents = cls.reduce((s,c) => s + (c.students?.length || 0), 0);
+    area.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-icon">👩‍🎓</div><div class="stat-info"><div class="stat-value">${totalStudents}</div><div class="stat-label">Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-info"><div class="stat-value">${cls.length}</div><div class="stat-label">Classes</div></div></div>
+        <div class="stat-card"><div class="stat-icon">📝</div><div class="stat-info"><div class="stat-value" id="totalAssign">-</div><div class="stat-label">Assignments</div></div></div>
+        <div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-info"><div class="stat-value" id="totalQuiz">-</div><div class="stat-label">Quizzes</div></div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">Attendance Overview</span></div><canvas id="attChart" height="200"></canvas></div>
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">Performance</span></div><canvas id="perfChart" height="200"></canvas></div>
+      </div>
+      <div class="dash-grid">
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">📅 Upcoming Events</span></div><div id="eventsList" class="text-muted" style="font-size:13px;">No events yet.</div></div>
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">📢 Announcements</span></div><div id="annList" class="text-muted" style="font-size:13px;">No announcements yet.</div></div>
+      </div>`;
+    // Load counts
+    apiFetch('/lms/assignments').then(async r => { const d = await r?.json(); document.getElementById('totalAssign').textContent = Array.isArray(d) ? d.length : 0; });
+    apiFetch('/lms/quizzes').then(async r => { const d = await r?.json(); document.getElementById('totalQuiz').textContent = Array.isArray(d) ? d.length : 0; });
+    if (cls.length) drawTeacherCharts(cls);
+  } else {
+    // Student home
+    area.innerHTML = `
+      <div class="stat-cards">
+        <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-info"><div class="stat-value">${cls.length}</div><div class="stat-label">My Classes</div></div></div>
+        <div class="stat-card"><div class="stat-icon">📝</div><div class="stat-info"><div class="stat-value" id="myAssign">-</div><div class="stat-label">Assignments</div></div></div>
+        <div class="stat-card"><div class="stat-icon">🧠</div><div class="stat-info"><div class="stat-value" id="myQuiz">-</div><div class="stat-label">Quizzes</div></div></div>
+        <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-info"><div class="stat-value" id="myAvg">-</div><div class="stat-label">Avg Score</div></div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">My Classes</span></div>
+          <div id="studentClasses">${cls.map(c => `<div class="announcement-item"><div class="ann-title">${escHtml(c.name)}</div><div class="ann-meta">${escHtml(c.subject||'')} · ${escHtml(c.section||'')}</div></div>`).join('') || '<p class="text-muted">Not enrolled in any class.</p>'}</div>
+        </div>
+        <div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">📢 Announcements</span></div><div id="annList" class="text-muted" style="font-size:13px;">No announcements yet.</div></div>
+      </div>`;
+    apiFetch('/lms/assignments').then(async r => { const d = await r?.json(); document.getElementById('myAssign').textContent = Array.isArray(d) ? d.length : 0; });
+    apiFetch('/lms/quizzes').then(async r => { const d = await r?.json(); document.getElementById('myQuiz').textContent = Array.isArray(d) ? d.length : 0; });
+  }
+}
+
+function drawTeacherCharts(cls) {
+  // Simple bar chart on canvas for attendance
+  const canvas = document.getElementById('attChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.parentElement.clientWidth - 40;
+  const H = canvas.height = 180;
+  const days = ['Mon','Tue','Wed','Thu','Fri'];
+  const vals = days.map(() => Math.floor(Math.random()*40 + 60)); // placeholder
+  const barW = W / days.length - 16;
+  const maxV = 100;
+  ctx.clearRect(0,0,W,H);
+  days.forEach((d,i) => {
+    const x = i * (barW + 16) + 16;
+    const h = (vals[i]/maxV) * (H-30);
+    ctx.fillStyle = '#C3EBFA';
+    ctx.beginPath(); ctx.roundRect(x, H-h-20, barW, h, 6); ctx.fill();
+    ctx.fillStyle = '#6B7280';
+    ctx.font = '11px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText(d, x + barW/2, H - 4);
+    ctx.fillStyle = '#1A1D26';
+    ctx.font = '12px Inter';
+    ctx.fillText(vals[i]+'%', x + barW/2, H-h-26);
+  });
+
+  // Performance donut
+  const pc = document.getElementById('perfChart');
+  if (!pc) return;
+  const pctx = pc.getContext('2d');
+  pc.width = pc.parentElement.clientWidth - 40;
+  pc.height = 180;
+  const cx = pc.width/2, cy = 90, r = 60;
+  const pct = 72; // placeholder avg
+  pctx.lineWidth = 14;
+  pctx.strokeStyle = '#E4E7EC';
+  pctx.beginPath(); pctx.arc(cx,cy,r,0,Math.PI*2); pctx.stroke();
+  pctx.strokeStyle = '#4F46E5';
+  pctx.lineCap = 'round';
+  pctx.beginPath(); pctx.arc(cx,cy,r,-Math.PI/2, -Math.PI/2 + (pct/100)*Math.PI*2); pctx.stroke();
+  pctx.fillStyle = '#1A1D26';
+  pctx.font = 'bold 24px Inter';
+  pctx.textAlign = 'center';
+  pctx.fillText(pct+'%', cx, cy+8);
+  pctx.font = '12px Inter';
+  pctx.fillStyle = '#6B7280';
+  pctx.fillText('Avg Score', cx, cy+28);
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: CLASSES
+// ═══════════════════════════════════════════════════
+async function renderClasses(area) {
+  const res = await apiFetch('/lms/classes');
+  const raw = await res?.json();
+  const cls = Array.isArray(raw) ? raw : [];
+
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">All Classes</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="table-search"><span>🔍</span><input id="classSearch" placeholder="Search classes..." oninput="filterClassTable(this.value)"></div>
+          ${isTeacher ? '<button class="btn btn-primary" onclick="openCreateClass()">+ Create Class</button>' : '<button class="btn btn-primary" onclick="openJoinClass()">+ Join Class</button>'}
+        </div>
+      </div>
+      <div class="lms-table-wrap">
+        <table class="lms-table" id="classesTable">
+          <thead><tr>
+            <th>Class Name</th><th>Subject</th><th>Section</th>
+            ${isTeacher ? '<th>Students</th><th>Join Code</th>' : ''}
+            <th>Actions</th>
+          </tr></thead>
+          <tbody>${cls.map(c => `<tr>
+            <td><strong>${escHtml(c.name)}</strong></td>
+            <td>${escHtml(c.subject||'-')}</td>
+            <td><span class="badge badge-sky">${escHtml(c.section||'-')}</span></td>
+            ${isTeacher ? `<td>${(c.students||[]).length}</td><td><code class="font-mono">${escHtml(c.join_code||'')}</code></td>` : ''}
+            <td>
+              ${isTeacher ? `<button class="btn btn-sm btn-icon" onclick="openEditClass('${c.id}')">✏️</button> <button class="btn btn-sm btn-icon" onclick="deleteClass('${c.id}')">🗑️</button> <button class="btn btn-sm btn-icon" onclick="viewStudents('${c.id}')">👥</button>` : `<button class="btn btn-sm btn-primary" onclick="navTo('attendance')">View</button>`}
+            </td>
+          </tr>`).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:40px">No classes found.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function filterClassTable(q) {
+  const rows = document.querySelectorAll('#classesTable tbody tr');
+  rows.forEach(r => { r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'; });
+}
+
+function openCreateClass() {
+  openFormModal('Create Class', `
+    <div class="form-group"><label>Class Name</label><input id="fClassName" required></div>
+    <div class="form-group"><label>Subject</label><input id="fClassSubject"></div>
+    <div class="form-group"><label>Section</label><input id="fClassSection"></div>
+    <div class="form-group"><label>Description</label><textarea id="fClassDesc"></textarea></div>
+  `, async () => {
+    const body = { name: document.getElementById('fClassName').value, subject: document.getElementById('fClassSubject').value, section: document.getElementById('fClassSection').value, description: document.getElementById('fClassDesc').value };
+    if (!body.name) { toast('Name is required','error'); return; }
+    const res = await apiFetch('/lms/classes', { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Class created!'); closeFormModal(); loadPage('classes'); } else { toast('Failed to create','error'); }
+  });
+}
+
+function openJoinClass() {
+  openFormModal('Join Class', `<div class="form-group"><label>Join Code</label><input id="fJoinCode" maxlength="8" placeholder="ABC123XY" style="text-transform:uppercase;letter-spacing:3px;font-family:var(--font-mono);text-align:center;font-size:1.2rem"></div>`, async () => {
+    const code = document.getElementById('fJoinCode').value.trim().toUpperCase();
+    if (!code) { toast('Enter a join code','error'); return; }
+    const res = await apiFetch('/lms/classes/enroll', { method:'POST', body: JSON.stringify({ join_code: code }) });
+    if (res?.ok) { toast('Enrolled!'); closeFormModal(); loadPage('classes'); } else { const d = await res?.json().catch(()=>({})); toast(d.detail||'Failed','error'); }
+  });
+}
+
+async function openEditClass(id) {
+  const res = await apiFetch('/lms/classes');
+  const data = await res?.json();
+  const c = (Array.isArray(data)?data:[]).find(x => x.id === id);
+  if (!c) return;
+  openFormModal('Edit Class', `
+    <div class="form-group"><label>Name</label><input id="fClassName" value="${escHtml(c.name)}"></div>
+    <div class="form-group"><label>Subject</label><input id="fClassSubject" value="${escHtml(c.subject||'')}"></div>
+    <div class="form-group"><label>Section</label><input id="fClassSection" value="${escHtml(c.section||'')}"></div>
+  `, async () => {
+    const body = { name: document.getElementById('fClassName').value, subject: document.getElementById('fClassSubject').value, section: document.getElementById('fClassSection').value };
+    const res = await apiFetch(`/lms/classes/${id}`, { method:'PUT', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Updated!'); closeFormModal(); loadPage('classes'); } else { toast('Failed','error'); }
+  });
+}
+
+async function deleteClass(id) {
+  if (!confirm('Archive this class?')) return;
+  const res = await apiFetch(`/lms/classes/${id}`, { method:'DELETE' });
+  if (res?.ok) { toast('Class archived'); loadPage('classes'); } else { toast('Failed','error'); }
+}
+
+async function viewStudents(classId) {
+  const res = await apiFetch(`/lms/classes/${classId}/students`);
+  const data = await res?.json() || {};
+  const rows = Array.isArray(data) ? data : (data.students || []);
+  openFormModal(`Students (${rows.length})`, `
+    <table class="lms-table" style="font-size:13px">
+      <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
+      <tbody>${rows.map(s => `<tr><td>${escHtml(s.name)}</td><td>${escHtml(s.email)}</td><td><button class="btn btn-sm btn-danger" onclick="removeStudent('${classId}','${s.id}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-muted">No students</td></tr>'}</tbody>
+    </table>`, () => closeFormModal());
+  document.getElementById('formModalSubmit').textContent = 'Close';
+}
+
+async function removeStudent(classId, studentId) {
+  const res = await apiFetch(`/lms/classes/${classId}/students`, { method:'DELETE', body: JSON.stringify({ student_id: studentId }) });
+  if (res?.ok) { toast('Removed'); viewStudents(classId); } else { toast('Failed','error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: STUDENTS (Teacher only — per-class breakdown)
+// ═══════════════════════════════════════════════════
+async function renderStudents(area) {
+  // First get classes for a dropdown
+  const cr = await apiFetch('/lms/classes'); const cData = await cr?.json();
+  const cls = Array.isArray(cData) ? cData : [];
+
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">Student Analytics</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="studentClassPick" onchange="loadStudentList(this.value)" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+            <option value="">— Select class —</option>
+            ${cls.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
+          </select>
+          <div class="table-search"><span>🔍</span><input id="studentSearch" placeholder="Search students..." oninput="filterTable('studentsTable',this.value)"></div>
+        </div>
+      </div>
+      <div class="lms-table-wrap"><table class="lms-table" id="studentsTable">
+        <thead><tr><th>Name</th><th>Email</th><th>Attendance %</th><th>Quizzes</th><th>Avg Score</th></tr></thead>
+        <tbody id="studentsBody"><tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">Select a class above.</td></tr></tbody>
+      </table></div>
+    </div>`;
+}
+
+async function loadStudentList(classId) {
+  const body = document.getElementById('studentsBody');
+  if (!classId) { body.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">Select a class above.</td></tr>'; return; }
+  body.innerHTML = '<tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr>';
+
+  // FIX A1: Use /analytics/class/{id}/students to get rich metrics (attendance_pct, avg_quiz_score)
+  const res = await apiFetch(`/analytics/class/${classId}/students`);
+  const data = await res?.json();
+  const students = Array.isArray(data) ? data : [];
+
+  if (!students.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">No students enrolled.</td></tr>'; return; }
+
+  body.innerHTML = students.map(s => {
+    const attBadge = s.attendance_pct != null ? (s.attendance_pct >= 75 ? 'badge-success' : 'badge-danger') : 'badge-info';
+    return `<tr>
+      <td><strong>${escHtml(s.name || 'Unknown')}</strong></td>
+      <td>${escHtml(s.email || '')}</td>
+      <td><span class="badge ${attBadge}">${s.attendance_pct != null ? s.attendance_pct + '%' : 'N/A'}</span></td>
+      <td>${s.quizzes_taken || 0}</td>
+      <td>${s.avg_quiz_score != null ? s.avg_quiz_score + '%' : '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: ASSIGNMENTS
+// ═══════════════════════════════════════════════════
+async function renderAssignments(area) {
+  const res = await apiFetch('/lms/assignments'); const data = await res?.json(); const items = Array.isArray(data) ? data : [];
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+
+  // Get classes for create form
+  let classOpts = '';
+  if (isTeacher) {
+    const cr = await apiFetch('/lms/classes'); const cd = await cr?.json();
+    classOpts = (Array.isArray(cd) ? cd : []).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+  }
+
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">Assignments (${items.length})</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="table-search"><span>🔍</span><input placeholder="Search..." oninput="filterTable('assignTable',this.value)"></div>
+          ${isTeacher ? `<button class="btn btn-primary" onclick="openCreateAssignment()">+ New Assignment</button>` : ''}
+        </div>
+      </div>
+      <div class="lms-table-wrap"><table class="lms-table" id="assignTable">
+        <thead><tr><th>Title</th><th>Type</th><th>Due Date</th><th>Max Points</th><th>Actions</th></tr></thead>
+        <tbody>${items.map(a => `<tr>
+          <td><strong>${escHtml(a.title)}</strong></td>
+          <td><span class="badge badge-purple">${escHtml(a.type||'homework')}</span></td>
+          <td>${a.due_date ? new Date(a.due_date).toLocaleDateString() : '-'}</td>
+          <td>${a.max_points||a.max_marks||100}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap">${!isTeacher 
+            ? `<button class="btn btn-sm btn-primary" onclick="openSubmitAssignment('${a.id||a.assignment_id}','${escHtml(a.title)}')">📤 Submit</button>`
+            : `<button class="btn btn-sm btn-secondary" onclick="openViewSubmissions('${a.id||a.assignment_id}','${escHtml(a.title)}')">📋 Submissions</button>`
+          }</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">No assignments yet.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+
+  // Stash class options for the create form
+  window._classOpts = classOpts;
+}
+
+function openCreateAssignment() {
+  openFormModal('Create Assignment', `
+    <div class="form-group"><label>Class</label><select id="fAssignClass">${window._classOpts||'<option>No classes</option>'}</select></div>
+    <div class="form-group"><label>Title</label><input id="fAssignTitle" required></div>
+    <div class="form-group"><label>Type</label><select id="fAssignType"><option value="homework">Homework</option><option value="project">Project</option><option value="lab">Lab</option></select></div>
+    <div class="form-group"><label>Due Date</label><input type="date" id="fAssignDue"></div>
+    <div class="form-group"><label>Max Points</label><input type="number" id="fAssignMax" value="100"></div>
+    <div class="form-group"><label>Description</label><textarea id="fAssignDesc"></textarea></div>
+  `, async () => {
+    const body = { class_id: document.getElementById('fAssignClass').value, title: document.getElementById('fAssignTitle').value, type: document.getElementById('fAssignType').value, due_date: document.getElementById('fAssignDue').value || null, max_points: parseFloat(document.getElementById('fAssignMax').value) || 100, description: document.getElementById('fAssignDesc').value };
+    if (!body.title) { toast('Title required','error'); return; }
+    if (!body.class_id) { toast('Please select a class','error'); return; }
+    // FIX A4: Correct endpoint is flat POST /lms/assignments (accepts class_id in body)
+    const res = await apiFetch('/lms/assignments', { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Assignment created!'); closeFormModal(); loadPage('assignments'); } else { const d = await res?.json().catch(()=>({})); toast(d.detail||'Failed to create','error'); }
+  });
+}
+
+function openSubmitAssignment(assignId, title) {
+  openFormModal('Submit: ' + title, `
+    <div class="form-group"><label>Your Answer</label><textarea id="fSubmitContent" placeholder="Write your answer here..." rows="5"></textarea></div>
+    <div class="form-group"><label>File URL (optional)</label><input id="fSubmitUrl" placeholder="Google Drive / link"></div>
+  `, async () => {
+    const body = { assignment_id: assignId, content: document.getElementById('fSubmitContent').value, file_url: document.getElementById('fSubmitUrl').value };
+    const res = await apiFetch(`/lms/assignments/${assignId}/submit`, { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Submitted!'); closeFormModal(); } else { toast('Submission failed','error'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: QUIZZES / EXAMS
+// ═══════════════════════════════════════════════════
+async function renderQuizzes(area) {
+  const res = await apiFetch('/lms/quizzes'); const data = await res?.json(); const items = Array.isArray(data) ? data : [];
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+
+  let classOpts = '';
+  if (isTeacher) {
+    const cr = await apiFetch('/lms/classes'); const cd = await cr?.json();
+    classOpts = (Array.isArray(cd) ? cd : []).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+  }
+
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">Exams & Quizzes (${items.length})</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="table-search"><span>🔍</span><input placeholder="Search..." oninput="filterTable('quizTable',this.value)"></div>
+          ${isTeacher ? `<button class="btn btn-primary" onclick="openCreateQuiz()">+ New Quiz</button>` : ''}
+        </div>
+      </div>
+      <div class="lms-table-wrap"><table class="lms-table" id="quizTable">
+        <thead><tr><th>Title</th><th>Class</th><th>Due</th>${isTeacher ? '<th>Submissions</th>' : '<th>Time Limit</th>'}<th>Action</th></tr></thead>
+        <tbody>${items.map(q => `<tr>
+          <td><strong>${escHtml(q.title)}</strong></td>
+          <td>${escHtml(q.class_id||'-')}</td>
+          <td>${q.due_date ? new Date(q.due_date).toLocaleDateString() : '-'}</td>
+          ${isTeacher ? `<td>-</td>` : `<td>${q.time_limit ? q.time_limit + ' min' : 'None'}</td>`}
+          <!-- FIX A5: Use lms_quiz.html for LMS quizzes, not quiz.html -->
+          <td><button class="btn btn-sm btn-primary" onclick="window.location.href='/views/lms_quiz.html?quiz_id=${q.id}'">${isTeacher ? '👁 View' : '🧠 Take Quiz'}</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">No quizzes yet.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+
+  window._quizClassOpts = classOpts;
+}
+
+function openCreateQuiz() {
+  openFormModal('Create Quiz', `
+    <div class="form-group"><label>Class</label><select id="fQuizClass">${window._quizClassOpts||''}</select></div>
+    <div class="form-group"><label>Title</label><input id="fQuizTitle" required></div>
+    <div class="form-group"><label>Description</label><textarea id="fQuizDesc"></textarea></div>
+    <div class="form-group"><label>Time Limit (minutes, optional)</label><input type="number" id="fQuizTime"></div>
+    <div class="form-group"><label>End Date</label><input type="datetime-local" id="fQuizEnd"></div>
+  `, async () => {
+    const body = { title: document.getElementById('fQuizTitle').value, description: document.getElementById('fQuizDesc').value, time_limit: parseInt(document.getElementById('fQuizTime').value) || null, end_time: document.getElementById('fQuizEnd').value || null };
+    if (!body.title) { toast('Title required','error'); return; }
+    const classId = document.getElementById('fQuizClass').value;
+    const res = await apiFetch(`/lms/classes/${classId}/quizzes`, { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Quiz created!'); closeFormModal(); loadPage('quizzes'); } else { toast('Failed','error'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: RESULTS
+// ═══════════════════════════════════════════════════
+async function renderResults(area) {
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+
+  if (isTeacher) {
+    // Get classes for picker
+    const cr = await apiFetch('/lms/classes'); const cd = await cr?.json();
+    const cls = Array.isArray(cd) ? cd : [];
+    area.innerHTML = `
+      <div class="lms-card">
+        <div class="table-header">
+          <span class="lms-card-title">Results & Analytics</span>
+          <select id="resultsClassPick" onchange="loadClassResults(this.value)" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+            <option value="">— Select class —</option>
+            ${cls.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="resultsContent" class="text-muted" style="padding:40px;text-align:center">Select a class to view analytics.</div>
+      </div>`;
+  } else {
+    // Student — show own quiz results
+    area.innerHTML = `<div class="lms-card"><div class="lms-card-header"><span class="lms-card-title">My Results</span></div><p class="text-muted">Check the Exams tab for your quiz scores.</p></div>`;
+  }
+}
+
+async function loadClassResults(classId) {
+  const cont = document.getElementById('resultsContent');
+  if (!classId) { cont.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">Select a class.</p>'; return; }
+  cont.innerHTML = '<div class="skeleton skeleton-chart"></div>';
+
+  // FIX A2: Use the correct per-class analytics endpoint
+  const res = await apiFetch(`/lms/classes/${classId}/analytics`);
+  const stats = await res?.json() || {};
+
+  // Also load quiz stats from global quizzes endpoint
+  const qRes = await apiFetch(`/lms/classes/${classId}/quizzes`);
+  const quizzes = await qRes?.json().catch(() => []) || [];
+
+  cont.innerHTML = `
+    <div class="stat-cards" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-icon">👩‍🎓</div><div class="stat-info"><div class="stat-value">${stats.total_students||0}</div><div class="stat-label">Total Students</div></div></div>
+      <div class="stat-card"><div class="stat-icon">🟢</div><div class="stat-info"><div class="stat-value">${stats.active_students||0}</div><div class="stat-label">Active (7d)</div></div></div>
+      <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-info"><div class="stat-value">${stats.avg_quiz_score||0}%</div><div class="stat-label">Avg Quiz Score</div></div></div>
+      <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-info"><div class="stat-value">${stats.attendance_pct||0}%</div><div class="stat-label">Attendance</div></div></div>
+    </div>
+    <h3 style="font-size:15px;font-weight:700;margin:16px 0 8px">Quizzes in this Class (${quizzes.length})</h3>
+    <table class="lms-table"><thead><tr><th>Quiz</th><th>Time Limit</th><th>Action</th></tr></thead>
+    <tbody>${(Array.isArray(quizzes)?quizzes:[]).map(q => `<tr><td>${escHtml(q.title)}</td><td>${q.time_limit ? q.time_limit+' min' : 'None'}</td><td><button class="btn btn-sm btn-secondary" onclick="window.location.href='/views/lms_quiz.html?quiz_id=${q.id}'">View Quiz</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-muted" style="text-align:center">No quizzes yet.</td></tr>'}</tbody></table>`;
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: ATTENDANCE
+// ═══════════════════════════════════════════════════
+async function renderAttendance(area) {
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+  const cr = await apiFetch('/lms/classes'); const cd = await cr?.json();
+  const cls = Array.isArray(cd) ? cd : [];
+
+  if (isTeacher) {
+    area.innerHTML = `
+      <div class="lms-card">
+        <div class="table-header">
+          <span class="lms-card-title">Mark Attendance</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="attClassPick" onchange="loadAttStudents(this.value)" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+              <option value="">— Select class —</option>
+              ${cls.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
+            </select>
+            <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+          </div>
+        </div>
+        <div id="attBody" class="text-muted" style="padding:40px;text-align:center">Select a class to mark attendance.</div>
+      </div>`;
+  } else {
+    // Student — show own attendance across classes
+    area.innerHTML = `
+      <div class="lms-card">
+        <div class="lms-card-header"><span class="lms-card-title">My Attendance</span></div>
+        <div class="lms-table-wrap"><table class="lms-table" id="myAttTable">
+          <thead><tr><th>Class</th><th>Sessions</th><th>Present</th><th>Attendance %</th></tr></thead>
+          <tbody id="myAttBody"><tr><td colspan="4"><div class="skeleton skeleton-row"></div></td></tr></tbody>
+        </table></div>
+      </div>`;
+
+    // Load attendance for each class
+    const rows = [];
+    for (const c of cls) {
+      try {
+        const r = await apiFetch(`/lms/classes/${c.id}/attendance/stats`);
+        const d = await r?.json();
+        const pct = d?.overall_percentage ?? d?.attendance_percentage;
+        rows.push(`<tr>
+          <td><strong>${escHtml(c.name)}</strong></td>
+          <td>${d?.total_sessions || 0}</td>
+          <td>${d?.present || 0}</td>
+          <td><span class="badge ${pct != null && pct >= 75 ? 'badge-success' : 'badge-danger'}">${pct != null ? pct + '%' : 'N/A'}</span></td>
+        </tr>`);
+      } catch(e) { rows.push(`<tr><td>${escHtml(c.name)}</td><td colspan="3" class="text-muted">Error</td></tr>`); }
+    }
+    document.getElementById('myAttBody').innerHTML = rows.join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center">Not enrolled in any class.</td></tr>';
+  }
+}
+
+async function loadAttStudents(classId) {
+  const body = document.getElementById('attBody');
+  if (!classId) { body.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">Select a class.</p>'; return; }
+  body.innerHTML = '<div class="skeleton skeleton-row"></div>';
+
+  // FIX A8: /lms/classes/{id}/students returns {students:[...], count:N}
+  const res = await apiFetch(`/lms/classes/${classId}/students`);
+  const data = await res?.json();
+  const students = Array.isArray(data) ? data : (data?.students || []);
+
+  if (!students.length) { body.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">No students enrolled in this class.</p>'; return; }
+
+  body.innerHTML = `
+    <table class="lms-table"><thead><tr><th>Student</th><th>Email</th><th style="width:120px">Status</th></tr></thead>
+    <tbody>${students.map(s => `<tr>
+      <td><strong>${escHtml(s.name||'Unknown')}</strong></td>
+      <td class="text-muted" style="font-size:12px">${escHtml(s.email||'')}</td>
+      <td><select class="att-select" data-sid="${s.id||s.student_id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-size:13px">
+        <option value="present" selected>✅ Present</option>
+        <option value="absent">❌ Absent</option>
+      </select></td>
+    </tr>`).join('')}</tbody></table>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <span class="text-muted" style="font-size:13px">${students.length} students</span>
+      <button class="btn btn-primary" onclick="submitAttendance('${classId}')">💾 Save Attendance</button>
+    </div>`;
+}
+
+async function submitAttendance(classId) {
+  const date = document.getElementById('attDate').value;
+  const selects = document.querySelectorAll('.att-select');
+  const records = Array.from(selects).map(s => ({ student_id: s.dataset.sid, status: s.value }));
+  const res = await apiFetch(`/lms/classes/${classId}/attendance`, { method:'POST', body: JSON.stringify({ date, records }) });
+  if (res?.ok) { toast('Attendance saved!'); } else { toast('Failed to save','error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: EVENTS (Real API)
+// ═══════════════════════════════════════════════════
+let _eventDates = new Set();
+
+async function renderEvents(area) {
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+  const now = new Date();
+
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">📅 Events</span>
+        ${isTeacher ? '<button class="btn btn-primary" onclick="openCreateEvent()">+ New Event</button>' : ''}
+      </div>
+      <div id="miniCal"></div>
+      <div id="eventList" class="mt-16"></div>
+    </div>`;
+
+  // Fetch events for current month
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const res = await apiFetch(`/events?month=${month}&year=${year}`);
+  const events = Array.isArray(await res?.json()) ? [] : [];
+  const r2 = await apiFetch(`/events?month=${month}&year=${year}`);
+  const data = await r2?.json();
+  const evts = Array.isArray(data) ? data : [];
+
+  _eventDates = new Set(evts.map(e => parseInt(e.date?.split('-')[2]) || 0));
+  drawMiniCalendar('miniCal');
+
+  // Render event list
+  if (evts.length) {
+    document.getElementById('eventList').innerHTML = evts.map(e => {
+      const colors = { exam: 'var(--lms-danger)', meeting: 'var(--lms-purple)', holiday: 'var(--lms-yellow)', general: 'var(--lms-sky)' };
+      const color = colors[e.event_type] || colors.general;
+      return `<div class="announcement-item" style="border-left:3px solid ${color};padding-left:12px">
+        <div class="ann-title">${escHtml(e.title)} <span class="badge badge-info" style="font-size:10px">${e.event_type||'general'}</span></div>
+        <div class="ann-meta">${e.date}${e.time ? ' · ' + e.time : ''} · by ${escHtml(e.author_name||'')}</div>
+        ${e.description ? `<div class="ann-body">${escHtml(e.description)}</div>` : ''}
+        ${isTeacher && e.author_id === String(user._id || user.id || '') ? `<button class="btn btn-sm btn-danger mt-8" onclick="deleteEvent('${e.id}')">Delete</button>` : ''}
+      </div>`;
+    }).join('');
+  } else {
+    document.getElementById('eventList').innerHTML = '<p class="text-muted" style="font-size:13px">No events this month.</p>';
+  }
+}
+
+function drawMiniCalendar(containerId) {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const today = now.getDate();
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let html = '<div class="mini-cal-grid">';
+  dayNames.forEach(d => html += `<div class="day-header">${d}</div>`);
+  for (let i = 0; i < firstDay; i++) html += '<div class="day-cell empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today ? 'today' : '';
+    const hasEvt = _eventDates.has(d) ? 'has-event' : '';
+    html += `<div class="day-cell ${isToday} ${hasEvt}">${d}</div>`;
+  }
+  html += '</div>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
+function openCreateEvent() {
+  openFormModal('Create Event', `
+    <div class="form-group"><label>Title</label><input id="fEvtTitle" required></div>
+    <div class="form-group"><label>Date</label><input type="date" id="fEvtDate" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="form-group"><label>Time (optional)</label><input type="time" id="fEvtTime"></div>
+    <div class="form-group"><label>Type</label><select id="fEvtType"><option value="general">General</option><option value="exam">Exam</option><option value="meeting">Meeting</option><option value="holiday">Holiday</option></select></div>
+    <div class="form-group"><label>Description</label><textarea id="fEvtDesc"></textarea></div>
+  `, async () => {
+    const body = { title: document.getElementById('fEvtTitle').value, date: document.getElementById('fEvtDate').value, time: document.getElementById('fEvtTime').value, event_type: document.getElementById('fEvtType').value, description: document.getElementById('fEvtDesc').value };
+    if (!body.title || !body.date) { toast('Title and date required','error'); return; }
+    const res = await apiFetch('/events', { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('Event created!'); closeFormModal(); loadPage('events'); } else { toast('Failed','error'); }
+  });
+}
+
+async function deleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  const res = await apiFetch(`/events/${id}`, { method:'DELETE' });
+  if (res?.ok) { toast('Event deleted'); loadPage('events'); } else { toast('Failed','error'); }
+}
+
+// ═══════════════════════════════════════════════════
+// PAGE: ANNOUNCEMENTS (Real API wired)
+// ═══════════════════════════════════════════════════
+async function renderAnnouncements(area) {
+  const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+  area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">📢 Announcements</span>
+        ${isTeacher ? '<button class="btn btn-primary" onclick="openCreateAnnouncement()">+ Post Announcement</button>' : ''}
+      </div>
+      <div id="annFeed" style="margin-top:12px"><div class="skeleton skeleton-chart"></div></div>
+    </div>`;
+  await loadAnnouncements();
+}
+
+async function loadAnnouncements() {
+  const feed = document.getElementById('annFeed');
+  if (!feed) return;
+  try {
+    const res = await apiFetch('/announcements');
+    const data = await res?.json();
+    const anns = Array.isArray(data) ? data : (data?.announcements || []);
+    if (!anns.length) {
+      feed.innerHTML = '<p class="text-muted" style="text-align:center;padding:30px">No announcements yet.</p>';
+      return;
+    }
+    const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+    feed.innerHTML = anns.map(a => {
+      const priorityColor = { high: 'var(--lms-yellow)', urgent: 'var(--lms-danger)', normal: 'var(--lms-sky)' }[a.priority||'normal'] || 'var(--lms-sky)';
+      const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : 'Recent';
+      return `<div class="announcement-item" style="border-left:3px solid ${priorityColor};padding-left:12px;margin-bottom:12px">
+        <div class="ann-title">${escHtml(a.title)} ${a.priority && a.priority !== 'normal' ? `<span class="badge badge-${a.priority==='urgent'?'danger':'sky'}" style="font-size:10px;text-transform:uppercase">${a.priority}</span>` : ''}</div>
+        <div class="ann-meta">By ${escHtml(a.author_name||'System')} · ${dateStr}</div>
+        <div class="ann-body" style="margin-top:6px;font-size:13px;color:var(--lms-text)">${escHtml(a.content||a.body||'')}</div>
+        ${isTeacher && (a.author_id === String(user._id||user.id||'')) ? `<button class="btn btn-sm btn-danger" style="margin-top:8px" onclick="deleteAnnouncement('${a.id}')">🗑 Delete</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    feed.innerHTML = '<p class="text-muted" style="text-align:center;padding:30px">Failed to load announcements.</p>';
+  }
+}
+
+function openCreateAnnouncement() {
+  openFormModal('📢 Post Announcement', `
+    <div class="form-group"><label>Title</label><input id="fAnnTitle" required placeholder="Announcement title"></div>
+    <div class="form-group"><label>Content</label><textarea id="fAnnContent" rows="4" placeholder="Write your message here..."></textarea></div>
+    <div class="form-group"><label>Priority</label><select id="fAnnPriority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">🚨 Urgent</option></select></div>
+  `, async () => {
+    const body = { title: document.getElementById('fAnnTitle').value, content: document.getElementById('fAnnContent').value, priority: document.getElementById('fAnnPriority').value };
+    if (!body.title) { toast('Title required','error'); return; }
+    const res = await apiFetch('/announcements', { method:'POST', body: JSON.stringify(body) });
+    if (res?.ok) { toast('📢 Announcement posted!'); closeFormModal(); loadPage('announcements'); }
+    else { const d = await res?.json().catch(()=>({})); toast(d.detail||'Failed to post','error'); }
+  });
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Delete this announcement?')) return;
+  const res = await apiFetch(`/announcements/${id}`, { method:'DELETE' });
+  if (res?.ok) { toast('Deleted'); loadPage('announcements'); } else { toast('Failed','error'); }
+}
+
+// ═══ VIEW SUBMISSIONS + GRADE (Teacher) ═══
+async function openViewSubmissions(assignmentId, title) {
+  const res = await apiFetch('/lms/submissions');
+  const all = await res?.json();
+  const subs = (Array.isArray(all) ? all : []).filter(s => s.assignment_id === assignmentId);
+  openFormModal(`📋 ${title} — Submissions (${subs.length})`, `
+    <table class="lms-table" style="font-size:13px">
+      <thead><tr><th>Student</th><th>Status</th><th>Score</th><th>Action</th></tr></thead>
+      <tbody>${subs.map(s => `<tr>
+        <td><strong>${escHtml(s.student_name||s.student_email||'Unknown')}</strong><br><span style="font-size:11px;color:var(--lms-muted)">${escHtml(s.student_email||'')}</span></td>
+        <td><span class="badge badge-${s.graded?'success':s.status==='submitted'?'sky':'purple'}">${s.status||'pending'}</span></td>
+        <td>${s.points_earned != null ? s.points_earned + ' pts' : '—'}</td>
+        <td style="display:flex;gap:6px">
+          ${s.file_url ? `<a href="${s.file_url}" target="_blank" class="btn btn-sm btn-secondary">📎</a>` : ''}
+          ${s.content ? `<button class="btn btn-sm btn-secondary" onclick="alert('Answer:\\n'+${JSON.stringify(s.content||'')})">👁</button>` : ''}
+          <button class="btn btn-sm btn-primary" onclick="openGradeModal('${s.id}','${escHtml(s.student_name||s.student_email||'Student')}','${s.points_earned||0}')">Grade</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:20px">No submissions yet.</td></tr>'}
+      </tbody>
+    </table>`, () => closeFormModal());
+  document.getElementById('formModalSubmit').textContent = 'Close';
+}
+
+let _gradeSubId = null;
+function openGradeModal(subId, studentName, currentScore) {
+  _gradeSubId = subId;
+  openFormModal(`🏅 Grade: ${studentName}`, `
+    <div class="form-group"><label>Score (points)</label><input type="number" id="fGradeScore" value="${currentScore||0}" min="0" max="999"></div>
+    <div class="form-group"><label>Feedback (optional)</label><textarea id="fGradeFeedback" placeholder="Provide feedback to student..."></textarea></div>
+  `, async () => {
+    const score = parseFloat(document.getElementById('fGradeScore').value);
+    const feedback = document.getElementById('fGradeFeedback').value;
+    if (isNaN(score)) { toast('Enter a valid score','error'); return; }
+    const res = await apiFetch('/lms/submissions/grade', { method:'POST', body: JSON.stringify({ submission_id: _gradeSubId, points_earned: score, feedback }) });
+    if (res?.ok) { toast('✅ Graded successfully!'); closeFormModal(); }
+    else { const d = await res?.json().catch(()=>({})); toast(d.detail||'Grading failed','error'); }
+  });
+  document.getElementById('formModalSubmit').textContent = '✅ Submit Grade';
+}
+
+// ═══ TABLE FILTER UTILITY ═══
+function filterTable(tableId, q) {
+  const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+  rows.forEach(r => { r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none'; });
+}
+
+// ═══ INIT ═══
+buildSidebar();
+loadPage(_initialPage);
+loadNotificationBadge('notifBadge');
+</script>
+</body>
+</html>

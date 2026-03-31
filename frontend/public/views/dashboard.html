@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <script src="/assets/js/config.js?v=7"></script>
     <script src="/assets/js/auth.js?v=7"></script>
+    <script src="/assets/js/notifications.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -374,7 +375,7 @@
         <a href="/views/dashboard.html" class="nav-item active">
             <span class="nav-icon">📊</span> Dashboard
         </a>
-        <a href="/views/student_lms.html" class="nav-item">
+        <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item">
             <span class="nav-icon">📚</span> My Classes
         </a>
         <a href="/views/subjects.html" class="nav-item">
@@ -435,11 +436,37 @@
     </div>
 </aside>
 
-<!-- ═══════ MAIN ═══════ -->
 <main class="main">
     <div class="page-header">
         <h1>📊 Learning Dashboard</h1>
         <p id="greetingText">Welcome back! Here's your learning progress at a glance.</p>
+    </div>
+
+    <!-- ── Teacher / Admin Banner ── -->
+    <div id="teacherBanner" style="display:none; margin-bottom:16px; padding:12px 18px; background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(0,255,204,0.06)); border:1px solid rgba(245,158,11,0.3); border-radius:12px; display:none; align-items:center; gap:12px;">
+        <span style="font-size:20px;">🏫</span>
+        <span style="font-size:13px; color:#f59e0b; font-weight:600;">You are viewing the Student Dashboard.</span>
+        <a href="/views/lms.html" style="margin-left:auto; font-size:12px; font-weight:700; color:#00ffcc; text-decoration:none; padding:4px 12px; border:1px solid rgba(0,255,204,0.4); border-radius:6px;">→ Go to LMS</a>
+    </div>
+
+    <!-- ── Quick Actions (LMS entry points) ── -->
+    <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;" id="quickActionsRow">
+        <a href="/views/lms.html?allow_student=1&page=classes" style="flex:1; min-width:140px; text-decoration:none; display:flex; align-items:center; gap:10px; padding:14px 16px; background:rgba(26,31,58,0.8); border:1px solid rgba(0,255,204,0.2); border-radius:12px; transition:all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(0,255,204,0.2)';this.style.transform='translateY(0)'">
+            <span style="font-size:22px;">📚</span>
+            <div><div style="font-size:13px;font-weight:600;color:#fff;">My Classes</div><div style="font-size:11px;color:#b8c5d6;">View enrolled courses</div></div>
+        </a>
+        <a href="/views/lms.html?allow_student=1&page=assignments" style="flex:1; min-width:140px; text-decoration:none; display:flex; align-items:center; gap:10px; padding:14px 16px; background:rgba(26,31,58,0.8); border:1px solid rgba(0,255,204,0.2); border-radius:12px; transition:all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(0,255,204,0.2)';this.style.transform='translateY(0)'">
+            <span style="font-size:22px;">📝</span>
+            <div><div style="font-size:13px;font-weight:600;color:#fff;">Assignments</div><div style="font-size:11px;color:#b8c5d6;">Pending submissions</div></div>
+        </a>
+        <a href="/views/lms.html?allow_student=1&page=quizzes" style="flex:1; min-width:140px; text-decoration:none; display:flex; align-items:center; gap:10px; padding:14px 16px; background:rgba(26,31,58,0.8); border:1px solid rgba(0,255,204,0.2); border-radius:12px; transition:all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(0,255,204,0.2)';this.style.transform='translateY(0)'">
+            <span style="font-size:22px;">🧠</span>
+            <div><div style="font-size:13px;font-weight:600;color:#fff;">Exams & Quizzes</div><div style="font-size:11px;color:#b8c5d6;">Take a test</div></div>
+        </a>
+        <a href="/views/lms.html?allow_student=1&page=attendance" style="flex:1; min-width:140px; text-decoration:none; display:flex; align-items:center; gap:10px; padding:14px 16px; background:rgba(26,31,58,0.8); border:1px solid rgba(0,255,204,0.2); border-radius:12px; transition:all 0.3s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(0,255,204,0.2)';this.style.transform='translateY(0)'">
+            <span style="font-size:22px;">✅</span>
+            <div><div style="font-size:13px;font-weight:600;color:#fff;">Attendance</div><div style="font-size:11px;color:#b8c5d6;">Check my record</div></div>
+        </a>
     </div>
 
     <!-- ── Motivational Quote Banner ── -->
@@ -843,6 +870,16 @@
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     document.getElementById('greetingText').textContent = `${greeting}, ${name}! Here's your learning progress at a glance.`;
+
+    // Show banner for teachers/admins who land on dashboard
+    const _dashRole = (user.role || 'student').toLowerCase();
+    if (_dashRole === 'teacher' || _dashRole === 'admin') {
+        const banner = document.getElementById('teacherBanner');
+        if (banner) { banner.style.display = 'flex'; }
+    }
+
+    // Load notification badge
+    loadNotificationBadge('notif-count');
 
     // ═══════════════════════════════════════════════
     // ── PHASE 1: MOTIVATIONAL QUOTES ──────────────

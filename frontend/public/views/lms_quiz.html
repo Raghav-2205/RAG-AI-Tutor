@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz — RAG AI Tutor</title>
+    <meta name="description" content="LMS Quiz Interface — take timed MCQ tests with auto-submit.">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/assets/js/config.js?v=8"></script>
+    <style>
+        :root {
+            --bg: #07091e;
+            --bg2: #0d112d;
+            --card: #121630;
+            --card2: #1a1f3a;
+            --accent: #00ffcc;
+            --accent2: #00d4ff;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --success: #10b981;
+            --text: #f0f4ff;
+            --muted: #8b9cb8;
+            --border: rgba(0,255,204,0.18);
+            --border-dim: rgba(0,255,204,0.07);
+            --radius: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        .topbar {
+            height: 65px;
+            background: rgba(13,17,45,0.96);
+            border-bottom: 1px solid var(--border-dim);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 28px;
+            backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .brand { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
+        .timer-display {
+            font-size: 1.3rem; font-weight: 700; font-family: monospace;
+            color: var(--accent);
+            background: rgba(0,255,204,0.08);
+            border: 1px solid var(--border);
+            padding: 6px 18px; border-radius: 8px;
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .timer-display.warning { color: var(--warn); border-color: rgba(245,158,11,0.4); }
+        .timer-display.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+        /* Main layout */
+        .container { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        /* Loading / states */
+        .state-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 60vh; text-align: center; gap: 20px;
+        }
+        .state-icon { font-size: 64px; display: block; }
+
+        /* Quiz card */
+        .quiz-header {
+            background: var(--card);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            margin-bottom: 24px;
+        }
+        .quiz-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+        .quiz-meta { color: var(--muted); font-size: 13px; display: flex; gap: 16px; flex-wrap: wrap; }
+        .quiz-meta span { display: flex; align-items: center; gap: 6px; }
+
+        /* Progress bar */
+        .progress-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 999px; height: 6px; margin-top: 20px; }
+        .progress-bar { background: linear-gradient(90deg, var(--accent), var(--accent2)); height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+
+        /* Question card */
+        .question-card {
+            background: var(--card);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 16px;
+            animation: fadeSlide 0.3s ease;
+        }
+        @keyframes fadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .question-number { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .question-text { font-size: 16px; font-weight: 500; line-height: 1.6; margin-bottom: 20px; }
+
+        /* Options */
+        .options-grid { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn {
+            width: 100%; text-align: left;
+            padding: 14px 18px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.03);
+            color: var(--text);
+            font-size: 14px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex; align-items: center; gap: 12px;
+            font-family: inherit;
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            background: rgba(0,255,204,0.08);
+        }
+        .option-btn.selected {
+            border-color: var(--accent);
+            background: rgba(0,255,204,0.12);
+            color: var(--accent);
+        }
+        .option-btn:disabled { cursor: default; }
+        .option-label {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s;
+        }
+        .option-btn.selected .option-label {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+        }
+
+        /* Navigation */
+        .nav-btns { display: flex; gap: 12px; justify-content: space-between; margin-top: 24px; }
+        .btn {
+            padding: 11px 24px; border-radius: 10px; border: none; cursor: pointer;
+            font-weight: 600; font-size: 14px; transition: all 0.2s; font-family: inherit;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #07091e; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,255,204,0.3); }
+        .btn-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.12); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+        .btn-danger { background: var(--danger); color: #fff; }
+
+        /* Question navigator dots */
+        .q-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
+        .q-dot {
+            width: 30px; height: 30px; border-radius: 6px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: var(--muted); font-size: 11px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .q-dot:hover { border-color: var(--accent); color: var(--accent); }
+        .q-dot.answered { background: rgba(0,255,204,0.15); border-color: var(--accent); color: var(--accent); }
+        .q-dot.current { border-color: var(--accent2); color: var(--accent2); background: rgba(0,212,255,0.1); }
+
+        /* Results */
+        .results-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px 32px;
+            text-align: center;
+        }
+        .score-circle {
+            width: 140px; height: 140px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            margin: 0 auto 24px;
+            border: 4px solid var(--accent);
+        }
+        .score-big { font-size: 36px; font-weight: 700; color: var(--accent); }
+        .score-label { font-size: 12px; color: var(--muted); }
+        .result-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 28px 0; }
+        .result-stat { background: var(--card2); border-radius: 12px; padding: 16px; }
+        .result-stat-val { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+        .result-stat-label { font-size: 12px; color: var(--muted); }
+
+        /* Review mode */
+        .review-option {
+            padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
+            border: 1px solid transparent;
+            display: flex; align-items: center; gap: 12px; font-size: 14px;
+        }
+        .review-option.user-choice { border-color: rgba(0,255,204,0.3); background: rgba(0,255,204,0.06); }
+        .review-option.correct { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.1); color: #10b981; }
+        .review-option.wrong-choice { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<nav class="topbar">
+    <div class="brand">🧠 RAG AI Tutor — Quiz</div>
+    <div id="timerWrap" style="display:none;">
+        <div class="timer-display" id="timerDisplay">--:--</div>
+    </div>
+    <a href="/views/student_lms.html" style="color:var(--muted);text-decoration:none;font-size:0.9rem;">← Back to Classes</a>
+</nav>
+
+<div class="container">
+    <!-- Loading State -->
+    <div class="state-screen" id="loadingState">
+        <span class="state-icon">⏳</span>
+        <p style="color:var(--muted);">Loading quiz...</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="state-screen" id="errorState" style="display:none;">
+        <span class="state-icon">❌</span>
+        <h2 id="errorMsg" style="color:var(--danger);">Quiz not found</h2>
+        <a href="/views/student_lms.html" class="btn btn-secondary">← Go Back</a>
+    </div>
+
+    <!-- Start State -->
+    <div id="startState" style="display:none;">
+        <div class="quiz-header">
+            <div class="quiz-title" id="startTitle"></div>
+            <div class="quiz-meta" id="startMeta"></div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border-dim);border-radius:var(--radius);padding:28px;text-align:center;">
+            <p style="color:var(--muted);margin-bottom:24px;font-size:15px;">Read each question carefully. You can navigate between questions before submitting.</p>
+            <button class="btn btn-primary" style="font-size:16px;padding:14px 40px;" onclick="startQuiz()">🚀 Start Quiz</button>
+        </div>
+    </div>
+
+    <!-- Quiz State -->
+    <div id="quizState" style="display:none;">
+        <div class="quiz-header">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                <div class="quiz-title" id="quizTitle"></div>
+            </div>
+            <div class="quiz-meta" id="quizMeta"></div>
+            <div class="progress-bar-wrap">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="q-dots" id="questionDots"></div>
+        </div>
+
+        <div id="questionArea"></div>
+
+        <div class="nav-btns">
+            <button class="btn btn-secondary" id="prevBtn" onclick="goQuestion(currentQ - 1)">← Prev</button>
+            <div style="display:flex;gap:10px;">
+                <button class="btn btn-danger" onclick="confirmSubmit()" id="submitBtn">Submit Quiz</button>
+            </div>
+            <button class="btn btn-secondary" id="nextBtn" onclick="goQuestion(currentQ + 1)">Next →</button>
+        </div>
+    </div>
+
+    <!-- Results State -->
+    <div id="resultsState" style="display:none;">
+        <div class="results-card">
+            <div class="score-circle" id="scoreCircle">
+                <div class="score-big" id="scorePct"></div>
+                <div class="score-label">Score</div>
+            </div>
+            <h2 id="resultTitle" style="margin-bottom:8px;"></h2>
+            <p id="resultMsg" style="color:var(--muted);font-size:14px;margin-bottom:24px;"></p>
+            <div class="result-stats">
+                <div class="result-stat">
+                    <div class="result-stat-val" id="resCorrect">0</div>
+                    <div class="result-stat-label">Correct</div>
+                </div>
+                <div class="result-stat">
+                    <div class="result-stat-val" id="resTotal">0</div>
+                    <div class="result-stat-label">Total Questions</div>
+                </div>
+                <div class="result-stat">
+                    <div class="result-stat-val" id="resScore">0</div>
+                    <div class="result-stat-label">Points</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="showReview()">📋 Review Answers</button>
+                <a href="/views/student_lms.html" class="btn btn-primary" style="text-decoration:none;">← Back to Classes</a>
+            </div>
+        </div>
+
+        <!-- Review Section -->
+        <div id="reviewSection" style="display:none; margin-top:28px;"></div>
+    </div>
+</div>
+
+<script>
+const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+const TOKEN = localStorage.getItem('token');
+if (!TOKEN) window.location.href = '/views/login.html';
+const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+
+const params = new URLSearchParams(window.location.search);
+const quizId = params.get('quiz_id');
+
+let quizData = null;
+let questions = [];
+let answers = {};   // { question_id: 'A' | 'B' | ... }
+let currentQ = 0;
+let timerInterval = null;
+let secondsLeft = 0;
+let submitResult = null;
+
+// ── Init ────────────────────────────────────────────────────────────────────
+async function init() {
+    if (!quizId) {
+        showError('No quiz ID specified in URL.');
+        return;
+    }
+    try {
+        const res = await fetch(`${API}/lms/quizzes/${quizId}`, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        quizData = await res.json();
+        questions = quizData.questions || [];
+
+        if (!questions.length) {
+            showError('This quiz has no questions yet.');
+            return;
+        }
+
+        // Show start screen
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('startState').style.display = 'block';
+        document.getElementById('startTitle').textContent = quizData.title || 'Quiz';
+        document.getElementById('startMeta').innerHTML = `
+            <span>📋 ${questions.length} Questions</span>
+            ${quizData.time_limit ? `<span>⏱ ${quizData.time_limit} min</span>` : ''}
+            <span>🔁 Max Attempts: ${quizData.max_attempts || 1}</span>
+        `;
+    } catch(e) {
+        showError('Failed to load quiz: ' + e.message);
+    }
+}
+
+function showError(msg) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'flex';
+    document.getElementById('errorMsg').textContent = msg;
+}
+
+// ── Start Quiz ───────────────────────────────────────────────────────────────
+function startQuiz() {
+    document.getElementById('startState').style.display = 'none';
+    document.getElementById('quizState').style.display = 'block';
+    document.getElementById('quizTitle').textContent = quizData.title || 'Quiz';
+    document.getElementById('quizMeta').innerHTML = `
+        <span>📋 ${questions.length} Questions</span>
+        ${quizData.time_limit ? `<span>⏱ ${quizData.time_limit} min</span>` : ''}
+    `;
+
+    buildDots();
+    goQuestion(0);
+
+    if (quizData.time_limit) {
+        secondsLeft = quizData.time_limit * 60;
+        document.getElementById('timerWrap').style.display = 'block';
+        startTimer();
+    }
+}
+
+// ── Timer ────────────────────────────────────────────────────────────────────
+function startTimer() {
+    updateTimerDisplay();
+    timerInterval = setInterval(() => {
+        secondsLeft--;
+        updateTimerDisplay();
+        const el = document.getElementById('timerDisplay');
+        if (secondsLeft <= 60) el.className = 'timer-display danger';
+        else if (secondsLeft <= 300) el.className = 'timer-display warning';
+        if (secondsLeft <= 0) {
+            clearInterval(timerInterval);
+            autoSubmit();
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+    const s = (secondsLeft % 60).toString().padStart(2, '0');
+    document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+}
+
+function autoSubmit() {
+    showTimedOutBanner();
+    doSubmit();
+}
+
+function showTimedOutBanner() {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:65px;left:0;right:0;background:var(--danger);color:#fff;text-align:center;padding:12px;font-weight:700;z-index:999;';
+    banner.textContent = '⏰ Time\'s up! Your answers have been submitted automatically.';
+    document.body.appendChild(banner);
+}
+
+// ── Question Rendering ───────────────────────────────────────────────────────
+function buildDots() {
+    const dots = document.getElementById('questionDots');
+    dots.innerHTML = questions.map((_, i) => `
+        <div class="q-dot" id="dot-${i}" onclick="goQuestion(${i})">${i + 1}</div>
+    `).join('');
+}
+
+function goQuestion(index) {
+    if (index < 0 || index >= questions.length) return;
+    currentQ = index;
+    const q = questions[index];
+    
+    updateProgress();
+    updateDots();
+    renderQuestion(q, index);
+
+    document.getElementById('prevBtn').disabled = index === 0;
+    document.getElementById('nextBtn').disabled = index === questions.length - 1;
+}
+
+function updateProgress() {
+    const answered = Object.keys(answers).length;
+    const pct = (answered / questions.length) * 100;
+    document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function updateDots() {
+    questions.forEach((q, i) => {
+        const dot = document.getElementById(`dot-${i}`);
+        if (!dot) return;
+        dot.className = 'q-dot';
+        if (i === currentQ) dot.classList.add('current');
+        else if (answers[q.id]) dot.classList.add('answered');
+    });
+}
+
+function renderQuestion(q, index) {
+    const labels = ['A', 'B', 'C', 'D', 'E'];
+    const options = (q.options || []).map((opt, i) => {
+        const label = opt.label || labels[i] || String.fromCharCode(65 + i);
+        const text = opt.text || opt;
+        const isSelected = answers[q.id] === label;
+        return `
+            <button class="option-btn ${isSelected ? 'selected' : ''}"
+                    onclick="selectAnswer('${q.id}', '${label}', this)"
+                    data-label="${label}">
+                <span class="option-label">${label}</span>
+                <span>${escHtml(String(text))}</span>
+            </button>
+        `;
+    });
+
+    document.getElementById('questionArea').innerHTML = `
+        <div class="question-card">
+            <div class="question-number">Question ${index + 1} of ${questions.length} · ${q.points || 1} pt${q.points !== 1 ? 's' : ''}</div>
+            <div class="question-text">${escHtml(q.question)}</div>
+            <div class="options-grid">${options.join('')}</div>
+        </div>
+    `;
+}
+
+function selectAnswer(questionId, label, clickedBtn) {
+    answers[questionId] = label;
+    // Update button states
+    const allBtns = clickedBtn.closest('.options-grid').querySelectorAll('.option-btn');
+    allBtns.forEach(b => b.classList.toggle('selected', b.dataset.label === label));
+    // Update dot
+    const qIndex = questions.findIndex(q => q.id === questionId);
+    if (qIndex !== -1) {
+        const dot = document.getElementById(`dot-${qIndex}`);
+        if (dot) { dot.className = 'q-dot answered'; if (qIndex === currentQ) dot.classList.add('current'); }
+    }
+    updateProgress();
+}
+
+// ── Submit ───────────────────────────────────────────────────────────────────
+function confirmSubmit() {
+    const answered = Object.keys(answers).length;
+    const unanswered = questions.length - answered;
+    if (unanswered > 0) {
+        if (!confirm(`You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?`)) return;
+    }
+    clearInterval(timerInterval);
+    doSubmit();
+}
+
+async function doSubmit() {
+    // Disable controls
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = 'Submitting...';
+
+    try {
+        const res = await fetch(`${API}/lms/quizzes/${quizId}/attempt`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ answers })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            // Max attempts or other error
+            showResultsError(data.detail || 'Submission failed.');
+            return;
+        }
+        
+        submitResult = data;
+        showResults(data);
+    } catch(e) {
+        showResultsError('Network error: ' + e.message);
+    }
+}
+
+function showResultsError(msg) {
+    document.getElementById('quizState').style.display = 'none';
+    document.getElementById('timerWrap').style.display = 'none';
+    document.getElementById('errorState').style.display = 'flex';
+    document.getElementById('errorMsg').textContent = msg;
+}
+
+function showResults(data) {
+    clearInterval(timerInterval);
+    document.getElementById('timerWrap').style.display = 'none';
+    document.getElementById('quizState').style.display = 'none';
+    document.getElementById('resultsState').style.display = 'block';
+
+    const pct = Math.round(data.percentage || 0);
+    const correct = Math.round((data.score || 0));
+    const maxScore = data.max_score || questions.length;
+
+    document.getElementById('scorePct').textContent = pct + '%';
+    document.getElementById('resultTitle').textContent = pct >= 80 ? '🎉 Excellent!' : pct >= 60 ? '👍 Good Job!' : '📚 Keep Practicing!';
+    document.getElementById('resultMsg').textContent = pct >= 80 ? 'Outstanding performance!' : pct >= 60 ? 'Solid attempt, review the ones you missed.' : 'Review the material and try again.';
+    document.getElementById('resCorrect').textContent = correct;
+    document.getElementById('resTotal').textContent = questions.length;
+    document.getElementById('resScore').textContent = `${data.score || 0}/${maxScore}`;
+
+    const circle = document.getElementById('scoreCircle');
+    circle.style.borderColor = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
+    document.getElementById('scorePct').style.color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
+}
+
+function showReview() {
+    const section = document.getElementById('reviewSection');
+    section.style.display = 'block';
+
+    const html = questions.map((q, i) => {
+        const labels = ['A', 'B', 'C', 'D', 'E'];
+        const userAnswer = answers[q.id];
+        const correctOptions = (q.options || []).filter(o => o.is_correct).map(o => o.label || '');
+
+        const optHtml = (q.options || []).map((opt, oi) => {
+            const label = opt.label || labels[oi];
+            const text = opt.text || opt;
+            const isUser = label === userAnswer;
+            const isCorrect = opt.is_correct;
+            let cls = 'review-option';
+            if (isCorrect) cls += ' correct';
+            else if (isUser && !isCorrect) cls += ' wrong-choice';
+            else if (isUser) cls += ' user-choice';
+            return `<div class="${cls}"><span style="font-weight:700;min-width:20px;">${label}.</span> ${escHtml(String(text))} ${isCorrect ? '✅' : (isUser ? '❌' : '')}</div>`;
+        }).join('');
+
+        return `
+            <div style="background:var(--card);border:1px solid var(--border-dim);border-radius:12px;padding:22px;margin-bottom:16px;">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Q${i+1} · ${q.points||1} pt</div>
+                <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${escHtml(q.question)}</div>
+                ${optHtml}
+                ${q.explanation ? `<div style="margin-top:12px;padding:10px 14px;background:rgba(0,255,204,0.05);border-left:2px solid var(--accent);border-radius:6px;font-size:13px;color:var(--muted);">💡 ${escHtml(q.explanation)}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    section.innerHTML = `<h3 style="color:var(--accent);margin-bottom:20px;">📋 Answer Review</h3>` + html;
+    section.scrollIntoView({ behavior: 'smooth' });
+}
+
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+init();
+</script>
+</body>
+</html>

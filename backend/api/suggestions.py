@@ -22,13 +22,14 @@ async def get_daily_suggestions(date: str, current_user=Depends(get_current_user
     """
     user_id = str(current_user["_id"])
     
-    suggestions = await suggestion_service.generate_suggestions(
+    result = await suggestion_service.generate_suggestions(
         db, user_id, llm_client, save=True
     )
 
     return {
         "date": date,
-        "suggestions": [s["suggestion"] for s in suggestions],
+        "suggestions": [s.get("suggestion", "") for s in result.get("suggestions", [])],
+        "recommendations": result.get("recommendations", []),
         "source": "ai" if llm_client else "fallback"
     }
 

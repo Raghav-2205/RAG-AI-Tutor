@@ -38,6 +38,7 @@ async def upload_document(
     file: UploadFile = File(...),
     subject: Optional[str] = Form("general"),
     chat_id: Optional[str] = Form(None),
+    class_id: Optional[str] = Form(None),
     current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
@@ -177,6 +178,7 @@ async def upload_document(
         "file_count": 1,
         "document_name": file.filename, # For UI
         "subject": subject,
+        "class_id": class_id, # Added LMS context
         "title": f"Chat about {file.filename}",
         "messages": [],
         "created_at": datetime.utcnow(),

@@ -16,7 +16,7 @@ class AIManager {
 
     /* ================= CORE CHAT ================= */
 
-    async sendMessage(message, subject = this.currentSubject, chatId = null, documentId = null) {
+    async sendMessage(message, subject = this.currentSubject, chatId = null, documentId = null, classId = null) {
         if (this.isProcessing) {
             throw new Error("Please wait, AI is processing...");
         }
@@ -44,6 +44,10 @@ class AIManager {
             // Add document_id if provided (for scoped chats)
             if (documentId) {
                 payload.document_id = documentId;
+            }
+            // Add class_id to link interaction to an LMS course
+            if (classId) {
+                payload.class_id = classId;
             }
 
             console.log("📤 Sending to backend:", payload);
@@ -95,7 +99,7 @@ class AIManager {
      *   onDone(full, meta)    — called when stream finishes, with accumulated full text
      *   onError(err)          — called on failure
      */
-    async sendMessageStream(message, subject, chatId, documentId, { onMeta, onToken, onValidation, onDone, onError } = {}) {
+    async sendMessageStream(message, subject, chatId, documentId, classId, { onMeta, onToken, onValidation, onDone, onError } = {}) {
         if (this.isProcessing) {
             onError?.(new Error("Please wait, AI is processing..."));
             return;
@@ -110,6 +114,7 @@ class AIManager {
         const payload = { message: message.trim(), subject: subject || "general" };
         if (chatId) payload.chat_id = chatId;
         if (documentId) payload.document_id = documentId;
+        if (classId) payload.class_id = classId;
 
         try {
             const response = await fetch(`${this.apiBase}/chat/stream`, {

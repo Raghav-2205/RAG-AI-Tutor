@@ -310,14 +310,114 @@ async def remove_student(
         raise HTTPException(status_code=404, detail="Enrollment not found.")
     return {"message": "Student removed from class."}
 
-@router.get("/classes/{class_id}/students", summary="Teacher: list enrolled students")
+class UpdateClassIn(BaseModel):
+    name: Optional[str] = None
+    section: Optional[str] = None
+    subject: Optional[str] = None
+    description: Optional[str] = None
+
+@router.put("/classes/{class_id}", summary="Teacher: update class details")
+async def update_class(
+    class_id: str,
+    body: UpdateClassIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    cls = await db.classes.find_one({"id": class_id, "teacher_id": str(current_user["_id"])})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found or not yours.")
+    updates = {k: v for k, v in body.dict().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update.")
+    await db.classes.update_one({"id": class_id}, {"$set": updates})
+    return {"message": "Class updated.", "class_id": class_id, **updates}
+
+@router.delete("/classes/{class_id}", summary="Teacher: delete (archive) a class")
+async def delete_class(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    cls = await db.classes.find_one({"id": class_id, "teacher_id": str(current_user["_id"])})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found or not yours.")
+    await db.classes.update_one({"id": class_id}, {"$set": {"is_active": False}})
+    return {"message": "Class archived successfully."}
+
+@router.get("/classes/{class_id}/students", summary="Teacher: list enrolled students with details")
 async def get_students(
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
     student_ids = await lms_service.get_enrolled_students(db, class_id)
-    return {"class_id": class_id, "student_ids": student_ids, "count": len(student_ids)}
+    if not student_ids:
+        return {"class_id": class_id, "students": [], "count": 0}
+
+    users = await db.users.find(
+        {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+    ).to_list(None)
+
+    students = [
+        {
+            "id": str(u["_id"]),
+            "name": u.get("name", "Unknown"),
+            "email": u.get("email", ""),
+            "roll_number": u.get("roll_number", ""),
+        }
+        for u in users
+    ]
+    return {"class_id": class_id, "students": students, "count": len(students)}
+
+@router.get("/classes/{class_id}/analytics", summary="Teacher: per-class stats")
+async def class_analytics(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found.")
+
+    student_ids = cls.get("students", [])
+    total_students = len(student_ids)
+
+    # Avg quiz score
+    attempts_cursor = db.quiz_attempts.find({
+        "class_id": class_id,
+        "student_id": {"$in": student_ids}
+    })
+    attempts = await attempts_cursor.to_list(None)
+    avg_score = round(sum(a.get("percentage", 0) for a in attempts) / len(attempts), 1) if attempts else 0
+
+    # Attendance %
+    att_cursor = db.attendance_records.find({"class_id": class_id})
+    att_records = await att_cursor.to_list(None)
+    total_att = len(att_records)
+    present_count = sum(1 for r in att_records if r.get("status") == "present")
+    att_pct = round(present_count / total_att * 100, 1) if total_att > 0 else 0
+
+    # Active students (asked at least one chat message in last 7 days)
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    active_set = set()
+    if student_ids:
+        activity_cursor = db.activity_logs.find({
+            "user_id": {"$in": student_ids},
+            "date": {"$gte": cutoff}
+        })
+        active_logs = await activity_cursor.to_list(None)
+        active_set = {log["user_id"] for log in active_logs}
+
+    return {
+        "class_id": class_id,
+        "class_name": cls.get("name"),
+        "total_students": total_students,
+        "active_students": len(active_set),
+        "avg_quiz_score": avg_score,
+        "attendance_pct": att_pct,
+        "total_quizzes_taken": len(attempts),
+    }
 
 # ─── Curriculum & Materials ───────────────────────────────────────────────────
 
@@ -360,6 +460,49 @@ async def upload_material(
         None, unit_id, description,
     )
     return {"id": mat["id"], "title": mat["title"], "file_url": mat["file_url"]}
+
+@router.get("/classes/{class_id}/attendance/stats", summary="Student: get own attendance % in a class")
+async def get_attendance_stats(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Returns overall and per-date attendance for the current student in a class."""
+    user_id = str(current_user["_id"])
+
+    # Fetch all attendance records for this student in this class
+    cursor = db.attendance_records.find({
+        "class_id": class_id,
+        "student_id": user_id
+    })
+    records = await cursor.to_list(None)
+
+    if not records:
+        # Try the old nested format (attendance marked as embedded in a date document)
+        cursor2 = db.attendance.find({"class_id": class_id})
+        docs = await cursor2.to_list(None)
+        total, present = 0, 0
+        for doc in docs:
+            for r in doc.get("records", []):
+                if r.get("student_id") == user_id:
+                    total += 1
+                    if r.get("status") == "present":
+                        present += 1
+    else:
+        total = len(records)
+        present = sum(1 for r in records if r.get("status") == "present")
+
+    percentage = round(present / total * 100, 1) if total > 0 else None
+    return {
+        "class_id": class_id,
+        "total_sessions": total,
+        "present": present,
+        "absent": total - present,
+        "overall_percentage": percentage,  # student portal reads this field
+        "attendance_percentage": percentage, # fallback alias
+    }
+
+
 
 @router.get("/classes/{class_id}/materials", summary="List class materials")
 async def list_materials(
@@ -466,12 +609,30 @@ async def global_submissions(
     s_cursor = db.submissions.find({"assignment_id": {"$in": assignment_ids}})
     subs = await s_cursor.to_list(None)
 
+    # Resolve real student names from users collection
+    student_ids_in_subs = list({s["student_id"] for s in subs if s.get("student_id")})
+    users = []
+    if student_ids_in_subs:
+        users = await db.users.find(
+            {"_id": {"$in": [ObjectId(sid) for sid in student_ids_in_subs]}}
+        ).to_list(None)
+    user_map = {str(u["_id"]): u for u in users}
+
     return [
         {
-            "id": s["id"], "submission_id": s["id"], "student_id": s["student_id"], "status": s.get("status"),
-            "points_earned": s.get("points_earned"), "submitted_at": s.get("submitted_at"),
-            "student_name": f"Student {str(s['student_id'])[:4]}", "graded": s.get("status") == "graded",
-            "student_email": f"student_{str(s['student_id'])[:4]}@example.com"
+            "id": s["id"],
+            "submission_id": s["id"],
+            "assignment_id": s.get("assignment_id"),
+            "student_id": s["student_id"],
+            "status": s.get("status"),
+            "points_earned": s.get("points_earned"),
+            "feedback": s.get("feedback"),
+            "submitted_at": s.get("submitted_at"),
+            "student_name": user_map.get(s["student_id"], {}).get("name") or user_map.get(s["student_id"], {}).get("email") or "Unknown",
+            "student_email": user_map.get(s["student_id"], {}).get("email", ""),
+            "graded": s.get("status") == "graded",
+            "file_url": s.get("file_url"),
+            "content": s.get("content"),
         }
         for s in subs
     ]
@@ -576,6 +737,11 @@ async def get_quiz(
         "quiz_id": quiz["id"],
         "title": quiz.get("title"),
         "description": quiz.get("description"),
+        "time_limit": quiz.get("time_limit"),
+        "type": quiz.get("type", "quiz"),
+        "max_attempts": quiz.get("max_attempts", 1),
+        "start_time": quiz.get("start_time"),
+        "end_time": quiz.get("end_time"),
         "questions": [
             {
                 "id": q["id"],
@@ -607,6 +773,103 @@ async def attempt_quiz(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# ─── Quiz Analytics ───────────────────────────────────────────────────────────
+
+@router.get("/quizzes/{quiz_id}/analytics", summary="Teacher: quiz attempt analytics")
+async def quiz_analytics(
+    quiz_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    quiz = await db.lms_quizzes.find_one({"id": quiz_id})
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # Get all complete attempts
+    attempts_cursor = db.quiz_attempts.find({"quiz_id": quiz_id, "is_complete": True})
+    attempts = await attempts_cursor.to_list(None)
+
+    if not attempts:
+        return {"quiz_id": quiz_id, "title": quiz.get("title"), "attempt_count": 0, "avg_score": 0, "results": []}
+
+    # Resolve student names
+    student_ids = list({a["student_id"] for a in attempts if a.get("student_id")})
+    users = await db.users.find(
+        {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+    ).to_list(None)
+    user_map = {str(u["_id"]): u.get("name") or u.get("email") or "Student" for u in users}
+
+    scores = [float(a.get("percentage") or 0) for a in attempts]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+
+    results = sorted(
+        [
+            {
+                "student_id": a["student_id"],
+                "student_name": user_map.get(a["student_id"], "Unknown"),
+                "score": a.get("score", 0),
+                "max_score": a.get("max_score", 0),
+                "percentage": float(a.get("percentage") or 0),
+                "submitted_at": a.get("submitted_at"),
+            }
+            for a in attempts
+        ],
+        key=lambda x: x["percentage"],
+        reverse=True,
+    )
+
+    return {
+        "quiz_id": quiz_id,
+        "title": quiz.get("title"),
+        "attempt_count": len(attempts),
+        "avg_score": avg_score,
+        "results": results,
+    }
+
+
+# ─── Per-Student Engagement in a Class ────────────────────────────────────────
+
+@router.get("/classes/{class_id}/students/engagement", summary="Teacher: per-student engagement scores")
+async def class_student_engagement(
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    from backend.services.analytics_service import get_teacher_analytics
+    stats = await get_teacher_analytics(db, class_id)
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    student_ids = cls.get("students", [])
+
+    # Resolve names
+    users = []
+    if student_ids:
+        users = await db.users.find(
+            {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+        ).to_list(None)
+    user_map = {str(u["_id"]): {"name": u.get("name", ""), "email": u.get("email", "")} for u in users}
+
+    # Build engagement table from analytics stats
+    top = {s["student_id"]: s["score"] for s in stats.get("top_performing_students", [])}
+    low = {s["student_id"]: s["score"] for s in stats.get("low_performing_students", [])}
+    score_map = {**low, **top}
+
+    return {
+        "class_id": class_id,
+        "engagement_rate": stats.get("engagement_rate", 0),
+        "students": [
+            {
+                "student_id": sid,
+                "name": user_map.get(sid, {}).get("name") or user_map.get(sid, {}).get("email") or "Unknown",
+                "email": user_map.get(sid, {}).get("email", ""),
+                "avg_score": score_map.get(sid, None),
+            }
+            for sid in student_ids
+        ],
+    }
+
 
 # ─── Attendance ──────────────────────────────────────────────────────────────
 
