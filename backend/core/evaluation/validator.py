@@ -28,6 +28,7 @@ from backend.core.evaluation.metrics import (
     calculate_final_rag_score,
     calculate_retrieval_confidence,
     calculate_chunk_coverage,
+    get_evaluation_chunk_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,8 @@ class ValidationEngine:
         subject: str = "general",
         document_id: str = None,  # NEW
         chat_id: str = None,
-        graph_context: str = ""   # NEW: Support for GraphRAG validation
+        graph_context: str = "",   # NEW: Support for GraphRAG validation
+        evaluation_source: str = "live"
     ) -> ValidationResult:
 
         """
@@ -61,6 +63,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                evaluation_source=evaluation_source,
                 chat_id=chat_id,
                 document_id=document_id, # NEW
                 validation_status="INSUFFICIENT_CONTEXT",
@@ -77,7 +80,8 @@ class ValidationEngine:
         if graph_context:
             context_text += f"\n\n### GraphRAG Context ###\n{graph_context}"
             
-        chunk_ids = [c.get("id", "") for c in retrieved_chunks if c.get("id")]
+        chunk_ids = [get_evaluation_chunk_id(c) for c in retrieved_chunks]
+        chunk_ids = [chunk_id for chunk_id in chunk_ids if chunk_id]
 
 
         try:
@@ -119,10 +123,10 @@ class ValidationEngine:
             chunk_usage_stats = calculate_chunk_coverage(answer, retrieved_chunks)
 
             # ── D. Final RAG Score ──
-            # For live validation without gold labels, recall@5 defaults to 0
-            # (retrieval metrics need gold_chunk_ids from benchmark dataset)
+            # Live validation has no gold labels, so retrieval metrics should not
+            # be forced to zero and allowed to drag down the composite score.
             final_score = calculate_final_rag_score(
-                recall_at_5=0.0,  # Not available in live mode
+                recall_at_5=None,
                 faithfulness=faith_score,
                 bert_score_val=bert_score_val,
                 citation_alignment=citation_score,
@@ -149,6 +153,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                evaluation_source=evaluation_source,
                 chat_id=chat_id,
                 # Retrieval metrics (populated during benchmark only)
                 recall_at_5=0.0,
@@ -193,6 +198,7 @@ class ValidationEngine:
                 answer=answer,
                 subject=subject,
                 user_id=user_id,
+                evaluation_source=evaluation_source,
                 chat_id=chat_id,
                 validation_status="ERROR",
                 reason=f"Validation error: {str(e)}"
@@ -221,11 +227,13 @@ class ValidationEngine:
             answer=answer,
             retrieved_chunks=retrieved_chunks,
             user_id=user_id,
-            subject=subject
+            subject=subject,
+            evaluation_source="benchmark"
         )
 
         # Add retrieval metrics
-        retrieved_ids = [c.get("id", "") for c in retrieved_chunks]
+        retrieved_ids = [get_evaluation_chunk_id(c) for c in retrieved_chunks]
+        retrieved_ids = [chunk_id for chunk_id in retrieved_ids if chunk_id]
         retrieval_metrics = calculate_retrieval_metrics(retrieved_ids, gold_chunk_ids)
 
         result.recall_at_5 = retrieval_metrics.get("recall@5", 0.0)
@@ -262,8 +270,14 @@ class ValidationEngine:
     async def _update_result(self, result: ValidationResult):
         """Update an existing validation result in MongoDB."""
         try:
+            selector = {"question": result.question, "answer": result.answer}
+            if getattr(result, "id", None):
+                from bson import ObjectId
+                if ObjectId.is_valid(str(result.id)):
+                    selector = {"_id": ObjectId(str(result.id))}
+
             await self.db.rag_answer_validations.update_one(
-                {"question": result.question, "answer": result.answer},
+                selector,
                 {"$set": {
                     "recall_at_5": result.recall_at_5,
                     "precision_at_5": result.precision_at_5,

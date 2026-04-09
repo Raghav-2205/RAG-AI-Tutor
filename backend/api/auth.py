@@ -1,49 +1,18 @@
 # backend/api/auth.py
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from backend.utils.db import get_db
 from backend.auth import get_password_hash, verify_password, create_access_token
 from backend.models.user import UserCreate, UserPublic
-from backend.config import settings
-from jose import jwt, JWTError
+from backend.utils.security import format_role, get_current_user, normalize_role, require_role, validate_role_input
 from bson import ObjectId
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_prefix}/auth/login")
 
-# Dependency to get current user
-async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.algorithm])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-        
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if user is None:
-        raise credentials_exception
-    return user
-
-# Dependency to require specific roles
-def require_role(*roles: str):
-    def _dep(current_user=Depends(get_current_user)):
-        user_role = current_user.get("role", "Student").lower()
-        if user_role not in [r.lower() for r in roles]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access restricted to: {roles}",
-            )
-        return current_user
-    return _dep
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 @router.post("/register", response_model=UserPublic, status_code=201)
 async def register(user_in: UserCreate, db = Depends(get_db)):
@@ -61,8 +30,8 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
         "email": user_in.email.lower(),
         "hashed_password": hashed_pw,
         "level": user_in.level,
-        "role": user_in.role,
-        "created_at": datetime.utcnow()
+        "role": "student",
+        "created_at": _utcnow()
     }
     
     # 4. Insert into DB
@@ -75,7 +44,7 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
             name=user_in.name,
             email=user_in.email,
             level=user_in.level,
-            role=user_in.role
+            role="student"
         )
     except Exception as e:
         print(f"DB Error: {e}")
@@ -106,7 +75,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
             "id": str(user["_id"]),
             "name": user_name,
             "email": user_email,
-            "role": user.get("role", "Student")
+            "role": normalize_role(user.get("role", "student"))
         }
     }
 
@@ -116,8 +85,8 @@ async def read_users_me(current_user = Depends(get_current_user)):
         id=str(current_user["_id"]),
         name=current_user["name"],
         email=current_user["email"],
-        level=current_user["level"],
-        role=current_user.get("role", "Student")
+        level=current_user.get("level", "undergraduate"),
+        role=normalize_role(current_user.get("role", "student"))
     )
 
 # ─── Admin Routes ─────────────────────────────────────────────────────────────
@@ -125,7 +94,7 @@ async def read_users_me(current_user = Depends(get_current_user)):
 @router.get("/users", response_model=list[UserPublic])
 async def list_users(
     db = Depends(get_db),
-    admin = Depends(require_role("Admin"))
+    admin = Depends(require_role("admin"))
 ):
     """Admin: List all users in the system"""
     users = await db.users.find().to_list(length=1000)
@@ -135,7 +104,7 @@ async def list_users(
             name=u.get("name", ""),
             email=u.get("email", ""),
             level=u.get("level", "undergraduate"),
-            role=u.get("role", "Student")
+            role=normalize_role(u.get("role", "student"))
         ) for u in users
     ]
 
@@ -148,18 +117,17 @@ async def update_user_role(
     user_id: str,
     body: UpdateRoleIn,
     db = Depends(get_db),
-    admin = Depends(require_role("Admin"))
+    admin = Depends(require_role("admin"))
 ):
     """Admin: Update a user's role"""
-    if body.role not in ["Admin", "Teacher", "Student"]:
-        raise HTTPException(status_code=400, detail="Invalid role. Must be Admin, Teacher, or Student.")
+    normalized_role = validate_role_input(body.role)
     
     result = await db.users.update_one(
         {"_id": ObjectId(user_id)},
-        {"$set": {"role": body.role}}
+        {"$set": {"role": normalized_role}}
     )
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
         
-    return {"status": "success", "message": f"Updated user role to {body.role}"}
+    return {"status": "success", "message": f"Updated user role to {format_role(normalized_role)}"}

@@ -3,282 +3,655 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/theme-init.js"></script>
     <title>Admin Portal - RAG AI Tutor</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
-        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
-        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
-        .nav-links { display: flex; gap: 12px; align-items: center; }
-        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); }
-        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
-        .portal-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .portal-header h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .portal-header p { color: #888; margin-bottom: 2rem; }
-        .role-badge { display: inline-block; background: linear-gradient(135deg, rgba(255,68,68,0.3), rgba(255,165,0,0.3)); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; color: #ffaa44; margin-left: 12px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .card { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; transition: all 0.3s; animation: fadeIn 0.4s ease-out; }
-        .card:hover { border-color: rgba(0,255,204,0.3); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,255,204,0.1); }
-        .card h3 { color: #00ffcc; margin-bottom: 0.5rem; }
-        .card p { color: #b8c5d6; font-size: 0.9rem; }
-        .card-icon { font-size: 2rem; margin-bottom: 0.8rem; }
-        .stat-number { font-size: 2rem; font-weight: 700; color: #00ffcc; }
-        .stat-label { font-size: 0.8rem; color: #888; }
-        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
-        .module-link { cursor: pointer; }
-        .module-link:hover { background: rgba(0,255,204,0.05); }
-    </style>
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app-shell.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="/assets/js/config.js?v=11"></script>
+    <script src="/assets/js/route-guard.js?v=2"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
+    <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="brand">🔑 Admin Portal</div>
-        <div class="nav-links">
-            <span id="notif-bell" style="cursor:pointer; position:relative; font-size:1.2rem; margin-right:15px;" onclick="toggleNotifications()">🔔<span id="notif-count" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; font-size:0.6rem; padding:2px 4px; border-radius:50%;">0</span></span>
-            <a href="/views/subjects.html">💬 AI Chat</a>
-            <a href="/views/teacher_portal.html">🎓 Teacher</a>
-            <a href="/views/planner.html">📅 Planner</a>
-            <a href="/views/community.html">🗣️ Community</a>
-            <a href="/views/dashboard.html">📊 Dashboard</a>
-            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+<body class="page-layout admin-page">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span>RAG AI Tutor</span>
         </div>
 
-    </nav>
+        <nav class="nav-section">
+            <div class="nav-label">Learn</div>
+            <a href="/views/dashboard.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+                Dashboard
+            </a>
+            <a href="/views/lms.html?page=classes" class="nav-item">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>
+                LMS
+            </a>
+            <a href="/views/subjects.html" class="nav-item">
+                <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
+                AI Tutor Chat
+            </a>
+            <a href="/views/community.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+                Community
+            </a>
+        </nav>
 
-    <div class="portal-container">
-        <div class="portal-header">
-            <h1>Admin Dashboard <span class="role-badge">🔑 Admin</span></h1>
-            <p>System overview & management controls</p>
+        <nav class="nav-section">
+            <div class="nav-label">Manage</div>
+            <a href="/views/admin_portal.html" class="nav-item active">
+                <span class="nav-icon sidebar-c4"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
+                Admin Portal
+            </a>
+            <a href="/views/teacher_portal.html" class="nav-item">
+                <span class="nav-icon sidebar-c5"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i></span>
+                Teacher Portal
+            </a>
+        </nav>
+
+        <nav class="nav-section">
+            <div class="nav-label">Analytics</div>
+            <a href="/views/analytics.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
+                Analytics
+            </a>
+            <a href="/views/evaluation.html" class="nav-item">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>
+                Evaluation
+            </a>
+            <a href="/views/calendar.html" class="nav-item">
+                <span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+                Unified Calendar
+            </a>
+        </nav>
+
+        <nav class="nav-section">
+            <div class="nav-label">Account</div>
+            <a href="/views/profile.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>
+                Profile &amp; Settings
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar" id="userAvatar">A</div>
+                <div>
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-level" id="userLevel">Admin</div>
+                </div>
+            </div>
+            <div class="admin-sidebar-actions">
+                <a href="#" onclick="window.auth.logout(); return false;" class="nav-item admin-sidebar-logout">
+                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>
+                    Logout
+                </a>
+            </div>
         </div>
+    </aside>
 
-        <div class="section-title">System Overview</div>
-        <div class="grid">
-            <div class="card"><div class="card-icon">👥</div><div class="stat-number" id="totalUsers">—</div><div class="stat-label">Total Users</div></div>
-            <div class="card"><div class="card-icon">📚</div><div class="stat-number" id="totalClasses">—</div><div class="stat-label">Total Classes</div></div>
-            <div class="card"><div class="card-icon">📢</div><div class="stat-number" id="totalNotices">—</div><div class="stat-label">Active Notices</div></div>
-            <div class="card"><div class="card-icon">💬</div><div class="stat-number" id="totalForumPosts">—</div><div class="stat-label">Forum Posts</div></div>
-        </div>
-
-        <div class="section-title">Quick Navigation</div>
-        <div class="grid">
-            <div class="card module-link" onclick="window.location.href='/views/teacher_portal.html'">
-                <div class="card-icon">🎓</div><h3>LMS Management</h3><p>Manage classes, assignments, students</p>
-            </div>
-            <div class="card module-link" onclick="window.location.href='/views/community.html'">
-                <div class="card-icon">🗣️</div><h3>Communication</h3><p>Notice board, updates, forum</p>
-            </div>
-            <div class="card module-link" onclick="window.location.href='/views/planner.html'">
-                <div class="card-icon">📅</div><h3>Planner</h3><p>Day templates, activity tracking</p>
-            </div>
-            <div class="card module-link" onclick="window.location.href='/views/subjects.html'">
-                <div class="card-icon">🤖</div><h3>AI Engine</h3><p>RAG / GRAG chat system</p>
-            </div>
-        </div>
-
-        <div class="section-title">Notice Board</div>
-        <div id="noticeList"><div class="card"><p style="color:#888">Loading...</p></div></div>
-
-        <div class="section-title" style="margin-top:2rem">Academic Data Import</div>
-        <div class="grid">
-            <div class="card" style="border-color: rgba(0,255,204,0.3);">
-                <div class="card-icon">📁</div>
-                <h3>Bulk Enroll Students</h3>
-                <p style="margin-bottom: 1rem;">Upload an Excel sheet of student roll numbers.</p>
-                <input type="file" id="studentsFile" accept=".csv, .xlsx, .xls" style="margin-bottom: 1rem; color: #888;">
-                <button class="btn" onclick="uploadStudents()" style="width: 100%;">Upload Students</button>
-            </div>
-            <div class="card" style="border-color: rgba(255,165,0,0.3);">
-                <div class="card-icon">📅</div>
-                <h3>Upload Timetable</h3>
-                <p style="margin-bottom: 1rem;">Map subjects and teachers to classes.</p>
-                <input type="file" id="timetableFile" accept=".csv, .xlsx, .xls" style="margin-bottom: 1rem; color: #888;">
-                <button class="btn" onclick="uploadTimetable()" style="width: 100%; background: linear-gradient(135deg, #ffaa44, #ff4444);">Upload Timetable</button>
-            </div>
-        </div>
-
-        <div class="section-title" style="margin-top:2rem">User Management</div>
-        <div class="card" style="padding:0; overflow:hidden;">
-            <table style="width:100%; border-collapse: collapse; text-align: left;">
-                <thead style="background: rgba(255,255,255,0.05);">
-                    <tr>
-                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Name</th>
-                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Email</th>
-                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Role</th>
-                        <th style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1)">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="userList">
-                    <tr><td colspan="4" style="padding:20px; text-align:center; color:#888">Loading users...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <script src="/assets/js/config.js?v=7"></script>
-    <script>
-        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-        const TOKEN = localStorage.getItem('token');
-        const headers = { 
-            'Authorization': `Bearer ${TOKEN}`, 
-            'Content-Type': 'application/json' 
-        };
-        
-        if (!TOKEN) window.location.href = '/views/login.html';
-
-        async function loadAdmin() {
-            try {
-                const [classRes, noticeRes, forumRes, userRes] = await Promise.all([
-                    fetch(`${API}/lms/classes`, { headers }),
-                    fetch(`${API}/comm/notices`, { headers }),
-                    fetch(`${API}/comm/forum/posts`, { headers }),
-                    fetch(`${API}/auth/users`, { headers })
-                ]);
-                
-                const classes = await classRes.json();
-                const notices = await noticeRes.json();
-                const posts = await forumRes.json();
-                const users = await userRes.json();
-
-                document.getElementById('totalClasses').textContent = classes.length;
-                document.getElementById('totalNotices').textContent = notices.length;
-                document.getElementById('totalForumPosts').textContent = posts.length;
-                document.getElementById('totalUsers').textContent = users.length;
-
-                // Render Notices
-                const noticeHtml = notices.slice(0, 5).map(n => `<div class="list-item">
-                    <div>
-                        <strong>${n.title}</strong>
-                        <div style="color:#888;font-size:0.8rem">${n.priority} · by ${n.author_name || 'System'}</div>
+    <main class="main">
+        <div class="page-container admin-page-shell">
+            <div class="page-header admin-page-header">
+                <div>
+                    <div class="admin-page-kicker">
+                        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                        Platform Administration
                     </div>
-                    <span style="color:#888;font-size:0.8rem">${new Date(n.created_at).toLocaleDateString()}</span>
-                </div>`).join('');
-                document.getElementById('noticeList').innerHTML = noticeHtml || '<div class="card"><p style="color:#888">No notices yet.</p></div>';
+                    <h1>
+                        <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+                        Admin Control Center
+                    </h1>
+                    <p>Manage users, academic imports, system content, and LMS oversight from one clean operations workspace.</p>
+                </div>
+                <div class="admin-page-actions">
+                    <a href="/views/teacher_portal.html" class="btn btn-secondary">
+                        <i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i>
+                        Open Teacher Portal
+                    </a>
+                    <button class="btn btn-secondary" type="button" onclick="loadAdmin()">
+                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        Refresh
+                    </button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+                        <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
 
-                // Render Users
-                renderUsers(users);
-                
-            } catch (err) { 
-                console.error(err); 
-                document.getElementById('userList').innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:#ff4444">Failed to load users: ${err.message}</td></tr>`;
-            }
+            <section class="admin-status-strip">
+                <div class="admin-status-copy">
+                    <h2>Operations-first oversight for users, coursework infrastructure, and live campus activity.</h2>
+                    <p>Use this page for high-confidence administrative work: role management, bulk enrollment, timetable imports, notices, and quick navigation into the operational modules.</p>
+                    <div class="admin-chip-row">
+                        <div class="admin-chip">
+                            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                            Signed in as <span id="adminRoleLabel">Admin</span>
+                        </div>
+                        <div class="admin-chip">
+                            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                            <span id="adminIdentity">Loading account...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-status-panel">
+                    <p class="admin-status-panel-label">Current Workspace</p>
+                    <div><strong>Role Management</strong> for user access and portal permissions.</div>
+                    <div><strong>Academic Imports</strong> for student enrollment sheets and timetable uploads.</div>
+                    <div><strong>Content Visibility</strong> through notices and recent community activity.</div>
+                </div>
+            </section>
+
+            <div id="adminStatus" class="admin-inline-status" aria-live="polite"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>System Overview</h2>
+                        <p>Compact live counts for the platform areas that matter to admin operations.</p>
+                    </div>
+                </div>
+                <div class="admin-stat-grid">
+                    <article class="card admin-stat-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></div>
+                        <div class="admin-stat-value" id="totalUsers">-</div>
+                        <div class="admin-stat-label">Registered users</div>
+                        <div class="admin-stat-meta" id="usersMeta">Loading user directory...</div>
+                    </article>
+                    <article class="card admin-stat-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-book-open-reader" aria-hidden="true"></i></div>
+                        <div class="admin-stat-value" id="totalClasses">-</div>
+                        <div class="admin-stat-label">Active classes</div>
+                        <div class="admin-stat-meta" id="classesMeta">Loading class registry...</div>
+                    </article>
+                    <article class="card admin-stat-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i></div>
+                        <div class="admin-stat-value" id="totalNotices">-</div>
+                        <div class="admin-stat-label">Visible notices</div>
+                        <div class="admin-stat-meta" id="noticesMeta">Loading notice board...</div>
+                    </article>
+                    <article class="card admin-stat-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-comments" aria-hidden="true"></i></div>
+                        <div class="admin-stat-value" id="totalForumPosts">-</div>
+                        <div class="admin-stat-label">Forum posts</div>
+                        <div class="admin-stat-meta" id="forumMeta">Loading forum feed...</div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Operations Shortcuts</h2>
+                        <p>Fast entry points into the admin-adjacent parts of the platform.</p>
+                    </div>
+                </div>
+                <div class="admin-action-grid">
+                    <article class="card admin-action-card" onclick="window.location.href='/views/teacher_portal.html'">
+                        <div class="admin-card-icon"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i></div>
+                        <h3>Teacher Workflows</h3>
+                        <p>Review classes, assignments, attendance, and daily academic operations.</p>
+                    </article>
+                    <article class="card admin-action-card" onclick="window.location.href='/views/community.html'">
+                        <div class="admin-card-icon"><i class="fa-solid fa-users-viewfinder" aria-hidden="true"></i></div>
+                        <h3>Communication Layer</h3>
+                        <p>Open community, notices, forum discussions, and live platform conversation streams.</p>
+                    </article>
+                    <article class="card admin-action-card" onclick="window.location.href='/views/planner.html'">
+                        <div class="admin-card-icon"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></div>
+                        <h3>Planner &amp; Tracking</h3>
+                        <p>Inspect activity planning, reminders, and structured student productivity flows.</p>
+                    </article>
+                    <article class="card admin-action-card" onclick="window.location.href='/views/subjects.html'">
+                        <div class="admin-card-icon"><i class="fa-solid fa-brain" aria-hidden="true"></i></div>
+                        <h3>AI Tutor Engine</h3>
+                        <p>Jump into the tutor workspace used for grounded learning and citation-backed answers.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <div class="admin-dual-grid">
+                    <article class="card admin-feed-card">
+                        <div class="admin-section-head">
+                            <div>
+                                <h2>Notice Board</h2>
+                                <p>Recent notices visible to the current admin role.</p>
+                            </div>
+                        </div>
+                        <div id="noticeList" class="admin-feed-list">
+                            <div class="admin-empty-state">
+                                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                                Loading notices...
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="card admin-feed-card">
+                        <div class="admin-section-head">
+                            <div>
+                                <h2>Recent Forum Activity</h2>
+                                <p>Community discussion activity that may need moderation or follow-up.</p>
+                            </div>
+                        </div>
+                        <div id="forumList" class="admin-feed-list">
+                            <div class="admin-empty-state">
+                                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                                Loading forum activity...
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Academic Data Imports</h2>
+                        <p>Upload structured data safely without leaving the admin workspace.</p>
+                    </div>
+                </div>
+                <div class="admin-import-grid">
+                    <article class="card admin-import-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></div>
+                        <h3>Bulk Enroll Students</h3>
+                        <p>Upload a CSV or Excel file of roll numbers to create or register student accounts in bulk.</p>
+                        <div class="admin-file-field">
+                            <input class="admin-file-input" type="file" id="studentsFile" accept=".csv,.xlsx,.xls">
+                            <div class="admin-file-help">Supported formats: `.csv`, `.xlsx`, `.xls`.</div>
+                        </div>
+                        <button class="btn btn-primary" type="button" onclick="uploadStudents(this)">
+                            <i class="fa-solid fa-upload" aria-hidden="true"></i>
+                            Upload Students
+                        </button>
+                    </article>
+
+                    <article class="card admin-import-card">
+                        <div class="admin-card-icon"><i class="fa-solid fa-calendar-plus" aria-hidden="true"></i></div>
+                        <h3>Upload Timetable</h3>
+                        <p>Import timetable structure for the configured semester so teacher schedules and attendance flows stay aligned.</p>
+                        <div class="admin-file-field">
+                            <input class="admin-file-input" type="file" id="timetableFile" accept=".csv,.xlsx,.xls">
+                            <div class="admin-file-help">Current upload target: <strong>BE_VIII_CSE1</strong>.</div>
+                        </div>
+                        <button class="btn btn-secondary" type="button" onclick="uploadTimetable(this)">
+                            <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+                            Upload Timetable
+                        </button>
+                    </article>
+                </div>
+            </section>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>User Management</h2>
+                        <p>Review users and update their access level without leaving the admin dashboard.</p>
+                    </div>
+                </div>
+                <article class="card admin-table-card">
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Update Access</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userList">
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="admin-empty-state">
+                                            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                                            Loading users...
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </main>
+    <script>
+        const SESSION = window.routeGuard?.requireAuth({ roles: ['admin'] });
+        if (!SESSION) throw new Error('Admin access required');
+
+        const API = window.config?.apiBase || (window.location.origin + '/api');
+        const TOKEN = SESSION.token;
+        const USER = SESSION.user || {};
+        const JSON_HEADERS = {
+            'Authorization': `Bearer ${TOKEN}`,
+            'Content-Type': 'application/json'
+        };
+
+        const statusEl = document.getElementById('adminStatus');
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
-        function renderUsers(users) {
-            const userList = document.getElementById('userList');
-            if (!users.length) {
-                userList.innerHTML = '<tr><td colspan="4" style="padding:20px; text-align:center; color:#888">No users found.</td></tr>';
+        function normalizeRole(role) {
+            return window.routeGuard?.normalizeRole(role) || String(role || 'student').trim().toLowerCase() || 'student';
+        }
+
+        function displayRole(role) {
+            return window.routeGuard?.displayRole(role) || (normalizeRole(role).charAt(0).toUpperCase() + normalizeRole(role).slice(1));
+        }
+
+        function roleChipClass(role) {
+            return `admin-role-chip is-${normalizeRole(role)}`;
+        }
+
+        function priorityClass(priority) {
+            const normalized = String(priority || 'normal').trim().toLowerCase();
+            if (normalized === 'urgent') return 'admin-priority-badge is-urgent';
+            if (normalized === 'high' || normalized === 'important') return 'admin-priority-badge is-important';
+            if (normalized === 'low') return 'admin-priority-badge is-low';
+            return 'admin-priority-badge is-normal';
+        }
+
+        function formatDate(value, withTime = false) {
+            if (!value) return 'Unknown date';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'Unknown date';
+            return withTime ? date.toLocaleString() : date.toLocaleDateString();
+        }
+
+        function emptyState(text, icon = 'fa-box-open') {
+            return `
+                <div class="admin-empty-state">
+                    <i class="fa-solid ${icon}" aria-hidden="true"></i>
+                    ${escapeHtml(text)}
+                </div>
+            `;
+        }
+
+        function errorState(text) {
+            return `
+                <div class="admin-error-state">
+                    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                    ${escapeHtml(text)}
+                </div>
+            `;
+        }
+
+        function setStatus(message, tone = 'success') {
+            if (!message) {
+                statusEl.className = 'admin-inline-status';
+                statusEl.textContent = '';
                 return;
             }
 
-            userList.innerHTML = users.map(u => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding:15px;">${u.name}</td>
-                    <td style="padding:15px; color:#888;">${u.email}</td>
-                    <td style="padding:15px;">
-                        <span class="role-badge" style="margin-left:0; color:${getRoleColor(u.role)}; background:rgba(255,255,255,0.05)">${u.role}</span>
-                    </td>
-                    <td style="padding:15px;">
-                        <select onchange="updateRole('${u.id}', this.value)" style="background:#1e233e; color:#e0e6ed; border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:4px 8px; cursor:pointer;">
-                            <option value="Student" ${u.role === 'Student' ? 'selected' : ''}>Student</option>
-                            <option value="Teacher" ${u.role === 'Teacher' ? 'selected' : ''}>Teacher</option>
-                            <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>Admin</option>
-                        </select>
-                    </td>
-                </tr>
+            statusEl.className = `admin-inline-status is-visible ${tone === 'error' ? 'is-error' : 'is-success'}`;
+            statusEl.innerHTML = `
+                <i class="fa-solid ${tone === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}" aria-hidden="true"></i>
+                <span>${escapeHtml(message)}</span>
+            `;
+        }
+
+        async function fetchJson(path, options = {}) {
+            const response = await fetch(`${API}${path}`, options);
+            const raw = await response.text();
+            let data = null;
+
+            if (raw) {
+                try {
+                    data = JSON.parse(raw);
+                } catch {
+                    data = raw;
+                }
+            }
+
+            if (!response.ok) {
+                const message = data?.detail || data?.message || response.statusText || 'Request failed';
+                throw new Error(message);
+            }
+
+            return data;
+        }
+
+        function updateIdentity() {
+            document.getElementById('userName').textContent = USER.name || 'Admin User';
+            document.getElementById('userLevel').textContent = displayRole(SESSION.role);
+            document.getElementById('userAvatar').textContent = (USER.name || USER.email || 'A').charAt(0).toUpperCase();
+            document.getElementById('adminRoleLabel').textContent = displayRole(SESSION.role);
+            document.getElementById('adminIdentity').textContent = USER.email || 'No email available';
+        }
+
+        function setMetric(id, value, metaId, metaText) {
+            document.getElementById(id).textContent = value;
+            document.getElementById(metaId).textContent = metaText;
+        }
+
+        function renderNotices(notices) {
+            const container = document.getElementById('noticeList');
+            if (!Array.isArray(notices) || notices.length === 0) {
+                container.innerHTML = emptyState('No notices are visible for the admin role right now.', 'fa-bullhorn');
+                return;
+            }
+
+            container.innerHTML = notices.slice(0, 5).map((notice) => `
+                <div class="admin-feed-item">
+                    <div class="admin-feed-item-main">
+                        <strong>${escapeHtml(notice.title || 'Untitled notice')}</strong>
+                        <div class="admin-muted">${escapeHtml(notice.body || notice.content || 'No description provided.')}</div>
+                        <div class="admin-feed-meta">
+                            <span class="${priorityClass(notice.priority)}">${escapeHtml(displayRole(notice.priority || 'normal'))}</span>
+                            <span>By ${escapeHtml(notice.author_name || 'System')}</span>
+                        </div>
+                    </div>
+                    <div class="admin-feed-time">${escapeHtml(formatDate(notice.created_at, true))}</div>
+                </div>
             `).join('');
         }
 
-        function getRoleColor(role) {
-            if (role === 'Admin') return '#ff4444';
-            if (role === 'Teacher') return '#00ffcc';
-            return '#888';
+        function renderForum(posts) {
+            const container = document.getElementById('forumList');
+            if (!Array.isArray(posts) || posts.length === 0) {
+                container.innerHTML = emptyState('No forum discussions have been posted yet.', 'fa-comments');
+                return;
+            }
+
+            container.innerHTML = posts.slice(0, 5).map((post) => {
+                const replies = Array.isArray(post.replies) ? post.replies.length : 0;
+                const tags = Array.isArray(post.tags) && post.tags.length ? post.tags.join(', ') : 'General';
+                return `
+                    <div class="admin-feed-item">
+                        <div class="admin-feed-item-main">
+                            <strong>${escapeHtml(post.title || 'Untitled post')}</strong>
+                            <div class="admin-muted">${escapeHtml(post.content || 'No preview available.')}</div>
+                            <div class="admin-feed-meta">
+                                <span>By ${escapeHtml(post.author_name || 'Unknown')}</span>
+                                <span>${escapeHtml(displayRole(post.author_role || 'student'))}</span>
+                                <span>${escapeHtml(tags)}</span>
+                                <span>${Number(post.likes || 0)} likes</span>
+                                <span>${replies} replies</span>
+                            </div>
+                        </div>
+                        <div class="admin-feed-time">${escapeHtml(formatDate(post.created_at, true))}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderUsers(users) {
+            const tableBody = document.getElementById('userList');
+            if (!Array.isArray(users) || users.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4">${emptyState('No users found in the directory.', 'fa-users-slash')}</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = users.map((user) => {
+                const role = normalizeRole(user.role);
+                return `
+                    <tr>
+                        <td class="admin-user-name">${escapeHtml(user.name || 'Unnamed user')}</td>
+                        <td class="admin-user-email">${escapeHtml(user.email || 'No email')}</td>
+                        <td><span class="${roleChipClass(role)}">${escapeHtml(displayRole(role))}</span></td>
+                        <td>
+                            <select class="admin-role-select" onchange="updateRole('${escapeHtml(user.id)}', this.value)">
+                                <option value="student" ${role === 'student' ? 'selected' : ''}>Student</option>
+                                <option value="teacher" ${role === 'teacher' ? 'selected' : ''}>Teacher</option>
+                                <option value="admin" ${role === 'admin' ? 'selected' : ''}>Admin</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadAdmin() {
+            setStatus('');
+
+            setMetric('totalUsers', '-', 'usersMeta', 'Loading user directory...');
+            setMetric('totalClasses', '-', 'classesMeta', 'Loading class registry...');
+            setMetric('totalNotices', '-', 'noticesMeta', 'Loading notice board...');
+            setMetric('totalForumPosts', '-', 'forumMeta', 'Loading forum feed...');
+
+            const [classesRes, noticesRes, postsRes, usersRes] = await Promise.allSettled([
+                fetchJson('/lms/classes', { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+                fetchJson('/comm/notices', { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+                fetchJson('/comm/forum/posts', { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+                fetchJson('/auth/users', { headers: { 'Authorization': `Bearer ${TOKEN}` } })
+            ]);
+
+            if (classesRes.status === 'fulfilled') {
+                const classes = Array.isArray(classesRes.value) ? classesRes.value : [];
+                setMetric('totalClasses', String(classes.length), 'classesMeta', classes.length ? 'Visible classes across the LMS.' : 'No classes found yet.');
+            } else {
+                setMetric('totalClasses', '-', 'classesMeta', 'Could not load class registry.');
+            }
+
+            if (noticesRes.status === 'fulfilled') {
+                const notices = Array.isArray(noticesRes.value) ? noticesRes.value : [];
+                setMetric('totalNotices', String(notices.length), 'noticesMeta', notices.length ? 'Notices currently visible to admin.' : 'No visible notices at the moment.');
+                renderNotices(notices);
+            } else {
+                setMetric('totalNotices', '-', 'noticesMeta', 'Could not load notices.');
+                document.getElementById('noticeList').innerHTML = errorState(`Failed to load notices: ${noticesRes.reason.message}`);
+            }
+
+            if (postsRes.status === 'fulfilled') {
+                const posts = Array.isArray(postsRes.value) ? postsRes.value : [];
+                setMetric('totalForumPosts', String(posts.length), 'forumMeta', posts.length ? 'Recent community discussion volume.' : 'No forum activity found.');
+                renderForum(posts);
+            } else {
+                setMetric('totalForumPosts', '-', 'forumMeta', 'Could not load forum activity.');
+                document.getElementById('forumList').innerHTML = errorState(`Failed to load forum posts: ${postsRes.reason.message}`);
+            }
+
+            if (usersRes.status === 'fulfilled') {
+                const users = Array.isArray(usersRes.value) ? usersRes.value : [];
+                setMetric('totalUsers', String(users.length), 'usersMeta', users.length ? 'Accounts currently stored in the system.' : 'No user records found.');
+                renderUsers(users);
+            } else {
+                setMetric('totalUsers', '-', 'usersMeta', 'Could not load user directory.');
+                document.getElementById('userList').innerHTML = `
+                    <tr>
+                        <td colspan="4">${errorState(`Failed to load users: ${usersRes.reason.message}`)}</td>
+                    </tr>
+                `;
+            }
         }
 
         async function updateRole(userId, newRole) {
             try {
-                const res = await fetch(`${API}/auth/users/${userId}/role`, {
+                await fetchJson(`/auth/users/${userId}/role`, {
                     method: 'PATCH',
-                    headers,
+                    headers: JSON_HEADERS,
                     body: JSON.stringify({ role: newRole })
                 });
-                
-                if (!res.ok) throw new Error('Update failed');
-                
-                const data = await res.json();
-                console.log(data.message);
-                // Optionally show a toast/notification
-            } catch (err) {
-                alert(`Error: ${err.message}`);
-                loadAdmin(); // Reload to reset dropdown
+                setStatus(`Updated user role to ${displayRole(newRole)}.`);
+                await loadAdmin();
+            } catch (error) {
+                setStatus(`Failed to update role: ${error.message}`, 'error');
+                await loadAdmin();
             }
         }
 
-        async function uploadStudents() {
-            const fileInput = document.getElementById('studentsFile');
-            if(!fileInput.files[0]) return alert("Please select an excel/csv file first.");
-            
+        async function uploadStudents(button) {
+            const input = document.getElementById('studentsFile');
+            const file = input.files[0];
+            if (!file) {
+                setStatus('Select a student CSV or Excel file before uploading.', 'error');
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            
+            formData.append('file', file);
+
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Uploading...';
+
             try {
-                const btn = event.target;
-                btn.textContent = "Uploading...";
-                const res = await fetch(`${API}/academic/admin/students/bulk-enroll`, {
+                const data = await fetchJson('/academic/admin/students/bulk-enroll', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}` }, // No content-type so browser sets boundary
+                    headers: { 'Authorization': `Bearer ${TOKEN}` },
                     body: formData
                 });
-                const data = await res.json();
-                if(res.ok) {
-                    alert(data.message);
-                    loadAdmin(); // Reload users
-                } else {
-                    alert(data.detail || "Upload failed");
-                }
-            } catch (err) {
-                alert("Error: " + err.message);
+                input.value = '';
+                setStatus(data?.message || 'Student upload completed successfully.');
+                await loadAdmin();
+            } catch (error) {
+                setStatus(`Student upload failed: ${error.message}`, 'error');
             } finally {
-                event.target.textContent = "Upload Students";
+                button.disabled = false;
+                button.innerHTML = original;
             }
         }
 
-        async function uploadTimetable() {
-            const fileInput = document.getElementById('timetableFile');
-            if(!fileInput.files[0]) return alert("Please select a timetable file.");
-            
+        async function uploadTimetable(button) {
+            const input = document.getElementById('timetableFile');
+            const file = input.files[0];
+            if (!file) {
+                setStatus('Select a timetable file before uploading.', 'error');
+                return;
+            }
+
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            
-            // In a real app we would select the semester
-            const semesterId = "BE_VIII_CSE1"; 
-            
+            formData.append('file', file);
+
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Uploading...';
+
             try {
-                const btn = event.target;
-                btn.textContent = "Uploading...";
-                const res = await fetch(`${API}/academic/admin/timetable/upload?semester_id=${semesterId}`, {
+                const data = await fetchJson('/academic/admin/timetable/upload?semester_id=BE_VIII_CSE1', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                    headers: { 'Authorization': `Bearer ${TOKEN}` },
                     body: formData
                 });
-                const data = await res.json();
-                if(res.ok) {
-                    alert(data.message);
-                } else {
-                    alert(data.detail || "Upload failed");
-                }
-            } catch (err) {
-                alert("Error: " + err.message);
+                input.value = '';
+                setStatus(data?.message || 'Timetable uploaded successfully.');
+            } catch (error) {
+                setStatus(`Timetable upload failed: ${error.message}`, 'error');
             } finally {
-                event.target.textContent = "Upload Timetable";
+                button.disabled = false;
+                button.innerHTML = original;
             }
         }
 
+        updateIdentity();
         loadAdmin();
     </script>
 </body>
 </html>
+

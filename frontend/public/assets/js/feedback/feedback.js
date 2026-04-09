@@ -1,12 +1,23 @@
 class Feedback {
-  submit(rating, comment) {
-    fetch("http://127.0.0.1:8000/api/feedback", {
+  submit(ratingOrPayload, comment = "") {
+    const apiBase = window.config?.apiBase || (window.location.origin + '/api');
+    const payload = typeof ratingOrPayload === "object"
+      ? ratingOrPayload
+      : {
+          source: "chat",
+          subject: "general",
+          reference_id: localStorage.getItem("currentSessionId") || "",
+          rating: ratingOrPayload,
+          comment
+        };
+
+    return fetch(`${apiBase}/feedback/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`
       },
-      body: JSON.stringify({ rating, comment })
+      body: JSON.stringify(payload)
     });
   }
 }

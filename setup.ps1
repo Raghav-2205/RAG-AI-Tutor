@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$SkipModelWarmup,
-    [switch]$SkipAppStart
+    [switch]$SkipAppStart,
+    [switch]$SeedLmsDemo
 )
 
 $ErrorActionPreference = "Stop"
@@ -254,12 +255,25 @@ Write-Host "- MongoDB: 127.0.0.1:27017"
 Write-Host "- Chroma: 127.0.0.1:8001"
 Write-Host "- App URL: http://127.0.0.1:8002"
 
+if ($SeedLmsDemo) {
+    Write-Step "Seeding LMS demo data"
+    & $venvPython "scripts\seed_lms.py" "--reset"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to seed LMS demo data."
+    }
+
+    Write-Host "Demo credentials:" -ForegroundColor Green
+    Write-Host "- Teacher: lms.teacher@example.com / Password@123"
+    Write-Host "- Students: lms.student1@example.com ... lms.student8@example.com / Password@123"
+}
+
 if ($SkipAppStart) {
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor Green
     Write-Host "1. Edit .env and set your real GEMINI_API_KEY if needed."
     Write-Host "2. Activate the venv: $venvActivate"
-    Write-Host "3. Start the app: python run.py"
+    Write-Host "3. Optional demo seed: python scripts/seed_lms.py --reset"
+    Write-Host "4. Start the app: python run.py"
     return
 }
 

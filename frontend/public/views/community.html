@@ -1,233 +1,344 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Community - RAG AI Tutor</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
-        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
-        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
-        .nav-links { display: flex; gap: 12px; align-items: center; }
-        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); }
-        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
-
-        .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
-        h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .subtitle { color: #888; margin-bottom: 2rem; }
-
-        .tab-bar { display: flex; gap: 4px; margin-bottom: 2rem; background: rgba(30,35,62,0.6); padding: 4px; border-radius: 12px; }
-        .tab { flex: 1; text-align: center; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 600; color: #888; transition: all 0.2s; }
-        .tab.active { background: rgba(0,255,204,0.15); color: #00ffcc; }
-        .tab:hover { color: #e0e6ed; }
-
-        .section { display: none; }
-        .section.active { display: block; }
-
-        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin: 1.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-        .card { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; transition: all 0.3s; animation: fadeIn 0.4s ease-out; }
-        .card:hover { border-color: rgba(0,255,204,0.2); }
-        .card h3 { color: #e0e6ed; margin-bottom: 0.5rem; }
-        .card p { color: #b8c5d6; font-size: 0.9rem; line-height: 1.5; }
-        .card-meta { display: flex; gap: 12px; margin-top: 10px; font-size: 0.8rem; color: #888; }
-
-        .priority-urgent { border-left: 3px solid #ff4444; }
-        .priority-high { border-left: 3px solid #ffaa44; }
-        .priority-normal { border-left: 3px solid #00ffcc; }
-        .priority-low { border-left: 3px solid #6666ff; }
-
-        .category-badge { display: inline-block; background: rgba(0,255,204,0.1); color: #00ffcc; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
-
-        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
-        .btn-secondary { background: rgba(255,255,255,0.1); color: #e0e6ed; border: 1px solid rgba(255,255,255,0.2); }
-        .btn-small { font-size: 0.8rem; padding: 6px 14px; }
-
-        .post-form { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; }
-        .post-form input, .post-form textarea { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; color: #fff; margin-bottom: 10px; font-size: 0.9rem; }
-        .post-form textarea { min-height: 70px; resize: vertical; }
-
-        .reply-box { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 12px; margin-top: 10px; }
-        .reply-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .reply-item:last-child { border-bottom: none; }
-        .reply-author { color: #00ffcc; font-size: 0.85rem; font-weight: 600; }
-        .reply-content { color: #b8c5d6; font-size: 0.9rem; }
-
-        .like-btn { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #888; transition: all 0.2s; }
-        .like-btn:hover { background: rgba(255,68,100,0.1); color: #ff6688; border-color: rgba(255,68,100,0.3); }
-
-        .reply-form { display: flex; gap: 8px; margin-top: 10px; }
-        .reply-form input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px; color: #fff; }
-
-        .tag { display: inline-block; background: rgba(138,43,226,0.15); color: #d1a3ff; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem; margin-right: 4px; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Community - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <link rel="stylesheet" href="/assets/css/app-shell.css" />
+  <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="brand">🗣️ Community</div>
-        <div class="nav-links">
-            <a href="/views/subjects.html">💬 AI Chat</a>
-            <a href="/views/planner.html">📅 Planner</a>
-            <a href="/views/dashboard.html">📊 Dashboard</a>
-            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
-        </div>
+<body class="page-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item active"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
     </nav>
-
-    <div class="container">
-        <h1>Community Hub</h1>
-        <p class="subtitle">Notice board, updates & forum</p>
-
-        <div class="tab-bar">
-            <div class="tab active" onclick="switchTab('notices')">📢 Notices</div>
-            <div class="tab" onclick="switchTab('updates')">📰 Updates</div>
-            <div class="tab" onclick="switchTab('forum')">💬 Forum</div>
-        </div>
-
-        <!-- NOTICES -->
-        <div id="notices-section" class="section active">
-            <div id="noticesList"><p style="color:#888">Loading notices...</p></div>
-        </div>
-
-        <!-- UPDATES -->
-        <div id="updates-section" class="section">
-            <div id="updatesList"><p style="color:#888">Loading updates...</p></div>
-        </div>
-
-        <!-- FORUM -->
-        <div id="forum-section" class="section">
-            <div class="post-form">
-                <h3 style="color:#00ffcc;margin-bottom:10px;">New Discussion</h3>
-                <input id="forumTitle" placeholder="Discussion title" />
-                <textarea id="forumContent" placeholder="Share your thoughts..."></textarea>
-                <input id="forumTags" placeholder="Tags (comma-separated)" />
-                <button class="btn" onclick="createForumPost()">Post</button>
-            </div>
-            <div id="forumList"><p style="color:#888">Loading forum...</p></div>
-        </div>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+      <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
     </div>
+  </aside>
 
-    <script src="/assets/js/config.js?v=7"></script>
-    <script>
-        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-        const TOKEN = localStorage.getItem('token');
-        const USER = JSON.parse(localStorage.getItem('user') || '{}');
-        const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
-        if (!TOKEN) window.location.href = '/views/login.html';
+  <main class="main">
+    <div class="container community-page">
+      <div class="page-header community-page-header">
+        <div>
+          <div class="community-page-eyebrow"><i class="fa-solid fa-users" aria-hidden="true"></i> Campus feed</div>
+          <h1><i class="fa-regular fa-comments" aria-hidden="true"></i> Community Hub</h1>
+          <p>Browse notices, campus updates, and learner discussions inside the same dashboard-grade shell.</p>
+        </div>
+        <div class="community-header-actions">
+          <a href="/views/dashboard.html" class="btn btn-secondary"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard</a>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+      </div>
 
-        function switchTab(name) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            document.getElementById(`${name}-section`).classList.add('active');
-        }
+      <section class="card community-hero-card">
+        <div class="community-hero-copy">
+          <div class="community-kicker">Shared learning space</div>
+          <h2>Keep up with class communication, school-wide updates, and peer discussion without leaving your study flow.</h2>
+        </div>
+        <div class="community-stat-strip">
+          <div class="community-stat-card"><span class="community-stat-label">Notices</span><strong id="noticeCount">0</strong></div>
+          <div class="community-stat-card"><span class="community-stat-label">Updates</span><strong id="updateCount">0</strong></div>
+          <div class="community-stat-card"><span class="community-stat-label">Discussions</span><strong id="forumCount">0</strong></div>
+        </div>
+      </section>
 
-        async function loadNotices() {
-            try {
-                const res = await fetch(`${API}/comm/notices`, { headers });
-                const notices = await res.json();
-                const html = notices.map(n => `<div class="card priority-${n.priority || 'normal'}">
-                    <h3>${n.title}</h3>
-                    <p>${n.content}</p>
-                    <div class="card-meta">
-                        <span>By ${n.author_name || 'Admin'}</span>
-                        <span>${n.author_role || ''}</span>
-                        <span>${new Date(n.created_at).toLocaleDateString()}</span>
-                        <span class="category-badge">${n.priority || 'normal'}</span>
-                    </div>
-                </div>`).join('');
-                document.getElementById('noticesList').innerHTML = html || '<p style="color:#888;text-align:center;">No notices posted yet.</p>';
-            } catch (err) { console.error(err); }
-        }
+      <div class="community-tabbar" role="tablist" aria-label="Community sections">
+        <button class="community-tab-btn active" data-tab="notices" onclick="switchTab('notices')"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Notices</button>
+        <button class="community-tab-btn" data-tab="updates" onclick="switchTab('updates')"><i class="fa-regular fa-newspaper" aria-hidden="true"></i> Updates</button>
+        <button class="community-tab-btn" data-tab="forum" onclick="switchTab('forum')"><i class="fa-regular fa-comments" aria-hidden="true"></i> Forum</button>
+      </div>
 
-        async function loadUpdates() {
-            try {
-                const res = await fetch(`${API}/comm/updates`, { headers });
-                const updates = await res.json();
-                const html = updates.map(u => `<div class="card">
-                    <h3>${u.title}</h3>
-                    <p>${u.content}</p>
-                    <div class="card-meta">
-                        <span>By ${u.author_name || 'System'}</span>
-                        <span>${new Date(u.created_at).toLocaleDateString()}</span>
-                        <span class="category-badge">${u.category}</span>
-                    </div>
-                </div>`).join('');
-                document.getElementById('updatesList').innerHTML = html || '<p style="color:#888;text-align:center;">No updates posted.</p>';
-            } catch (err) { console.error(err); }
-        }
+      <section class="community-section active" id="notices-section">
+        <div class="community-feed" id="noticesList">
+          <div class="evaluation-empty-state">Loading notices...</div>
+        </div>
+      </section>
 
-        async function loadForum() {
-            try {
-                const res = await fetch(`${API}/comm/forum/posts`, { headers });
-                const posts = await res.json();
-                const html = posts.map(p => {
-                    const tags = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
-                    const replies = (p.replies || []).map(r => `<div class="reply-item">
-                        <div class="reply-author">${r.author_name || 'Anonymous'} <span style="color:#888;font-weight:400">(${r.author_role || ''})</span></div>
-                        <div class="reply-content">${r.content}</div>
-                    </div>`).join('');
+      <section class="community-section" id="updates-section">
+        <div class="community-feed" id="updatesList">
+          <div class="evaluation-empty-state">Loading updates...</div>
+        </div>
+      </section>
 
-                    return `<div class="card">
-                        <h3>${p.title}</h3>
-                        <p>${p.content}</p>
-                        <div class="card-meta">
-                            <span>${p.author_name || 'Anonymous'} (${p.author_role || ''})</span>
-                            <span>${new Date(p.created_at).toLocaleDateString()}</span>
-                            <span class="like-btn" onclick="likePost('${p.post_id}')">❤️ ${p.likes || 0}</span>
-                            ${tags}
-                        </div>
-                        ${replies ? `<div class="reply-box"><div class="section-title">Replies</div>${replies}</div>` : ''}
-                        <div class="reply-form">
-                            <input id="reply-${p.post_id}" placeholder="Write a reply..." />
-                            <button class="btn btn-small" onclick="replyToPost('${p.post_id}')">Reply</button>
-                        </div>
-                    </div>`;
-                }).join('');
-                document.getElementById('forumList').innerHTML = html || '<p style="color:#888;text-align:center;">No discussions yet. Start one above!</p>';
-            } catch (err) { console.error(err); }
-        }
+      <section class="community-section" id="forum-section">
+        <div class="bento-grid">
+          <section class="card col-span-4 community-compose-card">
+            <div class="card-header">
+              <h3 class="card-title"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Start a Discussion</h3>
+              <span class="card-badge">Forum</span>
+            </div>
+            <div class="community-compose-grid">
+              <label class="profile-field"><span class="profile-field-label">Discussion title</span><input id="forumTitle" class="theme-input" placeholder="What do you want to discuss?" /></label>
+              <label class="profile-field"><span class="profile-field-label">Message</span><textarea id="forumContent" class="theme-input community-textarea" placeholder="Share your thoughts, question, or tip."></textarea></label>
+              <label class="profile-field"><span class="profile-field-label">Tags</span><input id="forumTags" class="theme-input" placeholder="exam prep, project, notes" /></label>
+              <button class="btn btn-primary" onclick="createForumPost()"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Publish Post</button>
+            </div>
+          </section>
+          <section class="card col-span-8">
+            <div class="card-header">
+              <h3 class="card-title"><i class="fa-solid fa-users-viewfinder" aria-hidden="true"></i> Current Discussions</h3>
+              <span class="card-badge" id="forumBadge">0 posts</span>
+            </div>
+            <div class="community-feed" id="forumList">
+              <div class="evaluation-empty-state">Loading forum discussions...</div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
 
-        async function createForumPost() {
-            const title = document.getElementById('forumTitle').value;
-            const content = document.getElementById('forumContent').value;
-            const tags = document.getElementById('forumTags').value.split(',').map(t => t.trim()).filter(Boolean);
-            if (!title || !content) { alert('Title and content required'); return; }
+  <script>
+    const API = window.config?.apiBase || '/api';
+    const TOKEN = window.auth?.token || localStorage.getItem('token');
+    if (!TOKEN) window.location.href = '/views/login.html';
 
-            await fetch(`${API}/comm/forum/posts`, {
-                method: 'POST', headers,
-                body: JSON.stringify({ title, content, tags })
-            });
-            document.getElementById('forumTitle').value = '';
-            document.getElementById('forumContent').value = '';
-            document.getElementById('forumTags').value = '';
-            loadForum();
-        }
+    const $ = (id) => document.getElementById(id);
+    const headers = (json = true) => json
+      ? { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+      : { Authorization: `Bearer ${TOKEN}` };
 
-        async function replyToPost(postId) {
-            const content = document.getElementById(`reply-${postId}`).value;
-            if (!content) return;
-            await fetch(`${API}/comm/forum/reply`, {
-                method: 'POST', headers,
-                body: JSON.stringify({ post_id: postId, content })
-            });
-            document.getElementById(`reply-${postId}`).value = '';
-            loadForum();
-        }
+    function logoutUser() {
+      if (window.auth?.logout) return window.auth.logout();
+      localStorage.clear();
+      window.location.href = '/views/login.html';
+    }
 
-        async function likePost(postId) {
-            await fetch(`${API}/comm/forum/posts/${postId}/like`, { method: 'POST', headers });
-            loadForum();
-        }
+    function updateUserShell() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const name = user.name || user.email || 'Student';
+      const role = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      $('userName').textContent = name;
+      $('userLevel').textContent = role;
+      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'S';
+    }
 
-        // Load all tabs
-        loadNotices();
-        loadUpdates();
-        loadForum();
-    </script>
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizePayload(payload) {
+      if (Array.isArray(payload)) return payload;
+      if (payload && typeof payload === 'object' && Array.isArray(payload.data)) return payload.data;
+      return [];
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'Unknown date';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function priorityLabel(priority) {
+      const normalized = String(priority || 'normal').toLowerCase();
+      return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.community-tab-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === name));
+      document.querySelectorAll('.community-section').forEach((section) => section.classList.toggle('active', section.id === `${name}-section`));
+    }
+
+    async function apiGet(path) {
+      const res = await fetch(`${API}${path}`, { headers: headers(false) });
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/views/login.html';
+        return [];
+      }
+      if (!res.ok) throw new Error(`Request failed: ${path}`);
+      return res.json();
+    }
+
+    function renderEmpty(targetId, message) {
+      $(targetId).innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+    }
+
+    function renderNotices(notices) {
+      $('noticeCount').textContent = String(notices.length);
+      if (!notices.length) return renderEmpty('noticesList', 'No notices posted yet.');
+      $('noticesList').innerHTML = notices.map((notice) => `
+        <article class="community-feed-card priority-${escapeHtml(String(notice.priority || 'normal').toLowerCase())}">
+          <div class="community-feed-head">
+            <div>
+              <h3>${escapeHtml(notice.title || 'Untitled notice')}</h3>
+              <div class="community-meta">
+                <span><i class="fa-regular fa-user" aria-hidden="true"></i> ${escapeHtml(notice.author_name || 'Admin')}</span>
+                <span><i class="fa-regular fa-clock" aria-hidden="true"></i> ${escapeHtml(formatDateTime(notice.created_at))}</span>
+              </div>
+            </div>
+            <span class="evaluation-status-pill tone-${notice.priority === 'urgent' || notice.priority === 'high' ? 'bad' : notice.priority === 'low' ? 'good' : 'warn'}">${escapeHtml(priorityLabel(notice.priority))}</span>
+          </div>
+          <p>${escapeHtml(notice.content || '')}</p>
+          <div class="community-tag-row">${(Array.isArray(notice.target_roles) ? notice.target_roles : []).map((role) => `<span class="community-tag">${escapeHtml(role)}</span>`).join('')}</div>
+        </article>
+      `).join('');
+    }
+
+    function renderUpdates(updates) {
+      $('updateCount').textContent = String(updates.length);
+      if (!updates.length) return renderEmpty('updatesList', 'No campus updates available right now.');
+      $('updatesList').innerHTML = updates.map((update) => `
+        <article class="community-feed-card">
+          <div class="community-feed-head">
+            <div>
+              <h3>${escapeHtml(update.title || 'Untitled update')}</h3>
+              <div class="community-meta">
+                <span><i class="fa-regular fa-user" aria-hidden="true"></i> ${escapeHtml(update.author_name || 'System')}</span>
+                <span><i class="fa-regular fa-clock" aria-hidden="true"></i> ${escapeHtml(formatDateTime(update.created_at))}</span>
+              </div>
+            </div>
+            <span class="community-tag">${escapeHtml(String(update.category || 'general').replace(/_/g, ' '))}</span>
+          </div>
+          <p>${escapeHtml(update.content || '')}</p>
+        </article>
+      `).join('');
+    }
+
+    function renderForum(posts) {
+      $('forumCount').textContent = String(posts.length);
+      $('forumBadge').textContent = `${posts.length} post${posts.length === 1 ? '' : 's'}`;
+      if (!posts.length) return renderEmpty('forumList', 'No discussions yet. Start the first one.');
+
+      $('forumList').innerHTML = posts.map((post) => {
+        const tags = (Array.isArray(post.tags) ? post.tags : []).map((tag) => `<span class="community-tag">${escapeHtml(tag)}</span>`).join('');
+        const replies = (Array.isArray(post.replies) ? post.replies : []).map((reply) => `
+          <div class="community-reply">
+            <div class="community-reply-head">
+              <strong>${escapeHtml(reply.author_name || 'Anonymous')}</strong>
+              <span>${escapeHtml(String(reply.author_role || 'Student'))}</span>
+              <span>${escapeHtml(formatDateTime(reply.created_at))}</span>
+            </div>
+            <div>${escapeHtml(reply.content || '')}</div>
+          </div>
+        `).join('');
+        return `
+          <article class="community-feed-card forum">
+            <div class="community-feed-head">
+              <div>
+                <h3>${escapeHtml(post.title || 'Untitled discussion')}</h3>
+                <div class="community-meta">
+                  <span><i class="fa-regular fa-user" aria-hidden="true"></i> ${escapeHtml(post.author_name || 'Anonymous')}</span>
+                  <span><i class="fa-regular fa-clock" aria-hidden="true"></i> ${escapeHtml(formatDateTime(post.created_at))}</span>
+                </div>
+              </div>
+              <button class="btn btn-secondary btn-like" onclick="likePost('${escapeHtml(post.post_id || '')}')"><i class="fa-regular fa-heart" aria-hidden="true"></i> ${Number(post.likes) || 0}</button>
+            </div>
+            <p>${escapeHtml(post.content || '')}</p>
+            <div class="community-tag-row">${tags}</div>
+            ${replies ? `<div class="community-replies"><div class="community-block-title">Replies</div>${replies}</div>` : ''}
+            <div class="community-reply-form">
+              <input id="reply-${escapeHtml(post.post_id || '')}" class="theme-input" placeholder="Reply to this discussion" />
+              <button class="btn btn-primary" onclick="replyToPost('${escapeHtml(post.post_id || '')}')">Reply</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadNotices() {
+      try {
+        renderNotices(normalizePayload(await apiGet('/comm/notices')));
+      } catch (error) {
+        console.error(error);
+        renderEmpty('noticesList', 'Unable to load notices right now.');
+      }
+    }
+
+    async function loadUpdates() {
+      try {
+        renderUpdates(normalizePayload(await apiGet('/comm/updates')));
+      } catch (error) {
+        console.error(error);
+        renderEmpty('updatesList', 'Unable to load updates right now.');
+      }
+    }
+
+    async function loadForum() {
+      try {
+        renderForum(normalizePayload(await apiGet('/comm/forum/posts')));
+      } catch (error) {
+        console.error(error);
+        renderEmpty('forumList', 'Unable to load forum discussions right now.');
+      }
+    }
+
+    async function createForumPost() {
+      const title = $('forumTitle').value.trim();
+      const content = $('forumContent').value.trim();
+      const tags = $('forumTags').value.split(',').map((tag) => tag.trim()).filter(Boolean);
+      if (!title || !content) {
+        window.alert('Please add both a title and a message before posting.');
+        return;
+      }
+      const res = await fetch(`${API}/comm/forum/posts`, { method: 'POST', headers: headers(), body: JSON.stringify({ title, content, tags }) });
+      if (!res.ok) {
+        window.alert('Unable to publish the discussion right now.');
+        return;
+      }
+      $('forumTitle').value = '';
+      $('forumContent').value = '';
+      $('forumTags').value = '';
+      loadForum();
+    }
+
+    async function replyToPost(postId) {
+      const input = $(`reply-${postId}`);
+      const content = input.value.trim();
+      if (!content) return;
+      const res = await fetch(`${API}/comm/forum/reply`, { method: 'POST', headers: headers(), body: JSON.stringify({ post_id: postId, content }) });
+      if (!res.ok) {
+        window.alert('Unable to send the reply right now.');
+        return;
+      }
+      input.value = '';
+      loadForum();
+    }
+
+    async function likePost(postId) {
+      const res = await fetch(`${API}/comm/forum/posts/${postId}/like`, { method: 'POST', headers: headers(false) });
+      if (!res.ok) return;
+      loadForum();
+    }
+
+    updateUserShell();
+    switchTab('notices');
+    loadNotices();
+    loadUpdates();
+    loadForum();
+  </script>
 </body>
 </html>
+

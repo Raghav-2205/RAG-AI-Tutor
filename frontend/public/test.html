@@ -45,7 +45,7 @@
         }
         
         // Test API root
-        const apiResponse = await fetch('http://127.0.0.1:8000/api/');
+        const apiResponse = await fetch('http://127.0.0.1:8002/api/');
         if (apiResponse.ok) {
           const apiData = await apiResponse.json();
           addResult(`✅ API root accessible: ${apiData.message}`, 'success');
@@ -83,7 +83,7 @@
       
       try {
         // Test registration endpoint (should return validation error)
-        const response = await fetch('http://127.0.0.1:8000/api/auth/register', {
+        const response = await fetch('http://127.0.0.1:8002/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

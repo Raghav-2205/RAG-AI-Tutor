@@ -25,8 +25,8 @@ async def get_calendar_events(
         # Default to a 30-day range if not specified
         if not start_date:
             start_date = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
-        
-        events = await get_unified_calendar(db, current_user["id"], start_date, end_date)
+
+        events = await get_unified_calendar(db, str(current_user["_id"]), start_date, end_date)
         return events
     except Exception as e:
         print(f"Calendar Error: {e}")
@@ -41,13 +41,16 @@ async def create_calendar_event(
     """
     Create a custom calendar event (Admin/Teacher only for class-wide, Student for personal).
     """
-    if current_user["role"] not in ["Admin", "Teacher"] and "class_id" in event_data:
+    user_role = current_user.get("role", "Student")
+    user_id = str(current_user["_id"])
+
+    if user_role not in ["Admin", "Teacher"] and event_data.get("class_id"):
         raise HTTPException(status_code=403, detail="Students cannot create class-wide events")
-    
+
     event_id = _make_id()
     doc = {
         "id": event_id,
-        "user_id": current_user["id"] if "class_id" not in event_data else None,
+        "user_id": user_id if not event_data.get("class_id") else None,
         "class_id": event_data.get("class_id"),
         "title": event_data["title"],
         "start": event_data["start"],

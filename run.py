@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 import sys
 import warnings
 from pathlib import Path
@@ -57,20 +58,52 @@ def _load_env_file(env_path: Path) -> None:
         os.environ[key] = value
 
 
+def _ensure_email_validator() -> None:
+    """Install the optional Pydantic email dependency if it is missing."""
+    try:
+        import email_validator  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    package_name = "email-validator"
+    install_cmd = [sys.executable, "-m", "pip", "install", package_name]
+
+    print("Missing dependency detected: email-validator")
+    print("Installing it automatically so EmailStr-based models can load...")
+
+    try:
+        subprocess.run(install_cmd, check=True)
+        import email_validator  # noqa: F401
+        print("Dependency installed successfully.")
+    except Exception as exc:
+        print("\nCritical dependency install error: email-validator could not be installed automatically.")
+        print(f"Installer command: {' '.join(install_cmd)}")
+        print(f"Underlying error: {exc}")
+        print("Manual fallback:")
+        print(f"  {' '.join(install_cmd)}")
+        print("Note: package-index/network access may be required in this environment.")
+        raise SystemExit(1) from exc
+
+
 if __name__ == "__main__":
     _configure_console()
 
     current_dir = Path(__file__).resolve().parent
     sys.path.append(str(current_dir))
     _load_env_file(current_dir / ".env")
+    _ensure_email_validator()
 
     host = os.getenv("API_HOST", "127.0.0.1")
-    port = int(os.getenv("RUN_PORT", "8002"))
+    port_raw = os.getenv("RUN_PORT", "8003")
+    port = int(port_raw)
+    port_source = "RUN_PORT override" if "RUN_PORT" in os.environ else "default"
 
     print("------------------------------------------------")
     print("Initializing RAG AI Tutor Server...")
     print(f"Project Root: {current_dir}")
     print(f"Server URL: http://{host}:{port}")
+    print(f"Port Source: {port_source} ({port_raw})")
     print("------------------------------------------------")
 
     try:

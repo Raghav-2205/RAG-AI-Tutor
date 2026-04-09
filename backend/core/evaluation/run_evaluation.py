@@ -18,6 +18,36 @@ logger = logging.getLogger(__name__)
 BENCHMARK_DATASET_PATH = Path(__file__).parent / "benchmark_dataset.json"
 
 
+def _normalize_text(value: str) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def _resolve_gold_chunk_ids(sample: Dict[str, Any], chunks: List[Dict[str, Any]]) -> List[str]:
+    source = str(sample.get("gold_chunk_source") or "").strip()
+    contains = _normalize_text(sample.get("gold_chunk_contains") or "")
+    explicit_ids = sample.get("gold_chunk_ids") or []
+    if not explicit_ids and sample.get("gold_chunk_id"):
+        explicit_ids = [sample["gold_chunk_id"]]
+
+    matches: List[str] = []
+    for chunk in chunks:
+        metadata = chunk.get("metadata") or {}
+        chunk_source = str(metadata.get("source") or "")
+        chunk_text = _normalize_text(chunk.get("text") or "")
+        evaluation_id = str(metadata.get("chunk_id") or chunk.get("chunk_id") or chunk.get("id") or "")
+        if not evaluation_id:
+            continue
+        if source and chunk_source != source:
+            continue
+        if contains and contains not in chunk_text:
+            continue
+        matches.append(evaluation_id)
+
+    if matches:
+        return matches
+    return [str(item) for item in explicit_ids if item]
+
+
 async def run_benchmark(db) -> Dict[str, Any]:
     """
     Execute full benchmark evaluation:
@@ -28,6 +58,7 @@ async def run_benchmark(db) -> Dict[str, Any]:
     """
     from backend.rag_tutor import answer_query_with_rag
     from backend.core.evaluation.validator import ValidationEngine
+    from backend.vector_db import get_all_chunks
 
     logger.info("🚀 Starting benchmark evaluation run...")
 
@@ -42,11 +73,11 @@ async def run_benchmark(db) -> Dict[str, Any]:
     validator = ValidationEngine(db)
     results = []
     user_id = "benchmark_runner"
+    benchmark_chunks = get_all_chunks("global", "general")
 
     for i, sample in enumerate(samples):
         question = sample["question"]
         gold_answer = sample.get("gold_answer", "")
-        gold_chunk_id = sample.get("gold_chunk_id", "")
         subject = sample.get("subject", "general")
 
         logger.info(f"📝 [{i+1}/{len(samples)}] Evaluating: {question}")
@@ -66,7 +97,7 @@ async def run_benchmark(db) -> Dict[str, Any]:
             chunks = rag_result.get("chunks", [])
 
             # Step 2: Validate with gold labels
-            gold_ids = [gold_chunk_id] if gold_chunk_id else []
+            gold_ids = _resolve_gold_chunk_ids(sample, benchmark_chunks)
 
             validation = await validator.validate_with_gold(
                 question=question,
@@ -132,6 +163,8 @@ async def run_benchmark(db) -> Dict[str, Any]:
         "avg_citation_alignment": avg("citation_alignment"),
         "avg_answer_relevance": avg("answer_relevance"),
         "avg_recall_at_5": avg("recall_at_5"),
+        "avg_precision_at_5": avg("precision_at_5"),
+        "avg_mrr": avg("mrr"),
         "avg_final_rag_score": avg("final_rag_score"),
         "verified_count": sum(1 for r in completed if r.get("validation_status") == "VERIFIED"),
         "warning_count": sum(1 for r in completed if r.get("validation_status") == "WARNING"),

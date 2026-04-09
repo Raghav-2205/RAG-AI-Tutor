@@ -1,578 +1,684 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz — RAG AI Tutor</title>
-    <meta name="description" content="LMS Quiz Interface — take timed MCQ tests with auto-submit.">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="/assets/js/config.js?v=8"></script>
-    <style>
-        :root {
-            --bg: #07091e;
-            --bg2: #0d112d;
-            --card: #121630;
-            --card2: #1a1f3a;
-            --accent: #00ffcc;
-            --accent2: #00d4ff;
-            --warn: #f59e0b;
-            --danger: #ef4444;
-            --success: #10b981;
-            --text: #f0f4ff;
-            --muted: #8b9cb8;
-            --border: rgba(0,255,204,0.18);
-            --border-dim: rgba(0,255,204,0.07);
-            --radius: 16px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Space Grotesk', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        /* Navbar */
-        .topbar {
-            height: 65px;
-            background: rgba(13,17,45,0.96);
-            border-bottom: 1px solid var(--border-dim);
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 28px;
-            backdrop-filter: blur(12px);
-            position: sticky; top: 0; z-index: 100;
-        }
-        .brand { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
-        .timer-display {
-            font-size: 1.3rem; font-weight: 700; font-family: monospace;
-            color: var(--accent);
-            background: rgba(0,255,204,0.08);
-            border: 1px solid var(--border);
-            padding: 6px 18px; border-radius: 8px;
-            transition: color 0.3s, border-color 0.3s;
-        }
-        .timer-display.warning { color: var(--warn); border-color: rgba(245,158,11,0.4); }
-        .timer-display.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
-
-        /* Main layout */
-        .container { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
-
-        /* Loading / states */
-        .state-screen {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 60vh; text-align: center; gap: 20px;
-        }
-        .state-icon { font-size: 64px; display: block; }
-
-        /* Quiz card */
-        .quiz-header {
-            background: var(--card);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius);
-            padding: 24px 28px;
-            margin-bottom: 24px;
-        }
-        .quiz-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-        .quiz-meta { color: var(--muted); font-size: 13px; display: flex; gap: 16px; flex-wrap: wrap; }
-        .quiz-meta span { display: flex; align-items: center; gap: 6px; }
-
-        /* Progress bar */
-        .progress-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 999px; height: 6px; margin-top: 20px; }
-        .progress-bar { background: linear-gradient(90deg, var(--accent), var(--accent2)); height: 100%; border-radius: 999px; transition: width 0.4s ease; }
-
-        /* Question card */
-        .question-card {
-            background: var(--card);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius);
-            padding: 28px;
-            margin-bottom: 16px;
-            animation: fadeSlide 0.3s ease;
-        }
-        @keyframes fadeSlide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .question-number { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-        .question-text { font-size: 16px; font-weight: 500; line-height: 1.6; margin-bottom: 20px; }
-
-        /* Options */
-        .options-grid { display: flex; flex-direction: column; gap: 10px; }
-        .option-btn {
-            width: 100%; text-align: left;
-            padding: 14px 18px;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            background: rgba(255,255,255,0.03);
-            color: var(--text);
-            font-size: 14px; font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex; align-items: center; gap: 12px;
-            font-family: inherit;
-        }
-        .option-btn:hover:not(:disabled) {
-            border-color: var(--accent);
-            background: rgba(0,255,204,0.08);
-        }
-        .option-btn.selected {
-            border-color: var(--accent);
-            background: rgba(0,255,204,0.12);
-            color: var(--accent);
-        }
-        .option-btn:disabled { cursor: default; }
-        .option-label {
-            width: 28px; height: 28px; border-radius: 50%;
-            background: rgba(255,255,255,0.06);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: 700; flex-shrink: 0;
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.2s;
-        }
-        .option-btn.selected .option-label {
-            background: var(--accent);
-            color: var(--bg);
-            border-color: var(--accent);
-        }
-
-        /* Navigation */
-        .nav-btns { display: flex; gap: 12px; justify-content: space-between; margin-top: 24px; }
-        .btn {
-            padding: 11px 24px; border-radius: 10px; border: none; cursor: pointer;
-            font-weight: 600; font-size: 14px; transition: all 0.2s; font-family: inherit;
-        }
-        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #07091e; }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,255,204,0.3); }
-        .btn-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.12); }
-        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
-        .btn-danger { background: var(--danger); color: #fff; }
-
-        /* Question navigator dots */
-        .q-dots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 20px; }
-        .q-dot {
-            width: 30px; height: 30px; border-radius: 6px;
-            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-            color: var(--muted); font-size: 11px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .q-dot:hover { border-color: var(--accent); color: var(--accent); }
-        .q-dot.answered { background: rgba(0,255,204,0.15); border-color: var(--accent); color: var(--accent); }
-        .q-dot.current { border-color: var(--accent2); color: var(--accent2); background: rgba(0,212,255,0.1); }
-
-        /* Results */
-        .results-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 36px 32px;
-            text-align: center;
-        }
-        .score-circle {
-            width: 140px; height: 140px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; flex-direction: column;
-            margin: 0 auto 24px;
-            border: 4px solid var(--accent);
-        }
-        .score-big { font-size: 36px; font-weight: 700; color: var(--accent); }
-        .score-label { font-size: 12px; color: var(--muted); }
-        .result-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 28px 0; }
-        .result-stat { background: var(--card2); border-radius: 12px; padding: 16px; }
-        .result-stat-val { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
-        .result-stat-label { font-size: 12px; color: var(--muted); }
-
-        /* Review mode */
-        .review-option {
-            padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
-            border: 1px solid transparent;
-            display: flex; align-items: center; gap: 12px; font-size: 14px;
-        }
-        .review-option.user-choice { border-color: rgba(0,255,204,0.3); background: rgba(0,255,204,0.06); }
-        .review-option.correct { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.1); color: #10b981; }
-        .review-option.wrong-choice { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); color: var(--danger); }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Quiz - RAG AI Tutor</title>
+  <meta name="description" content="Dashboard-aligned LMS quiz experience with timed questions and review states.">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="/assets/js/config.js?v=11"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css">
+  <link rel="stylesheet" href="/assets/css/app-shell.css">
+  <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
 
-<nav class="topbar">
-    <div class="brand">🧠 RAG AI Tutor — Quiz</div>
-    <div id="timerWrap" style="display:none;">
-        <div class="timer-display" id="timerDisplay">--:--</div>
-    </div>
-    <a href="/views/student_lms.html" style="color:var(--muted);text-decoration:none;font-size:0.9rem;">← Back to Classes</a>
-</nav>
-
-<div class="container">
-    <!-- Loading State -->
-    <div class="state-screen" id="loadingState">
-        <span class="state-icon">⏳</span>
-        <p style="color:var(--muted);">Loading quiz...</p>
+<body class="page-layout lms-quiz-page">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+      <span>RAG AI Tutor</span>
     </div>
 
-    <!-- Error State -->
-    <div class="state-screen" id="errorState" style="display:none;">
-        <span class="state-icon">❌</span>
-        <h2 id="errorMsg" style="color:var(--danger);">Quiz not found</h2>
-        <a href="/views/student_lms.html" class="btn btn-secondary">← Go Back</a>
-    </div>
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item">
+        <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+        Dashboard
+      </a>
+      <a id="navClassesLink" href="/views/lms.html?allow_student=1&page=classes&tab=quizzes" class="nav-item active">
+        <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>
+        My Classes
+      </a>
+      <a href="/views/subjects.html" class="nav-item">
+        <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
+        AI Tutor Chat
+      </a>
+      <a href="/views/planner.html" class="nav-item">
+        <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
+        Planner
+      </a>
+      <a href="/views/tracking.html" class="nav-item">
+        <span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>
+        Activity Tracking
+      </a>
+      <a href="/views/community.html" class="nav-item">
+        <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+        Community
+      </a>
+    </nav>
 
-    <!-- Start State -->
-    <div id="startState" style="display:none;">
-        <div class="quiz-header">
-            <div class="quiz-title" id="startTitle"></div>
-            <div class="quiz-meta" id="startMeta"></div>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item">
+        <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
+        Analytics
+      </a>
+      <a href="/views/evaluation.html" class="nav-item">
+        <span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>
+        Evaluation
+      </a>
+      <a href="/views/progress.html" class="nav-item">
+        <span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>
+        Progress Report
+      </a>
+    </nav>
+
+    <nav class="nav-section">
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item">
+        <span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>
+        Profile & Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="avatar" id="userAvatar">?</div>
+        <div>
+          <div class="user-name" id="userName">Loading...</div>
+          <div class="user-level" id="userLevel">Learner</div>
         </div>
-        <div style="background:var(--card);border:1px solid var(--border-dim);border-radius:var(--radius);padding:28px;text-align:center;">
-            <p style="color:var(--muted);margin-bottom:24px;font-size:15px;">Read each question carefully. You can navigate between questions before submitting.</p>
-            <button class="btn btn-primary" style="font-size:16px;padding:14px 40px;" onclick="startQuiz()">🚀 Start Quiz</button>
-        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
+          <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>
+          Logout
+        </a>
+      </div>
     </div>
+  </aside>
 
-    <!-- Quiz State -->
-    <div id="quizState" style="display:none;">
-        <div class="quiz-header">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-                <div class="quiz-title" id="quizTitle"></div>
+  <main class="main-content">
+    <div class="page-container quiz-page-shell">
+      <div class="page-header lms-page-header">
+        <div class="lms-page-heading">
+          <div class="lms-page-eyebrow"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> Quiz workspace</div>
+          <h1 id="quizPageTitle"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> Quiz Session</h1>
+          <p id="quizPageSubtitle">A focused, readable quiz layout built on the same shell and spacing system as the dashboard.</p>
+        </div>
+        <div class="lms-page-toolbar">
+          <a id="backToClassLink" class="btn btn-secondary" href="/views/lms.html?allow_student=1&page=classes&tab=quizzes">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to LMS
+          </a>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+            <i class="fa-solid fa-moon" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="quizNotice" class="quiz-notice-stack"></div>
+
+      <div class="quiz-state-card state-screen" id="loadingState">
+        <span class="state-icon"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+        <h2>Loading quiz</h2>
+        <p>Fetching the questions, timing rules, and attempt details.</p>
+      </div>
+
+      <div class="quiz-state-card state-screen" id="errorState" style="display:none;">
+        <span class="state-icon"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>
+        <h2 id="errorMsg">Quiz not found</h2>
+        <p id="errorHelp">We could not load this quiz right now.</p>
+        <a id="errorBackLink" href="/views/lms.html?allow_student=1&page=classes&tab=quizzes" class="btn btn-secondary">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Return to LMS
+        </a>
+      </div>
+
+      <div id="startState" style="display:none;">
+        <div class="bento-grid">
+          <section class="card col-span-8 quiz-intro-card">
+            <div class="quiz-intro-head">
+              <div>
+                <div class="lms-section-kicker">Ready to begin</div>
+                <h2 id="startTitle">Quiz</h2>
+              </div>
+              <span class="lms-feed-count" id="attemptCountBadge">Attempt 1</span>
             </div>
-            <div class="quiz-meta" id="quizMeta"></div>
+            <p class="quiz-intro-copy">Read each question carefully. You can move between questions before submitting, and your progress stays visible in the sidebar.</p>
+            <div class="quiz-chip-row" id="startMeta"></div>
+            <div class="quiz-start-actions">
+              <button class="btn btn-primary" id="startQuizBtn" onclick="startQuiz()">
+                <i class="fa-solid fa-play" aria-hidden="true"></i> Start Quiz
+              </button>
+            </div>
+          </section>
+
+          <aside class="card col-span-4 quiz-summary-card">
+            <div class="lms-section-kicker">Overview</div>
+            <div class="quiz-summary-list" id="quizStartFacts"></div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="quizState" style="display:none;">
+        <div class="bento-grid quiz-session-grid">
+          <section class="card col-span-8 quiz-main-card">
+            <div class="quiz-session-head">
+              <div>
+                <div class="lms-section-kicker">In progress</div>
+                <h2 id="quizTitle">Quiz</h2>
+                <p id="quizMeta" class="quiz-session-meta"></p>
+              </div>
+              <div class="quiz-progress-card">
+                <span>Answered</span>
+                <strong id="answeredCount">0 / 0</strong>
+              </div>
+            </div>
+
             <div class="progress-bar-wrap">
-                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+              <div class="progress-bar" id="progressBar" style="width:0%"></div>
             </div>
-            <div class="q-dots" id="questionDots"></div>
-        </div>
 
-        <div id="questionArea"></div>
+            <div id="questionArea"></div>
 
-        <div class="nav-btns">
-            <button class="btn btn-secondary" id="prevBtn" onclick="goQuestion(currentQ - 1)">← Prev</button>
-            <div style="display:flex;gap:10px;">
-                <button class="btn btn-danger" onclick="confirmSubmit()" id="submitBtn">Submit Quiz</button>
+            <div class="quiz-nav">
+              <button class="btn btn-secondary" id="prevBtn" onclick="goQuestion(currentQ - 1)">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Previous
+              </button>
+              <button class="btn btn-danger" id="submitBtn" onclick="confirmSubmit()">
+                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit Quiz
+              </button>
+              <button class="btn btn-secondary" id="nextBtn" onclick="goQuestion(currentQ + 1)">
+                Next <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+              </button>
             </div>
-            <button class="btn btn-secondary" id="nextBtn" onclick="goQuestion(currentQ + 1)">Next →</button>
-        </div>
-    </div>
+          </section>
 
-    <!-- Results State -->
-    <div id="resultsState" style="display:none;">
-        <div class="results-card">
-            <div class="score-circle" id="scoreCircle">
-                <div class="score-big" id="scorePct"></div>
+          <aside class="card col-span-4 quiz-side-card">
+            <div id="timerWrap" class="quiz-timer-card" style="display:none;">
+              <div class="lms-section-kicker">Time remaining</div>
+              <div class="timer-display" id="timerDisplay">00:00</div>
+              <p>Auto-submit will happen when the timer reaches zero.</p>
+            </div>
+
+            <div class="quiz-side-card-block">
+              <div class="lms-section-kicker">Question map</div>
+              <div class="q-dots" id="questionDots"></div>
+            </div>
+
+            <div class="quiz-side-card-block">
+              <div class="lms-section-kicker">Status</div>
+              <div class="quiz-summary-list" id="liveQuizFacts"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="resultsState" style="display:none;">
+        <div class="bento-grid">
+          <section class="card col-span-8 results-card">
+            <div class="results-head">
+              <div>
+                <div class="lms-section-kicker">Submitted</div>
+                <h2 id="resultTitle">Quiz complete</h2>
+                <p id="resultMsg"></p>
+              </div>
+              <div class="score-circle" id="scoreCircle">
+                <div class="score-big" id="scorePct">0%</div>
                 <div class="score-label">Score</div>
+              </div>
             </div>
-            <h2 id="resultTitle" style="margin-bottom:8px;"></h2>
-            <p id="resultMsg" style="color:var(--muted);font-size:14px;margin-bottom:24px;"></p>
+
             <div class="result-stats">
-                <div class="result-stat">
-                    <div class="result-stat-val" id="resCorrect">0</div>
-                    <div class="result-stat-label">Correct</div>
-                </div>
-                <div class="result-stat">
-                    <div class="result-stat-val" id="resTotal">0</div>
-                    <div class="result-stat-label">Total Questions</div>
-                </div>
-                <div class="result-stat">
-                    <div class="result-stat-val" id="resScore">0</div>
-                    <div class="result-stat-label">Points</div>
-                </div>
+              <div class="result-stat">
+                <div class="result-stat-val" id="resCorrect">0</div>
+                <div class="result-stat-label">Correct</div>
+              </div>
+              <div class="result-stat">
+                <div class="result-stat-val" id="resTotal">0</div>
+                <div class="result-stat-label">Questions</div>
+              </div>
+              <div class="result-stat">
+                <div class="result-stat-val" id="resScore">0</div>
+                <div class="result-stat-label">Points</div>
+              </div>
             </div>
-            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn btn-secondary" onclick="showReview()">📋 Review Answers</button>
-                <a href="/views/student_lms.html" class="btn btn-primary" style="text-decoration:none;">← Back to Classes</a>
+
+            <div class="quiz-results-actions">
+              <button id="reviewBtn" class="btn btn-secondary" onclick="showReview()">
+                <i class="fa-regular fa-clipboard" aria-hidden="true"></i> Review Answers
+              </button>
+              <a id="resultsBackLink" class="btn btn-primary" href="/views/lms.html?allow_student=1&page=classes&tab=quizzes">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to LMS
+              </a>
             </div>
+          </section>
+
+          <aside class="card col-span-4 quiz-summary-card">
+            <div class="lms-section-kicker">Result summary</div>
+            <div class="quiz-summary-list" id="resultFacts"></div>
+          </aside>
         </div>
 
-        <!-- Review Section -->
-        <div id="reviewSection" style="display:none; margin-top:28px;"></div>
+        <div id="reviewSection" class="quiz-review-list" style="display:none;"></div>
+      </div>
     </div>
-</div>
+  </main>
 
-<script>
-const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-const TOKEN = localStorage.getItem('token');
-if (!TOKEN) window.location.href = '/views/login.html';
-const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+  <script>
+    const API = window.config?.apiBase || '/api';
+    const TOKEN = localStorage.getItem('token');
+    if (!TOKEN) window.location.href = '/views/login.html';
 
-const params = new URLSearchParams(window.location.search);
-const quizId = params.get('quiz_id');
+    const headers = {
+      Authorization: `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json'
+    };
 
-let quizData = null;
-let questions = [];
-let answers = {};   // { question_id: 'A' | 'B' | ... }
-let currentQ = 0;
-let timerInterval = null;
-let secondsLeft = 0;
-let submitResult = null;
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const role = (user.role || 'student').toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    const quizId = params.get('quiz_id');
+    const classId = params.get('class_id') || '';
 
-// ── Init ────────────────────────────────────────────────────────────────────
-async function init() {
-    if (!quizId) {
-        showError('No quiz ID specified in URL.');
+    let quizData = null;
+    let questions = [];
+    let answers = {};
+    let currentQ = 0;
+    let timerInterval = null;
+    let secondsLeft = 0;
+    let submitResult = null;
+
+    function logoutUser() {
+      if (window.auth?.logout) {
+        window.auth.logout();
         return;
+      }
+      localStorage.clear();
+      window.location.href = '/views/login.html';
     }
-    try {
-        const res = await fetch(`${API}/lms/quizzes/${quizId}`, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        quizData = await res.json();
-        questions = quizData.questions || [];
+
+    function unwrapPayload(payload) {
+      if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) return payload.data;
+      return payload;
+    }
+
+    function escHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function quizBackHref() {
+      const url = new URL('/views/lms.html', window.location.origin);
+      if (role === 'student') url.searchParams.set('allow_student', '1');
+      url.searchParams.set('page', 'classes');
+      url.searchParams.set('tab', 'quizzes');
+      if (classId) url.searchParams.set('class_id', classId);
+      return url.toString();
+    }
+
+    function formatDateTimeRange() {
+      const pieces = [];
+      if (quizData?.start_time) {
+        const date = new Date(quizData.start_time);
+        if (!Number.isNaN(date.getTime())) {
+          pieces.push(`Starts ${date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
+        }
+      }
+      if (quizData?.end_time) {
+        const date = new Date(quizData.end_time);
+        if (!Number.isNaN(date.getTime())) {
+          pieces.push(`Ends ${date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`);
+        }
+      }
+      return pieces.join(' · ');
+    }
+
+    async function apiFetch(path, opts = {}) {
+      const res = await fetch(`${API}${path}`, { headers, ...opts });
+      const contentType = res.headers.get('content-type') || '';
+      let payload = null;
+      if (contentType.includes('application/json')) {
+        payload = await res.json();
+      } else {
+        const text = await res.text();
+        payload = text ? { detail: text } : null;
+      }
+      if (!res.ok) {
+        const message = unwrapPayload(payload)?.detail || payload?.detail || `HTTP ${res.status}`;
+        throw new Error(message);
+      }
+      return unwrapPayload(payload);
+    }
+
+    function setUserShell() {
+      document.getElementById('userName').textContent = user.name || 'Learner';
+      document.getElementById('userLevel').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+      document.getElementById('userAvatar').textContent = (user.name || 'L').charAt(0).toUpperCase();
+
+      const href = quizBackHref();
+      document.getElementById('navClassesLink').href = href;
+      document.getElementById('backToClassLink').href = href;
+      document.getElementById('resultsBackLink').href = href;
+      document.getElementById('errorBackLink').href = href;
+    }
+
+    function setNotice(message, tone = 'warning') {
+      const host = document.getElementById('quizNotice');
+      if (!host) return;
+      host.innerHTML = message ? `<div class="quiz-notice tone-${tone}">${message}</div>` : '';
+    }
+
+    function showError(msg, help = 'Refresh once and try again, or return to the LMS page.') {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('startState').style.display = 'none';
+      document.getElementById('quizState').style.display = 'none';
+      document.getElementById('resultsState').style.display = 'none';
+      document.getElementById('errorState').style.display = 'grid';
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorHelp').textContent = help;
+    }
+
+    function buildFactList(items) {
+      return items.map((item) => `
+        <div class="quiz-fact-row">
+          <span>${item.label}</span>
+          <strong>${item.value}</strong>
+        </div>
+      `).join('');
+    }
+
+    function updateLiveFacts() {
+      const answered = Object.keys(answers).length;
+      const unanswered = Math.max(questions.length - answered, 0);
+      const facts = [
+        { label: 'Answered', value: `${answered}/${questions.length}` },
+        { label: 'Remaining', value: `${unanswered}` },
+        { label: 'Current', value: `Q${currentQ + 1}` }
+      ];
+      document.getElementById('liveQuizFacts').innerHTML = buildFactList(facts);
+      document.getElementById('answeredCount').textContent = `${answered} / ${questions.length}`;
+    }
+
+    function renderStartFacts() {
+      const totalPoints = questions.reduce((sum, q) => sum + Number(q.points || 1), 0);
+      const facts = [
+        { label: 'Questions', value: `${questions.length}` },
+        { label: 'Time limit', value: quizData?.time_limit ? `${quizData.time_limit} min` : 'Untimed' },
+        { label: 'Max attempts', value: `${quizData?.max_attempts || 1}` },
+        { label: 'Total points', value: `${totalPoints}` }
+      ];
+      document.getElementById('quizStartFacts').innerHTML = buildFactList(facts);
+    }
+
+    async function init() {
+      setUserShell();
+      if (!quizId) {
+        showError('No quiz ID was provided in the URL.');
+        return;
+      }
+
+      try {
+        quizData = await apiFetch(`/lms/quizzes/${quizId}`);
+        questions = Array.isArray(quizData?.questions) ? quizData.questions : [];
 
         if (!questions.length) {
-            showError('This quiz has no questions yet.');
-            return;
+          showError('This quiz has no questions yet.', 'Add questions in the LMS before starting this quiz.');
+          return;
         }
 
-        // Show start screen
         document.getElementById('loadingState').style.display = 'none';
         document.getElementById('startState').style.display = 'block';
+
+        document.getElementById('quizPageTitle').innerHTML = `<i class="fa-regular fa-circle-question" aria-hidden="true"></i> ${escHtml(quizData.title || 'Quiz Session')}`;
+        document.getElementById('quizPageSubtitle').textContent = quizData.description || 'A focused quiz experience with cleaner progress tracking and review states.';
         document.getElementById('startTitle').textContent = quizData.title || 'Quiz';
-        document.getElementById('startMeta').innerHTML = `
-            <span>📋 ${questions.length} Questions</span>
-            ${quizData.time_limit ? `<span>⏱ ${quizData.time_limit} min</span>` : ''}
-            <span>🔁 Max Attempts: ${quizData.max_attempts || 1}</span>
-        `;
-    } catch(e) {
-        showError('Failed to load quiz: ' + e.message);
+        document.getElementById('attemptCountBadge').textContent = `Max ${quizData.max_attempts || 1} attempt${(quizData.max_attempts || 1) === 1 ? '' : 's'}`;
+
+        const metaBits = [
+          `<span class="quiz-chip"><i class="fa-regular fa-list-check" aria-hidden="true"></i> ${questions.length} questions</span>`,
+          `<span class="quiz-chip"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${quizData.time_limit ? `${quizData.time_limit} minutes` : 'No timer'}</span>`
+        ];
+        const range = formatDateTimeRange();
+        if (range) metaBits.push(`<span class="quiz-chip"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${escHtml(range)}</span>`);
+        document.getElementById('startMeta').innerHTML = metaBits.join('');
+
+        renderStartFacts();
+      } catch (error) {
+        showError(`Failed to load quiz: ${error.message}`);
+      }
     }
-}
 
-function showError(msg) {
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('errorState').style.display = 'flex';
-    document.getElementById('errorMsg').textContent = msg;
-}
+    function startQuiz() {
+      document.getElementById('startState').style.display = 'none';
+      document.getElementById('quizState').style.display = 'block';
+      document.getElementById('quizTitle').textContent = quizData.title || 'Quiz';
+      document.getElementById('quizMeta').textContent = quizData.description || 'Answer each question carefully and submit once you are done.';
 
-// ── Start Quiz ───────────────────────────────────────────────────────────────
-function startQuiz() {
-    document.getElementById('startState').style.display = 'none';
-    document.getElementById('quizState').style.display = 'block';
-    document.getElementById('quizTitle').textContent = quizData.title || 'Quiz';
-    document.getElementById('quizMeta').innerHTML = `
-        <span>📋 ${questions.length} Questions</span>
-        ${quizData.time_limit ? `<span>⏱ ${quizData.time_limit} min</span>` : ''}
-    `;
+      buildDots();
+      goQuestion(0);
+      updateLiveFacts();
 
-    buildDots();
-    goQuestion(0);
-
-    if (quizData.time_limit) {
-        secondsLeft = quizData.time_limit * 60;
-        document.getElementById('timerWrap').style.display = 'block';
+      if (quizData.time_limit) {
+        secondsLeft = Number(quizData.time_limit) * 60;
+        document.getElementById('timerWrap').style.display = 'grid';
         startTimer();
+      } else {
+        document.getElementById('timerWrap').style.display = 'none';
+      }
     }
-}
 
-// ── Timer ────────────────────────────────────────────────────────────────────
-function startTimer() {
-    updateTimerDisplay();
-    timerInterval = setInterval(() => {
-        secondsLeft--;
+    function startTimer() {
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        secondsLeft -= 1;
         updateTimerDisplay();
         const el = document.getElementById('timerDisplay');
         if (secondsLeft <= 60) el.className = 'timer-display danger';
         else if (secondsLeft <= 300) el.className = 'timer-display warning';
+        else el.className = 'timer-display';
+
         if (secondsLeft <= 0) {
-            clearInterval(timerInterval);
-            autoSubmit();
+          clearInterval(timerInterval);
+          setNotice('Time is up. Your answers are being submitted automatically.', 'danger');
+          doSubmit();
         }
-    }, 1000);
-}
+      }, 1000);
+    }
 
-function updateTimerDisplay() {
-    const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
-    const s = (secondsLeft % 60).toString().padStart(2, '0');
-    document.getElementById('timerDisplay').textContent = `${m}:${s}`;
-}
+    function updateTimerDisplay() {
+      const minutes = Math.max(Math.floor(secondsLeft / 60), 0).toString().padStart(2, '0');
+      const seconds = Math.max(secondsLeft % 60, 0).toString().padStart(2, '0');
+      document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
+    }
 
-function autoSubmit() {
-    showTimedOutBanner();
-    doSubmit();
-}
+    function buildDots() {
+      const dots = document.getElementById('questionDots');
+      dots.innerHTML = questions.map((_, index) => `
+        <button class="q-dot" id="dot-${index}" onclick="goQuestion(${index})" type="button">${index + 1}</button>
+      `).join('');
+    }
 
-function showTimedOutBanner() {
-    const banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed;top:65px;left:0;right:0;background:var(--danger);color:#fff;text-align:center;padding:12px;font-weight:700;z-index:999;';
-    banner.textContent = '⏰ Time\'s up! Your answers have been submitted automatically.';
-    document.body.appendChild(banner);
-}
+    function updateProgress() {
+      const answered = Object.keys(answers).length;
+      const pct = questions.length ? (answered / questions.length) * 100 : 0;
+      document.getElementById('progressBar').style.width = `${pct}%`;
+      updateLiveFacts();
+    }
 
-// ── Question Rendering ───────────────────────────────────────────────────────
-function buildDots() {
-    const dots = document.getElementById('questionDots');
-    dots.innerHTML = questions.map((_, i) => `
-        <div class="q-dot" id="dot-${i}" onclick="goQuestion(${i})">${i + 1}</div>
-    `).join('');
-}
-
-function goQuestion(index) {
-    if (index < 0 || index >= questions.length) return;
-    currentQ = index;
-    const q = questions[index];
-    
-    updateProgress();
-    updateDots();
-    renderQuestion(q, index);
-
-    document.getElementById('prevBtn').disabled = index === 0;
-    document.getElementById('nextBtn').disabled = index === questions.length - 1;
-}
-
-function updateProgress() {
-    const answered = Object.keys(answers).length;
-    const pct = (answered / questions.length) * 100;
-    document.getElementById('progressBar').style.width = pct + '%';
-}
-
-function updateDots() {
-    questions.forEach((q, i) => {
-        const dot = document.getElementById(`dot-${i}`);
+    function updateDots() {
+      questions.forEach((question, index) => {
+        const dot = document.getElementById(`dot-${index}`);
         if (!dot) return;
         dot.className = 'q-dot';
-        if (i === currentQ) dot.classList.add('current');
-        else if (answers[q.id]) dot.classList.add('answered');
-    });
-}
+        if (index === currentQ) dot.classList.add('current');
+        if (answers[question.id]) dot.classList.add('answered');
+      });
+    }
 
-function renderQuestion(q, index) {
-    const labels = ['A', 'B', 'C', 'D', 'E'];
-    const options = (q.options || []).map((opt, i) => {
-        const label = opt.label || labels[i] || String.fromCharCode(65 + i);
-        const text = opt.text || opt;
-        const isSelected = answers[q.id] === label;
+    function goQuestion(index) {
+      if (index < 0 || index >= questions.length) return;
+      currentQ = index;
+      const question = questions[index];
+      updateProgress();
+      updateDots();
+      renderQuestion(question, index);
+      document.getElementById('prevBtn').disabled = index === 0;
+      document.getElementById('nextBtn').disabled = index === questions.length - 1;
+    }
+
+    function renderQuestion(question, index) {
+      const labels = ['A', 'B', 'C', 'D', 'E'];
+      const options = (question.options || []).map((option, optIndex) => {
+        const label = option.label || labels[optIndex] || String.fromCharCode(65 + optIndex);
+        const text = option.text || option;
+        const isSelected = answers[question.id] === label;
         return `
-            <button class="option-btn ${isSelected ? 'selected' : ''}"
-                    onclick="selectAnswer('${q.id}', '${label}', this)"
-                    data-label="${label}">
-                <span class="option-label">${label}</span>
-                <span>${escHtml(String(text))}</span>
-            </button>
+          <button class="option-btn ${isSelected ? 'selected' : ''}" onclick="selectAnswer('${question.id}', '${label}', this)" data-label="${label}" type="button">
+            <span class="option-label">${label}</span>
+            <span class="option-copy">${escHtml(String(text))}</span>
+          </button>
         `;
-    });
+      }).join('');
 
-    document.getElementById('questionArea').innerHTML = `
-        <div class="question-card">
-            <div class="question-number">Question ${index + 1} of ${questions.length} · ${q.points || 1} pt${q.points !== 1 ? 's' : ''}</div>
-            <div class="question-text">${escHtml(q.question)}</div>
-            <div class="options-grid">${options.join('')}</div>
-        </div>
-    `;
-}
-
-function selectAnswer(questionId, label, clickedBtn) {
-    answers[questionId] = label;
-    // Update button states
-    const allBtns = clickedBtn.closest('.options-grid').querySelectorAll('.option-btn');
-    allBtns.forEach(b => b.classList.toggle('selected', b.dataset.label === label));
-    // Update dot
-    const qIndex = questions.findIndex(q => q.id === questionId);
-    if (qIndex !== -1) {
-        const dot = document.getElementById(`dot-${qIndex}`);
-        if (dot) { dot.className = 'q-dot answered'; if (qIndex === currentQ) dot.classList.add('current'); }
+      document.getElementById('questionArea').innerHTML = `
+        <article class="question-card">
+          <div class="question-card-head">
+            <div class="question-number">Question ${index + 1} of ${questions.length}</div>
+            <span class="badge badge-info">${question.points || 1} pt${Number(question.points || 1) === 1 ? '' : 's'}</span>
+          </div>
+          <div class="question-text">${escHtml(question.question)}</div>
+          <div class="options-grid">${options}</div>
+        </article>
+      `;
     }
-    updateProgress();
-}
 
-// ── Submit ───────────────────────────────────────────────────────────────────
-function confirmSubmit() {
-    const answered = Object.keys(answers).length;
-    const unanswered = questions.length - answered;
-    if (unanswered > 0) {
-        if (!confirm(`You have ${unanswered} unanswered question${unanswered > 1 ? 's' : ''}. Submit anyway?`)) return;
+    function selectAnswer(questionId, label, clickedBtn) {
+      answers[questionId] = label;
+      const allBtns = clickedBtn.closest('.options-grid').querySelectorAll('.option-btn');
+      allBtns.forEach((btn) => btn.classList.toggle('selected', btn.dataset.label === label));
+      updateProgress();
+      updateDots();
     }
-    clearInterval(timerInterval);
-    doSubmit();
-}
 
-async function doSubmit() {
-    // Disable controls
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('submitBtn').textContent = 'Submitting...';
+    function confirmSubmit() {
+      const unanswered = questions.length - Object.keys(answers).length;
+      if (unanswered > 0 && !confirm(`You still have ${unanswered} unanswered question${unanswered === 1 ? '' : 's'}. Submit anyway?`)) {
+        return;
+      }
+      clearInterval(timerInterval);
+      doSubmit();
+    }
 
-    try {
-        const res = await fetch(`${API}/lms/quizzes/${quizId}/attempt`, {
-            method: 'POST', headers,
-            body: JSON.stringify({ answers })
+    async function doSubmit() {
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Submitting';
+
+      try {
+        submitResult = await apiFetch(`/lms/quizzes/${quizId}/attempt`, {
+          method: 'POST',
+          body: JSON.stringify({ answers })
         });
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-            // Max attempts or other error
-            showResultsError(data.detail || 'Submission failed.');
-            return;
-        }
-        
-        submitResult = data;
-        showResults(data);
-    } catch(e) {
-        showResultsError('Network error: ' + e.message);
+        showResults(submitResult);
+      } catch (error) {
+        showError(`Submission failed: ${error.message}`, 'The quiz could not be submitted. Return to the LMS page or try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit Quiz';
+      }
     }
-}
 
-function showResultsError(msg) {
-    document.getElementById('quizState').style.display = 'none';
-    document.getElementById('timerWrap').style.display = 'none';
-    document.getElementById('errorState').style.display = 'flex';
-    document.getElementById('errorMsg').textContent = msg;
-}
+    function showResults(data) {
+      clearInterval(timerInterval);
+      document.getElementById('quizState').style.display = 'none';
+      document.getElementById('resultsState').style.display = 'block';
+      document.getElementById('timerWrap').style.display = 'none';
+      setNotice('');
 
-function showResults(data) {
-    clearInterval(timerInterval);
-    document.getElementById('timerWrap').style.display = 'none';
-    document.getElementById('quizState').style.display = 'none';
-    document.getElementById('resultsState').style.display = 'block';
+      const pct = Math.round(Number(data?.percentage || 0));
+      const correct = Number(data?.correct_count || 0);
+      const maxScore = Number(data?.max_score || questions.reduce((sum, q) => sum + Number(q.points || 1), 0));
+      const score = Number(data?.score || 0);
 
-    const pct = Math.round(data.percentage || 0);
-    const correct = Math.round((data.score || 0));
-    const maxScore = data.max_score || questions.length;
+      document.getElementById('scorePct').textContent = `${pct}%`;
+      document.getElementById('resultTitle').textContent = pct >= 80 ? 'Excellent work' : pct >= 60 ? 'Solid attempt' : 'Keep practicing';
+      document.getElementById('resultMsg').textContent = pct >= 80
+        ? 'You handled this quiz confidently and stayed consistent through the full set.'
+        : pct >= 60
+          ? 'You are on the right track. Review the missed questions and tighten the weak spots.'
+          : 'Use the review section below to understand where the answers drifted and what to revisit next.';
+      document.getElementById('resCorrect').textContent = `${correct}`;
+      document.getElementById('resTotal').textContent = `${questions.length}`;
+      document.getElementById('resScore').textContent = `${score}/${maxScore}`;
 
-    document.getElementById('scorePct').textContent = pct + '%';
-    document.getElementById('resultTitle').textContent = pct >= 80 ? '🎉 Excellent!' : pct >= 60 ? '👍 Good Job!' : '📚 Keep Practicing!';
-    document.getElementById('resultMsg').textContent = pct >= 80 ? 'Outstanding performance!' : pct >= 60 ? 'Solid attempt, review the ones you missed.' : 'Review the material and try again.';
-    document.getElementById('resCorrect').textContent = correct;
-    document.getElementById('resTotal').textContent = questions.length;
-    document.getElementById('resScore').textContent = `${data.score || 0}/${maxScore}`;
+      const scoreCircle = document.getElementById('scoreCircle');
+      const scoreTone = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+      scoreCircle.style.borderColor = scoreTone;
+      document.getElementById('scorePct').style.color = scoreTone;
 
-    const circle = document.getElementById('scoreCircle');
-    circle.style.borderColor = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
-    document.getElementById('scorePct').style.color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warn)' : 'var(--danger)';
-}
+      document.getElementById('resultFacts').innerHTML = buildFactList([
+        { label: 'Percentage', value: `${pct}%` },
+        { label: 'Correct answers', value: `${correct}` },
+        { label: 'Points earned', value: `${score}/${maxScore}` },
+        { label: 'Reviewed items', value: `${Array.isArray(data?.question_results) ? data.question_results.length : 0}` }
+      ]);
 
-function showReview() {
-    const section = document.getElementById('reviewSection');
-    section.style.display = 'block';
+      document.getElementById('reviewBtn').style.display = Array.isArray(data?.question_results) && data.question_results.length ? 'inline-flex' : 'none';
+    }
 
-    const html = questions.map((q, i) => {
-        const labels = ['A', 'B', 'C', 'D', 'E'];
-        const userAnswer = answers[q.id];
-        const correctOptions = (q.options || []).filter(o => o.is_correct).map(o => o.label || '');
+    function showReview() {
+      if (!Array.isArray(submitResult?.question_results) || !submitResult.question_results.length) return;
 
-        const optHtml = (q.options || []).map((opt, oi) => {
-            const label = opt.label || labels[oi];
-            const text = opt.text || opt;
+      const section = document.getElementById('reviewSection');
+      const resultMap = new Map(submitResult.question_results.map((result) => [result.question_id, result]));
+
+      section.innerHTML = `
+        <div class="quiz-review-head">
+          <div>
+            <div class="lms-section-kicker">Answer review</div>
+            <h2>Question-by-question breakdown</h2>
+          </div>
+        </div>
+        ${(questions || []).map((question, index) => {
+          const labels = ['A', 'B', 'C', 'D', 'E'];
+          const userAnswer = answers[question.id];
+          const result = resultMap.get(question.id) || {};
+          const correctOptions = Array.isArray(result.correct_answers) ? result.correct_answers : [];
+          const explanation = result.explanation || question.explanation || '';
+          const reviewOptions = Array.isArray(result.options) && result.options.length ? result.options : (question.options || []);
+
+          const options = reviewOptions.map((option, optIndex) => {
+            const label = option.label || labels[optIndex];
+            const text = option.text || option;
             const isUser = label === userAnswer;
-            const isCorrect = opt.is_correct;
+            const isCorrect = correctOptions.includes(label);
             let cls = 'review-option';
             if (isCorrect) cls += ' correct';
-            else if (isUser && !isCorrect) cls += ' wrong-choice';
-            else if (isUser) cls += ' user-choice';
-            return `<div class="${cls}"><span style="font-weight:700;min-width:20px;">${label}.</span> ${escHtml(String(text))} ${isCorrect ? '✅' : (isUser ? '❌' : '')}</div>`;
-        }).join('');
+            else if (isUser) cls += ' wrong-choice';
+            return `<div class="${cls}">
+              <span class="review-option-label">${label}</span>
+              <span class="review-option-copy">${escHtml(String(text))}</span>
+              <span class="review-option-state">${isCorrect ? 'Correct' : (isUser ? 'Your answer' : '')}</span>
+            </div>`;
+          }).join('');
 
-        return `
-            <div style="background:var(--card);border:1px solid var(--border-dim);border-radius:12px;padding:22px;margin-bottom:16px;">
-                <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Q${i+1} · ${q.points||1} pt</div>
-                <div style="font-size:15px;font-weight:500;margin-bottom:16px;">${escHtml(q.question)}</div>
-                ${optHtml}
-                ${q.explanation ? `<div style="margin-top:12px;padding:10px 14px;background:rgba(0,255,204,0.05);border-left:2px solid var(--accent);border-radius:6px;font-size:13px;color:var(--muted);">💡 ${escHtml(q.explanation)}</div>` : ''}
-            </div>
-        `;
-    }).join('');
+          return `
+            <article class="review-card">
+              <div class="review-card-head">
+                <div class="question-number">Question ${index + 1}</div>
+                <span class="badge badge-info">${question.points || 1} pt${Number(question.points || 1) === 1 ? '' : 's'}</span>
+              </div>
+              <div class="question-text">${escHtml(question.question)}</div>
+              <div class="review-options">${options}</div>
+              ${explanation ? `<div class="review-explanation"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> ${escHtml(explanation)}</div>` : ''}
+            </article>
+          `;
+        }).join('')}
+      `;
+      section.style.display = 'grid';
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
-    section.innerHTML = `<h3 style="color:var(--accent);margin-bottom:20px;">📋 Answer Review</h3>` + html;
-    section.scrollIntoView({ behavior: 'smooth' });
-}
-
-function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-init();
-</script>
+    init();
+  </script>
 </body>
+
 </html>
+

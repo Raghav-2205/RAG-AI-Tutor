@@ -32,6 +32,28 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 _embedding_model = None
 
+
+def get_evaluation_chunk_id(chunk: Dict[str, Any]) -> str:
+    """
+    Resolve the stable chunk identity used for evaluation.
+
+    Retrieved chunks carry the Chroma collection ID in `id`, but the original
+    ingestion chunk ID is preserved in `metadata.chunk_id`. Benchmark datasets
+    are written against that original chunk identity.
+    """
+    if not isinstance(chunk, dict):
+        return ""
+
+    metadata = chunk.get("metadata") or {}
+    for candidate in (
+        metadata.get("chunk_id"),
+        chunk.get("chunk_id"),
+        chunk.get("id"),
+    ):
+        if candidate:
+            return str(candidate)
+    return ""
+
 def get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
@@ -60,20 +82,22 @@ def calculate_retrieval_metrics(
     Compute Recall@K, Precision@K, and MRR.
     Used primarily during benchmark evaluation when gold_chunk_ids are available.
     """
+    retrieved = [str(item) for item in retrieved_ids if item]
+    gold = [str(item) for item in gold_chunk_ids if item]
     metrics = {}
 
     # MRR — Mean Reciprocal Rank
     mrr = 0.0
-    for i, rid in enumerate(retrieved_ids):
-        if rid in gold_chunk_ids:
+    for i, rid in enumerate(retrieved):
+        if rid in gold:
             mrr = 1.0 / (i + 1)
             break
     metrics["mrr"] = mrr
 
     # Recall & Precision @ K
-    gold_set = set(gold_chunk_ids)
+    gold_set = set(gold)
     for k in k_list:
-        top_k = set(retrieved_ids[:k])
+        top_k = set(retrieved[:k])
         intersection = top_k.intersection(gold_set)
 
         recall = len(intersection) / len(gold_set) if gold_set else 0.0
@@ -394,11 +418,11 @@ JSON ONLY. NO MARKDOWN."""
 # ═══════════════════════════════════════════════
 
 def calculate_final_rag_score(
-    recall_at_5: float = 0.0,
-    faithfulness: float = 0.0,
-    bert_score_val: float = 0.0,
-    citation_alignment: float = 0.0,
-    answer_relevance: float = 0.0
+    recall_at_5: Optional[float] = None,
+    faithfulness: Optional[float] = None,
+    bert_score_val: Optional[float] = None,
+    citation_alignment: Optional[float] = None,
+    answer_relevance: Optional[float] = None
 ) -> float:
     """
     Weighted final RAG score:
@@ -408,11 +432,22 @@ def calculate_final_rag_score(
     + 0.15 * Citation Alignment
     + 0.15 * Answer Relevance
     """
-    score = (
-        0.25 * recall_at_5
-        + 0.25 * faithfulness
-        + 0.20 * bert_score_val
-        + 0.15 * citation_alignment
-        + 0.15 * answer_relevance
-    )
-    return round(score, 4)
+    weighted_components = [
+        (0.25, recall_at_5),
+        (0.25, faithfulness),
+        (0.20, bert_score_val),
+        (0.15, citation_alignment),
+        (0.15, answer_relevance),
+    ]
+
+    active_components = [
+        (weight, float(value))
+        for weight, value in weighted_components
+        if value is not None
+    ]
+    if not active_components:
+        return 0.0
+
+    weighted_sum = sum(weight * value for weight, value in active_components)
+    total_weight = sum(weight for weight, _ in active_components)
+    return round(weighted_sum / total_weight, 4)

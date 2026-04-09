@@ -1,0 +1,46 @@
+name: Mongo LMS Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - LMS-V2
+  pull_request:
+
+jobs:
+  mongo-lms-smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DEBUG: "true"
+      RUN_MONGO_SMOKE: "1"
+      MONGODB_URI: mongodb://127.0.0.1:27017
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: Run Mongo-backed LMS smoke path
+        run: python -m pytest test/test_mongo_lms_smoke.py -q -p no:cacheprovider

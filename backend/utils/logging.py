@@ -9,15 +9,19 @@ def setup_logging():
     # Create logs directory
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
+
+    handlers = [logging.StreamHandler(sys.stdout)]
+    try:
+        handlers.insert(0, logging.FileHandler(log_dir / "rag-ai-backend.log", encoding='utf-8'))
+    except PermissionError:
+        # Keep the app bootable even if another process currently owns the log file.
+        pass
     
     # Configure root logger with UTF-8 encoding
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_dir / "rag-ai-backend.log", encoding='utf-8'),
-            logging.StreamHandler(sys.stdout)
-        ]
+        handlers=handlers
     )
     
     # Set console handler encoding for Windows

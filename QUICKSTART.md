@@ -25,10 +25,21 @@ docker start rag-mongodb rag-chroma
 ### 2. Activate Virtual Environment & Run
 ```powershell
 .\venv\Scripts\Activate.ps1
+python scripts/seed_lms.py --reset
 python run.py
 ```
 
 **Access the App:** [http://127.0.0.1:8002](http://127.0.0.1:8002)
+
+Demo login:
+- `lms.teacher@example.com` / `Password@123`
+- `lms.student1@example.com` / `Password@123`
+
+Optional one-shot setup with demo data:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SeedLmsDemo
+```
 
 ---
 

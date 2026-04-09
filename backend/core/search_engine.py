@@ -1,4 +1,5 @@
 # backend/core/search_engine.py
+import re
 from rank_bm25 import BM25Okapi
 from typing import List, Dict, Any
 from backend.core.embedding_service import embedding_service
@@ -13,6 +14,20 @@ class HybridSearchEngine:
         self.system_id = "global"  # Matches scripts/index_data_folder.py GLOBAL_USER_ID
         self.cross_encoder = None
         self.use_reranker = None
+
+    @staticmethod
+    def _tokenize(text: str) -> List[str]:
+        return re.findall(r"[a-z0-9_]+", str(text).lower())
+
+    @staticmethod
+    def _hit_key(hit: Dict[str, Any]) -> str:
+        metadata = hit.get("metadata") or {}
+        return str(
+            metadata.get("chunk_id")
+            or hit.get("id")
+            or hit.get("text")
+            or ""
+        )
 
     def _ensure_reranker(self):
         if self.use_reranker is not None:
@@ -121,8 +136,8 @@ class HybridSearchEngine:
         if not documents: return []
         
         corpus = [d["text"] for d in documents]
-        tokenized_corpus = [doc.lower().split() for doc in corpus]
-        tokenized_query = query.lower().split()
+        tokenized_corpus = [self._tokenize(doc) for doc in corpus]
+        tokenized_query = self._tokenize(query)
         
         bm25 = BM25Okapi(tokenized_corpus)
         scores = bm25.get_scores(tokenized_query)
@@ -147,22 +162,26 @@ class HybridSearchEngine:
 
         # Process BM25
         for rank, hit in enumerate(bm25_hits):
-            text = hit["text"]
-            chunk_map[text] = hit
-            scores[text] = scores.get(text, 0) + (1 / (k + rank + 1))
+            key = self._hit_key(hit)
+            if not key:
+                continue
+            chunk_map[key] = hit
+            scores[key] = scores.get(key, 0) + (self.bm25_weight / (k + rank + 1))
 
         # Process Dense
         for rank, hit in enumerate(dense_hits):
-            text = hit["text"]
-            chunk_map[text] = hit
-            scores[text] = scores.get(text, 0) + (1 / (k + rank + 1))
+            key = self._hit_key(hit)
+            if not key:
+                continue
+            chunk_map[key] = hit
+            scores[key] = scores.get(key, 0) + (self.dense_weight / (k + rank + 1))
 
-        sorted_texts = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        sorted_keys = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
         fused_results = []
-        for text in sorted_texts[:top_k]:
-            hit = chunk_map[text]
-            hit["score"] = scores[text]
+        for key in sorted_keys[:top_k]:
+            hit = chunk_map[key]
+            hit["score"] = scores[key]
             fused_results.append(hit)
             
         return fused_results

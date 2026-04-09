@@ -9,8 +9,8 @@ Aggregates data from all collections to power the LMS dashboard:
 - Study recommendations
 """
 
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, List, Dict, Optional
 from fastapi import APIRouter, Depends
 from backend.utils.db import get_db
 from backend.api.auth import get_current_user
@@ -20,8 +20,74 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+UTC_MIN = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _safe_avg(values: List[float]) -> float:
     return round(sum(values) / len(values), 3) if values else 0.0
+
+
+def _coerce_utc_dt(value: Any) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _coerce_utc_dt_or_min(value: Any) -> datetime:
+    return _coerce_utc_dt(value) or UTC_MIN
+
+
+def _isoformat_or_now(value: Any) -> str:
+    return (_coerce_utc_dt(value) or _utcnow()).isoformat()
+
+
+async def _get_quiz_attempts_for_user(db, user_id: str, limit: Optional[int] = None) -> List[Dict]:
+    cursor = db.quiz_attempts.find(
+        {"student_id": user_id, "is_complete": True}
+    ).sort("submitted_at", -1)
+    if limit:
+        cursor = cursor.limit(limit)
+    return await cursor.to_list(length=limit)
+
+
+async def _build_lms_quiz_lookup(db, quiz_ids: List[str]) -> Dict[str, Dict]:
+    if not quiz_ids:
+        return {}
+
+    quizzes = await db.lms_quizzes.find({"id": {"$in": quiz_ids}}).to_list(length=len(quiz_ids))
+    lookup: Dict[str, Dict] = {}
+
+    for quiz in quizzes:
+        subject = "General"
+        class_id = quiz.get("class_id")
+        if class_id:
+            cls = await db.classes.find_one({"id": class_id}, {"subject": 1, "name": 1})
+            if cls:
+                subject = cls.get("subject") or cls.get("name") or "General"
+
+        lookup[quiz["id"]] = {
+            "title": quiz.get("title", "Quiz"),
+            "subject": subject,
+        }
+
+    return lookup
 
 
 # ─────────────────────────────────────────────
@@ -38,7 +104,7 @@ async def get_summary(
     from bson import ObjectId
     user_id = str(current_user["_id"])
     user_oid = current_user["_id"]
-    now = datetime.utcnow()
+    now = _utcnow()
 
     # ── 1. Total chat messages (questions asked) ──
     sessions = await db.chat_sessions.find(
@@ -54,7 +120,7 @@ async def get_summary(
     active_days = set()
     for s in sessions:
         for m in s.get("messages", []):
-            ts = m.get("timestamp")
+            ts = _coerce_utc_dt(m.get("timestamp"))
             if ts:
                 active_days.add(ts.date())
 
@@ -69,7 +135,7 @@ async def get_summary(
     questions_this_week = sum(
         len([
             m for m in s.get("messages", [])
-            if m.get("role") == "user" and m.get("timestamp", datetime.min) >= week_ago
+            if m.get("role") == "user" and _coerce_utc_dt_or_min(m.get("timestamp")) >= week_ago
         ])
         for s in sessions
     )
@@ -78,13 +144,11 @@ async def get_summary(
     doc_count = await db.documents.count_documents({"user_id": user_oid})
 
     # ── 5. Quiz average score ──
-    quiz_results = await db.quiz_submissions.find(
-        {"user_id": user_id}
-    ).sort("timestamp", -1).limit(20).to_list(length=20)
+    quiz_results = await _get_quiz_attempts_for_user(db, user_id, limit=20)
 
     scores = [r.get("percentage", 0) for r in quiz_results if "percentage" in r]
     quiz_avg = round(_safe_avg(scores), 1)
-    quizzes_taken = await db.quiz_submissions.count_documents({"user_id": user_id})
+    quizzes_taken = await db.quiz_attempts.count_documents({"student_id": user_id, "is_complete": True})
 
     # ── 6. Weekly activity (last 7 days) ──
     weekly_activity = []
@@ -96,7 +160,7 @@ async def get_summary(
             len([
                 m for m in s.get("messages", [])
                 if m.get("role") == "user"
-                and day_start <= m.get("timestamp", datetime.min) < day_end
+                and day_start <= _coerce_utc_dt_or_min(m.get("timestamp")) < day_end
             ])
             for s in sessions
         )
@@ -130,35 +194,33 @@ async def get_mastery(
     """
     user_id = str(current_user["_id"])
 
-    quiz_submissions = await db.quiz_submissions.find(
-        {"user_id": user_id}
-    ).sort("timestamp", -1).limit(50).to_list(length=50)
+    quiz_submissions = await _get_quiz_attempts_for_user(db, user_id, limit=50)
 
     # Build a quiz_id → subject lookup from db.quizzes
     quiz_ids = list({s.get("quiz_id") for s in quiz_submissions if s.get("quiz_id")})
-    subject_lookup: Dict[str, str] = {}
-    if quiz_ids:
-        quizzes_cursor = await db.quizzes.find(
-            {"quiz_id": {"$in": quiz_ids}}, {"quiz_id": 1, "subject": 1}
-        ).to_list(length=len(quiz_ids))
-        for q in quizzes_cursor:
-            subject_lookup[q["quiz_id"]] = q.get("subject", "General")
+    quiz_lookup = await _build_lms_quiz_lookup(db, quiz_ids)
 
     # Aggregate per subject from quiz scores
     subject_scores: Dict[str, List[float]] = {}
     weak_topics_all: Dict[str, int] = {}
 
     for r in quiz_submissions:
-        subject = subject_lookup.get(r.get("quiz_id", ""), "General")
+        quiz_meta = quiz_lookup.get(r.get("quiz_id", ""), {})
+        subject = quiz_meta.get("subject", "General")
         score = r.get("percentage")
         if score is not None:
             subject_scores.setdefault(subject, []).append(score)
 
         # Tally weak topic mentions
-        for wt in r.get("weak_topics", []):
-            topic = wt.strip()
-            if topic:
-                weak_topics_all[topic] = weak_topics_all.get(topic, 0) + 1
+        weak_topics = r.get("weak_topics", [])
+        if weak_topics:
+            for wt in weak_topics:
+                topic = wt.strip()
+                if topic:
+                    weak_topics_all[topic] = weak_topics_all.get(topic, 0) + 1
+        elif score is not None and score < 70:
+            topic = quiz_meta.get("title", "Quiz Review")
+            weak_topics_all[topic] = weak_topics_all.get(topic, 0) + 1
 
     # Build mastery map
     mastery = []
@@ -214,34 +276,27 @@ async def get_activity(
             "title": s.get("title", "Untitled Chat"),
             "subject": s.get("subject", "General"),
             "message_count": msg_count,
-            "updated_at": s.get("updated_at", datetime.utcnow()).isoformat()
+            "updated_at": _isoformat_or_now(s.get("updated_at"))
         })
 
     # Recent quizzes — from quiz_submissions, join subject from quizzes
-    recent_submissions = await db.quiz_submissions.find(
-        {"user_id": user_id}
-    ).sort("timestamp", -1).limit(5).to_list(length=5)
+    recent_submissions = await _get_quiz_attempts_for_user(db, user_id, limit=5)
 
     # Build subject lookup for these quiz IDs
     sub_quiz_ids = [s.get("quiz_id") for s in recent_submissions if s.get("quiz_id")]
-    sub_lookup: Dict[str, str] = {}
-    if sub_quiz_ids:
-        sub_docs = await db.quizzes.find(
-            {"quiz_id": {"$in": sub_quiz_ids}}, {"quiz_id": 1, "subject": 1}
-        ).to_list(length=len(sub_quiz_ids))
-        for qd in sub_docs:
-            sub_lookup[qd["quiz_id"]] = qd.get("subject", "General")
+    sub_lookup = await _build_lms_quiz_lookup(db, sub_quiz_ids)
 
     quizzes = []
     for q in recent_submissions:
-        ts = q.get("timestamp", datetime.utcnow())
+        ts = q.get("submitted_at", _utcnow())
+        quiz_meta = sub_lookup.get(q.get("quiz_id", ""), {})
         quizzes.append({
             "quiz_id": q.get("quiz_id"),
-            "subject": sub_lookup.get(q.get("quiz_id", ""), "General"),
+            "subject": quiz_meta.get("subject", quiz_meta.get("title", "General")),
             "score_percentage": round(q.get("percentage", 0), 1),
             "correct": q.get("score", 0),
-            "total": q.get("total", 0),
-            "completed_at": ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+            "total": q.get("max_score", 0),
+            "completed_at": _isoformat_or_now(ts)
         })
 
     # Recent documents
@@ -256,7 +311,7 @@ async def get_activity(
             "filename": d.get("filename"),
             "subject": d.get("subject", "General"),
             "chunks_count": d.get("chunks_count", 0),
-            "created_at": d.get("created_at", datetime.utcnow()).isoformat()
+            "created_at": _isoformat_or_now(d.get("created_at"))
         })
 
     return {
@@ -327,22 +382,33 @@ async def get_recommendations(
     Personalized study recommendations based on quiz + feedback + validation data.
     """
     user_id = str(current_user["_id"])
-    now = datetime.utcnow()
+    now = _utcnow()
     week_ago = now - timedelta(days=7)
 
     recommendations = []
 
     # 1. Topics with consistently low quiz scores
-    recent_subs = await db.quiz_submissions.find(
-        {"user_id": user_id}
-    ).sort("timestamp", -1).limit(20).to_list(length=20)
+    recent_subs = await _get_quiz_attempts_for_user(db, user_id, limit=20)
+    quiz_lookup = await _build_lms_quiz_lookup(
+        db,
+        [r.get("quiz_id") for r in recent_subs if r.get("quiz_id")]
+    )
 
     weak_topics: Dict[str, int] = {}
     for r in recent_subs:
-        for wt in r.get("weak_topics", []):
-            topic = wt.strip()
-            if topic:
-                weak_topics[topic] = weak_topics.get(topic, 0) + 1
+        explicit_topics = r.get("weak_topics", [])
+        if explicit_topics:
+            for wt in explicit_topics:
+                topic = wt.strip()
+                if topic:
+                    weak_topics[topic] = weak_topics.get(topic, 0) + 1
+            continue
+
+        percentage = r.get("percentage")
+        if percentage is not None and percentage < 70:
+            quiz_meta = quiz_lookup.get(r.get("quiz_id", ""), {})
+            topic = quiz_meta.get("title", "Quiz Review")
+            weak_topics[topic] = weak_topics.get(topic, 0) + 1
 
     for topic, count in sorted(weak_topics.items(), key=lambda x: -x[1])[:3]:
         recommendations.append({
@@ -356,8 +422,8 @@ async def get_recommendations(
         })
 
     # 2. No quiz taken recently
-    recent_quiz = await db.quiz_submissions.find_one(
-        {"user_id": user_id, "timestamp": {"$gte": week_ago}}
+    recent_quiz = await db.quiz_attempts.find_one(
+        {"student_id": user_id, "is_complete": True, "submitted_at": {"$gte": week_ago}}
     )
     if not recent_quiz:
         recommendations.append({

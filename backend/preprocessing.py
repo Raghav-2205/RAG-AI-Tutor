@@ -13,37 +13,53 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 def chunk_text(text: str, chunk_size: int = 600, chunk_overlap: int = 100) -> List[str]:
-    """Sliding window chunking."""
+    """Sliding window chunking with lightweight boundary awareness."""
     if len(text) <= chunk_size:
         return [text]
-        
+
+    def find_boundary(window_start: int, window_end: int) -> int:
+        search_start = max(window_start + int(chunk_size * 0.6), window_start)
+        search_end = min(window_end + 80, text_len)
+        boundary_region = text[search_start:search_end]
+
+        boundary_patterns = [
+            r'\n\s*\n',     # paragraph break
+            r'(?<=[.!?])\s',
+            r'\n',
+            r'(?<=[;:])\s',
+        ]
+
+        for pattern in boundary_patterns:
+            matches = list(re.finditer(pattern, boundary_region))
+            if matches:
+                return search_start + matches[-1].end()
+        return window_end
+
     chunks = []
     start = 0
     text_len = len(text)
-    
+
     while start < text_len:
         end = start + chunk_size
-        
-        # Try to find a sentence boundary (., !, ?, \n) near the end
+
+        # Try to find a sentence or paragraph boundary near the end of the window.
         if end < text_len:
-            # Look for boundary in the last 20% of the chunk
-            boundary_search = text[end - 100 : end + 50] 
-            # Simple heuristic: look for last period or newline
-            last_period = boundary_search.rfind('.')
-            if last_period != -1:
-                end = (end - 100) + last_period + 1
-        
+            end = find_boundary(start, end)
+
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
-            
+
         # Move forward, keeping the overlap
-        start = end - chunk_overlap
-        
+        next_start = end - chunk_overlap
+        if next_start <= start:
+            next_start = end
+        start = next_start
+
         # Prevent infinite loops if no progress
         if start >= text_len:
             break
-            
+
     return chunks
 
 def create_chunks(pages: List[Dict[str, Any]], filename: str, doc_id: str) -> List[Dict[str, Any]]:

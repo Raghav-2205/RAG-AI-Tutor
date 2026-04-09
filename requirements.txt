@@ -4,12 +4,14 @@ motor
 pymongo
 pydantic
 pydantic-settings
+email-validator
 python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 google-generativeai
 chromadb
 sentence-transformers
+rank-bm25
 pypdf
 python-docx
 python-pptx

@@ -1,5 +1,7 @@
+from typing import Optional
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
 
 class Settings(BaseSettings):
     app_name: str = "RAG AI Tutor"
@@ -45,6 +47,21 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "rag-ai-backend.log"
     allowed_origins: str = "*"
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug_value(cls, value):
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return True
+
+        normalized = str(value).strip().lower()
+        if normalized in {"1", "true", "yes", "on", "debug", "development", "dev"}:
+            return True
+        if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+            return False
+        return bool(value)
 
     # Ignore extra .env vars
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

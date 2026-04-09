@@ -9,7 +9,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from backend.utils.db import get_db
-from backend.api.auth import get_current_user
+from backend.utils.security import get_current_user, normalize_role, normalize_roles
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -18,8 +18,9 @@ router = APIRouter()
 # ===================== Helpers =====================
 
 def require_role(user, roles):
-    role = user.get("role", "Student")
-    if role not in roles:
+    role = normalize_role(user.get("role", "student"))
+    allowed_roles = normalize_roles(roles)
+    if role not in allowed_roles:
         raise HTTPException(403, f"Access denied. Required role: {roles}")
 
 
@@ -29,7 +30,7 @@ class NoticeCreate(BaseModel):
     title: str
     content: str
     priority: str = "normal"  # low, normal, high, urgent
-    target_roles: List[str] = ["Student", "Teacher", "Admin"]
+    target_roles: List[str] = ["student", "teacher", "admin"]
 
 class UpdateCreate(BaseModel):
     title: str
@@ -50,17 +51,18 @@ class ForumReplyCreate(BaseModel):
 
 @router.post("/notices")
 async def create_notice(data: NoticeCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
-    require_role(current_user, ["Teacher", "Admin"])
+    require_role(current_user, ["teacher", "admin"])
     notice_id = str(uuid.uuid4())
+    target_roles = sorted(normalize_roles(data.target_roles)) if data.target_roles else ["student", "teacher", "admin"]
     record = {
         "notice_id": notice_id,
         "title": data.title,
         "content": data.content,
         "priority": data.priority,
-        "target_roles": data.target_roles,
+        "target_roles": target_roles,
         "author_id": str(current_user["_id"]),
         "author_name": current_user.get("name", ""),
-        "author_role": current_user.get("role", "Teacher"),
+        "author_role": normalize_role(current_user.get("role", "teacher")),
         "created_at": datetime.utcnow()
     }
     await db.notices.insert_one(record)
@@ -69,8 +71,12 @@ async def create_notice(data: NoticeCreate, current_user=Depends(get_current_use
 
 @router.get("/notices")
 async def list_notices(current_user=Depends(get_current_user), db=Depends(get_db)):
-    role = current_user.get("role", "Student")
-    notices = await db.notices.find({"target_roles": role}).sort("created_at", -1).to_list(50)
+    role = normalize_role(current_user.get("role", "student"))
+    notices = await db.notices.find({
+        "target_roles": {
+            "$in": [role, role.capitalize()]
+        }
+    }).sort("created_at", -1).to_list(50)
     for n in notices:
         n["_id"] = str(n["_id"])
     return notices
@@ -78,7 +84,7 @@ async def list_notices(current_user=Depends(get_current_user), db=Depends(get_db
 
 @router.delete("/notices/{notice_id}")
 async def delete_notice(notice_id: str, current_user=Depends(get_current_user), db=Depends(get_db)):
-    require_role(current_user, ["Admin"])
+    require_role(current_user, ["admin"])
     await db.notices.delete_one({"notice_id": notice_id})
     return {"status": "deleted"}
 
@@ -87,7 +93,7 @@ async def delete_notice(notice_id: str, current_user=Depends(get_current_user), 
 
 @router.post("/updates")
 async def create_update(data: UpdateCreate, current_user=Depends(get_current_user), db=Depends(get_db)):
-    require_role(current_user, ["Teacher", "Admin"])
+    require_role(current_user, ["teacher", "admin"])
     update_id = str(uuid.uuid4())
     record = {
         "update_id": update_id,
@@ -125,7 +131,7 @@ async def create_forum_post(data: ForumPostCreate, current_user=Depends(get_curr
         "tags": data.tags,
         "author_id": str(current_user["_id"]),
         "author_name": current_user.get("name", ""),
-        "author_role": current_user.get("role", "Student"),
+        "author_role": normalize_role(current_user.get("role", "student")),
         "replies": [],
         "likes": 0,
         "liked_by": [],
@@ -162,7 +168,7 @@ async def reply_to_post(data: ForumReplyCreate, current_user=Depends(get_current
         "content": data.content,
         "author_id": str(current_user["_id"]),
         "author_name": current_user.get("name", ""),
-        "author_role": current_user.get("role", "Student"),
+        "author_role": normalize_role(current_user.get("role", "student")),
         "created_at": datetime.utcnow().isoformat()
     }
     result = await db.forum_posts.update_one(

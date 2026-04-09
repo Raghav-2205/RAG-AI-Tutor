@@ -1,9 +1,13 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional, Any, List, Dict
 
 def _make_id():
     return str(uuid.uuid4())
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 def _clean(doc: dict) -> dict:
     """Remove MongoDB _id and serialize ObjectIds."""
@@ -87,7 +91,7 @@ async def get_or_create_planner_day(
         "date": target_date,
         "template": template,
         "notes": notes,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.planner_days.insert_one(day)
 
@@ -104,7 +108,7 @@ async def get_or_create_planner_day(
                 "end_time": slot["end"],
                 "is_completed": False,
                 "order_index": i,
-                "created_at": datetime.utcnow()
+                "created_at": _utcnow()
             })
         if tasks:
             await db.planner_tasks.insert_many(tasks)
@@ -133,7 +137,7 @@ async def add_task(
         "is_completed": False,
         "order_index": 999,
         "notes": notes,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.planner_tasks.insert_one(doc)
     return _clean(doc)
@@ -210,7 +214,7 @@ async def log_activity(
         "date": log_date or str(date.today()),
         "category": category,
         "data": data,
-        "logged_at": datetime.utcnow()
+        "logged_at": _utcnow()
     }
     await db.activity_logs.insert_one(doc)
     return doc
@@ -284,7 +288,7 @@ async def add_reminder(db, user_id: str, log_date: str, time_str: str, message: 
         "time": time_str,
         "message": message,
         "is_active": True,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.planner_reminders.insert_one(doc)
     return doc
@@ -312,10 +316,8 @@ async def get_unified_calendar(
     Merge tasks, assignments, quizzes, and class events into a single timeline.
     """
     events = []
-    
+
     # 1. Planner Tasks
-    task_query: Dict[str, Any] = {"user_id": str(user_id)}
-    # Instead, we find all planner_days in range and then their tasks
     day_query: Dict[str, Any] = {"user_id": str(user_id)}
     if start_date or end_date:
         day_query["date"] = {}
@@ -339,33 +341,57 @@ async def get_unified_calendar(
                 "completed": t.get("is_completed", False)
             })
 
-    # 2. LMS Assignments (Deadlines)
-    # First find classes student is enrolled in
-    student_classes = await db.classes.find({"students": user_id}).to_list(None)
-    class_ids = [c["id"] for c in student_classes]
-    
+    # 2. LMS Assignments and Quizzes for classes where the user is a student or teacher
+    classes = await db.classes.find({
+        "$or": [
+            {"students": user_id},
+            {"teacher_id": user_id},
+        ]
+    }).to_list(None)
+    class_ids = [c["id"] for c in classes if c.get("id")]
+
     if class_ids:
-        assign_query: Dict[str, Any] = {"class_id": {"$in": class_ids}}
-        if start_date: assign_query["due_date"] = {"$gte": start_date}
-        # Note: assignments use "due_date" (string)
-        
-        assignments = await db.lms_assignments.find(assign_query).to_list(None)
+        assignments = await db.assignments.find({"class_id": {"$in": class_ids}}).to_list(None)
         for a in assignments:
+            due_date = a.get("due_date")
+            if hasattr(due_date, "isoformat"):
+                due_date = due_date.isoformat()
+            if not due_date:
+                continue
+
+            due_day = str(due_date)[:10]
+            if start_date and due_day < start_date:
+                continue
+            if end_date and due_day > end_date:
+                continue
+
             events.append({
                 "id": a.get("id") or a.get("assignment_id"),
                 "title": f"Assignment: {a['title']}",
-                "start": a.get("due_date"),
+                "start": due_date,
                 "type": "assignment",
                 "color": "#ff4444"
             })
-            
+
         # 3. LMS Quizzes
-        quizzes = await db.lms_quizzes.find(assign_query).to_list(None)
+        quizzes = await db.lms_quizzes.find({"class_id": {"$in": class_ids}}).to_list(None)
         for q in quizzes:
+            start_value = q.get("end_time") or q.get("start_time") or q.get("created_at")
+            if hasattr(start_value, "isoformat"):
+                start_value = start_value.isoformat()
+            if not start_value:
+                continue
+
+            start_day = str(start_value)[:10]
+            if start_date and start_day < start_date:
+                continue
+            if end_date and start_day > end_date:
+                continue
+
             events.append({
                 "id": q.get("id") or q.get("quiz_id"),
                 "title": f"Quiz: {q['title']}",
-                "start": q.get("due_date") or q.get("created_at").isoformat(),
+                "start": start_value,
                 "type": "quiz",
                 "color": "#00ffcc"
             })
@@ -375,7 +401,12 @@ async def get_unified_calendar(
         {"user_id": str(user_id)},
         {"class_id": {"$in": class_ids}}
     ]}
-    if start_date: cal_query["start"] = {"$gte": start_date}
+    if start_date or end_date:
+        cal_query["start"] = {}
+        if start_date:
+            cal_query["start"]["$gte"] = start_date
+        if end_date:
+            cal_query["start"]["$lte"] = end_date
     
     cal_events = await db.calendar_events.find(cal_query).to_list(None)
     for ce in cal_events:

@@ -1,7 +1,7 @@
 import random
 import string
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 def _generate_join_code(length: int = 8) -> str:
@@ -9,6 +9,32 @@ def _generate_join_code(length: int = 8) -> str:
 
 def _make_id():
     return str(uuid.uuid4())
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+async def _log_activity(
+    db,
+    user_id: str,
+    category: str,
+    *,
+    class_id: Optional[str] = None,
+    data: Optional[dict] = None,
+) -> None:
+    """Write LMS activity in the same collection shape used by analytics/live activity."""
+    await db.activity_logs.insert_one(
+        {
+            "id": _make_id(),
+            "user_id": user_id,
+            "class_id": class_id,
+            "category": category,
+            "data": data or {},
+            "date": _utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "logged_at": _utcnow(),
+        }
+    )
 
 # ─── Class Management ─────────────────────────────────────────────────────────
 
@@ -32,7 +58,7 @@ async def create_class(
         "join_code": join_code,
         "is_active": True,
         "students": [], # Stores student_ids
-        "created_at": datetime.utcnow(),
+        "created_at": _utcnow(),
     }
     await db.classes.insert_one(doc)
     return doc
@@ -88,7 +114,7 @@ async def create_unit(
         "title": title,
         "description": description,
         "order_index": order_index,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.curriculum_units.insert_one(doc)
     return doc
@@ -115,7 +141,7 @@ async def add_material(
         "file_type": file_type,
         "file_size": file_size,
         "uploaded_by": uploaded_by,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.materials.insert_one(doc)
     return doc
@@ -152,9 +178,16 @@ async def create_assignment(
         "allow_late": allow_late,
         "attachment_url": attachment_url,
         "created_by": created_by,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.assignments.insert_one(doc)
+    await _log_activity(
+        db,
+        created_by,
+        "assignment_created",
+        class_id=class_id,
+        data={"assignment_id": assign_id, "title": title},
+    )
     return doc
 
 async def get_assignments(db, class_id: str) -> list:
@@ -168,6 +201,8 @@ async def submit_assignment(
     content: Optional[str] = None,
     file_url: Optional[str] = None,
 ) -> dict:
+    assignment = await db.assignments.find_one({"id": assignment_id})
+    class_id = assignment.get("class_id") if assignment else None
     existing = await db.submissions.find_one({
         "assignment_id": assignment_id,
         "student_id": student_id
@@ -180,11 +215,18 @@ async def submit_assignment(
                 "content": content,
                 "file_url": file_url,
                 "status": "submitted",
-                "submitted_at": datetime.utcnow()
+                "submitted_at": _utcnow()
             }}
         )
         existing["status"] = "submitted"
-        existing["submitted_at"] = datetime.utcnow()
+        existing["submitted_at"] = _utcnow()
+        await _log_activity(
+            db,
+            student_id,
+            "assignment_submission",
+            class_id=class_id,
+            data={"assignment_id": assignment_id, "submission_id": existing["id"]},
+        )
         return existing
     else:
         sub_id = _make_id()
@@ -195,11 +237,18 @@ async def submit_assignment(
             "content": content,
             "file_url": file_url,
             "status": "submitted",
-            "submitted_at": datetime.utcnow(),
+            "submitted_at": _utcnow(),
             "points_earned": None,
             "feedback": None
         }
         await db.submissions.insert_one(doc)
+        await _log_activity(
+            db,
+            student_id,
+            "assignment_submission",
+            class_id=class_id,
+            data={"assignment_id": assignment_id, "submission_id": sub_id},
+        )
         return doc
 
 async def grade_submission(
@@ -209,6 +258,8 @@ async def grade_submission(
     points_earned: float,
     feedback: Optional[str] = None,
 ) -> dict:
+    submission = await db.submissions.find_one({"id": submission_id})
+    assignment = await db.assignments.find_one({"id": submission.get("assignment_id")}) if submission else None
     res = await db.submissions.update_one(
         {"id": submission_id},
         {"$set": {
@@ -216,12 +267,19 @@ async def grade_submission(
             "feedback": feedback,
             "status": "graded",
             "graded_by": graded_by,
-            "graded_at": datetime.utcnow()
+            "graded_at": _utcnow()
         }}
     )
     if res.modified_count == 0:
         raise ValueError("Submission not found.")
-    
+
+    await _log_activity(
+        db,
+        graded_by,
+        "submission_graded",
+        class_id=assignment.get("class_id") if assignment else None,
+        data={"submission_id": submission_id, "assignment_id": assignment.get("id") if assignment else None},
+    )
     return await db.submissions.find_one({"id": submission_id})
 
 async def get_submissions_for_assignment(db, assignment_id: str) -> list:
@@ -268,7 +326,7 @@ async def create_quiz(
         "start_time": start_time,
         "end_time": end_time,
         "is_published": False,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     await db.lms_quizzes.insert_one(doc)
 
@@ -288,7 +346,13 @@ async def create_quiz(
             })
         if q_docs:
             await db.quiz_questions.insert_many(q_docs)
-            
+    await _log_activity(
+        db,
+        created_by,
+        "quiz_created",
+        class_id=class_id,
+        data={"quiz_id": quiz_id, "title": title},
+    )
     return doc
 
 async def submit_quiz_attempt(
@@ -315,15 +379,38 @@ async def submit_quiz_attempt(
 
     score = 0.0
     max_score = sum(float(q.get("points", 1)) for q in questions)
+    correct_count = 0
+    question_results = []
 
     for q in questions:
-        user_answer = answers.get(str(q["id"]))
+        question_id = str(q["id"])
+        user_answer = answers.get(question_id)
         if q.get("type") in ("mcq", "true_false"):
             correct_labels = {
                 opt["label"] for opt in (q.get("options") or []) if opt.get("is_correct")
             }
-            if user_answer in correct_labels:
+            is_correct = user_answer in correct_labels
+            if is_correct:
                 score += float(q.get("points", 1))
+                correct_count += 1
+            question_results.append({
+                "question_id": question_id,
+                "question": q.get("question"),
+                "user_answer": user_answer,
+                "correct_answers": sorted(correct_labels),
+                "is_correct": is_correct,
+                "points": q.get("points", 1),
+                "options": [
+                    {
+                        "label": opt.get("label"),
+                        "text": opt.get("text"),
+                        "is_correct": bool(opt.get("is_correct")),
+                    }
+                    for opt in (q.get("options") or [])
+                    if isinstance(opt, dict)
+                ],
+                "explanation": q.get("explanation"),
+            })
 
     percentage = round((score / max_score * 100), 2) if max_score else 0.0
 
@@ -331,15 +418,25 @@ async def submit_quiz_attempt(
     doc = {
         "id": attempt_id,
         "quiz_id": quiz_id,
+        "class_id": quiz.get("class_id"),
         "student_id": student_id,
         "answers": answers,
         "score": score,
         "max_score": max_score,
         "percentage": percentage,
-        "submitted_at": datetime.utcnow(),
+        "correct_count": correct_count,
+        "question_results": question_results,
+        "submitted_at": _utcnow(),
         "is_complete": True
     }
     await db.quiz_attempts.insert_one(doc)
+    await _log_activity(
+        db,
+        student_id,
+        "quiz_attempt",
+        class_id=quiz.get("class_id"),
+        data={"quiz_id": quiz_id, "attempt_id": attempt_id, "percentage": percentage},
+    )
     return doc
 
 # ─── Attendance Tracking ──────────────────────────────────────────────────────
@@ -356,7 +453,7 @@ async def mark_attendance(
         "class_id": class_id,
         "date": date_str,
         "records": records,
-        "created_at": datetime.utcnow()
+        "created_at": _utcnow()
     }
     # Upsert: one nested doc per class per day (for bulk queries)
     await db.attendance.update_one(
@@ -378,9 +475,19 @@ async def mark_attendance(
                 "student_id": student_id,
                 "date": date_str,
                 "status": status,
-                "updated_at": datetime.utcnow()
+                "updated_at": _utcnow()
             }},
             upsert=True
+        )
+    cls = await db.classes.find_one({"id": class_id})
+    teacher_id = cls.get("teacher_id") if cls else None
+    if teacher_id:
+        await _log_activity(
+            db,
+            teacher_id,
+            "attendance_marked",
+            class_id=class_id,
+            data={"date": date_str, "records": len(records)},
         )
     return doc
 

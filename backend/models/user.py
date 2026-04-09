@@ -1,6 +1,6 @@
 # backend/models/user.py
 from typing import Optional, Any
-from pydantic import BaseModel, EmailStr, Field, GetJsonSchemaHandler
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 from bson import ObjectId
@@ -36,12 +36,10 @@ class UserInDB(BaseModel):
     hashed_password: str
     roll_number: Optional[str] = None # Added for College LMS
     level: str = "undergraduate"
-    role: str = "Student"
+    role: str = "student"
     created_at: Any = None
 
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
 # What the frontend sends to register
 class UserCreate(BaseModel):
@@ -50,7 +48,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     roll_number: Optional[str] = None # For bulk enrollment
     level: str = "undergraduate"
-    role: str = "Student"
+    role: str = "student"
 
 # Simple Login Model (Added back to fix ImportError)
 class UserLogin(BaseModel):
@@ -65,4 +63,4 @@ class UserPublic(BaseModel):
     email: EmailStr
     roll_number: Optional[str] = None
     level: str
-    role: str = "Student"
+    role: str = "student"

@@ -2,7 +2,7 @@
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from backend.utils.db import get_db
 from backend.api.auth import get_current_user
@@ -13,6 +13,10 @@ import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class QuizGenerateRequest(BaseModel):
     subject: Optional[str] = "general"
@@ -58,7 +62,7 @@ async def generate_quiz_endpoint(
         
         # Add metadata
         quiz_data["user_id"] = user_id
-        quiz_data["created_at"] = datetime.utcnow()
+        quiz_data["created_at"] = _utcnow()
         
         # Save to MongoDB
         result = await db.quizzes.insert_one(quiz_data.copy())
@@ -156,7 +160,7 @@ async def submit_quiz_endpoint(
             "percentage": percentage,
             "level": level,
             "weak_topics": weak_topics,
-            "timestamp": datetime.utcnow()
+            "timestamp": _utcnow()
         }
         
         await db.quiz_submissions.insert_one(submission)

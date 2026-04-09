@@ -1,243 +1,402 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/theme-init.js"></script>
     <title>Smart Planner - RAG AI Tutor</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
-        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
-        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
-        .nav-links { display: flex; gap: 12px; align-items: center; }
-        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); }
-        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .subtitle { color: #888; margin-bottom: 2rem; }
-
-        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-        .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-        .template-card { background: rgba(30,35,62,0.9); border: 2px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; cursor: pointer; transition: all 0.3s; text-align: center; }
-        .template-card:hover { border-color: rgba(0,255,204,0.4); transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,255,204,0.15); }
-        .template-card.active { border-color: #00ffcc; background: rgba(0,255,204,0.08); }
-        .template-emoji { font-size: 3rem; margin-bottom: 0.5rem; }
-        .template-name { font-weight: 700; color: #fff; font-size: 1.1rem; }
-        .template-desc { font-size: 0.85rem; color: #888; margin-top: 4px; }
-
-        .date-picker { display: flex; gap: 12px; align-items: center; margin-bottom: 1.5rem; }
-        .date-picker input[type="date"] { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 1rem; }
-        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
-        .btn-secondary { background: rgba(255,255,255,0.1); color: #e0e6ed; border: 1px solid rgba(255,255,255,0.2); }
-        .btn-small { font-size: 0.8rem; padding: 6px 14px; }
-
-        .schedule-list { background: rgba(30,35,62,0.6); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; }
-        .schedule-item { 
-            display: flex; align-items: center; gap: 16px; padding: 16px; 
-            background: rgba(26, 31, 58, 0.6); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 12px; margin-bottom: 10px; 
-            transition: all 0.3s; 
-        }
-        .schedule-item:hover { 
-            background: rgba(26, 31, 58, 0.9); 
-            border-color: rgba(0,255,204,0.2); 
-            transform: translateX(4px); 
-        }
-        .schedule-time { font-weight: 700; color: #00ffcc; min-width: 60px; font-size: 0.95rem; }
-        .schedule-activity { flex: 1; color: #e0e6ed; }
-        .schedule-category { font-size: 0.75rem; color: #888; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 12px; }
-        .schedule-check { width: 22px; height: 22px; border: 2px solid rgba(0,255,204,0.4); border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .schedule-check.done { background: #00ffcc; border-color: #00ffcc; color: #0a0e27; }
-
-        .cat-emoji { font-size: 1.1rem; }
-        .cat-study { }  .cat-food { }  .cat-workout { }  .cat-mind { }  .cat-wellness { }
-
-        .activity-form { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; }
-        .activity-form h3 { color: #00ffcc; margin-bottom: 1rem; font-size: 1rem; }
-        .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        .form-row input, .form-row select, .form-row textarea { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; color: #fff; flex: 1; min-width: 120px; font-size: 0.9rem; }
-
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
-        .summary-card { background: rgba(30,35,62,0.8); border-radius: 12px; padding: 1.2rem; text-align: center; }
-        .summary-value { font-size: 1.5rem; font-weight: 700; color: #00ffcc; }
-        .summary-label { font-size: 0.8rem; color: #888; }
-
-        .suggestions-box { background: rgba(30,35,62,0.9); border: 1px solid rgba(0,255,204,0.15); border-radius: 16px; padding: 1.5rem; }
-        .suggestion-item { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #b8c5d6; font-size: 0.9rem; line-height: 1.5; }
-        .suggestion-item:last-child { border-bottom: none; }
-
-        @keyframes pulseGlow {
-            0% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
-            50% { box-shadow: 0 0 25px rgba(168, 85, 247, 0.8); }
-            100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
-        }
-        .ai-btn {
-            background: linear-gradient(135deg, #a855f7, #6366f1);
-            color: #fff; border: none; padding: 10px 20px; border-radius: 10px;
-            cursor: pointer; font-weight: 700; font-size: 0.95rem;
-            transition: all 0.3s;
-            animation: pulseGlow 2.5s infinite;
-        }
-        .ai-btn:hover {
-            transform: scale(1.05);
-            background: linear-gradient(135deg, #b86bf8, #7376f5);
-        }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .template-card, .schedule-item, .summary-card { animation: fadeIn 0.4s ease-out; }
-
-        .reminder-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
-        .reminder-form input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 12px; color: #fff; }
-        .reminder-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 6px; }
-    </style>
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app-shell.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="/assets/js/config.js?v=11"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
+    <script src="/assets/js/theme-controls.js"></script>
 </head>
+
 <body>
-    <nav class="navbar">
-        <div class="brand">📅 Smart Planner</div>
-        <div class="nav-links">
-            <a href="/views/tracking.html">🏃 Tracking</a>
-            <a href="/views/dashboard.html">📊 Dashboard</a>
-            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
-        </div>
-    </nav>
-
-    <div class="container">
-        <h1>Smart Planner</h1>
-        <p class="subtitle">Plan your day, track activities, get AI suggestions</p>
-
-        <!-- Date Picker -->
-        <div class="date-picker" style="justify-content: space-between;">
-            <div style="display: flex; gap: 12px; align-items: center;">
-                <input type="date" id="planDate" />
-                <button class="btn btn-small" onclick="goToday()">Today</button>
+    <div class="page-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+                <span>RAG AI Tutor</span>
             </div>
-            <button class="ai-btn" onclick="generateSmartPlan()">✨ Auto-Generate AI Plan (7 Days)</button>
-        </div>
-
-        <!-- Day Templates -->
-        <div class="section-title">Select Day Template</div>
-        <div class="template-grid" id="templateGrid">
-            <div class="template-card" onclick="selectTemplate('study_day')">
-                <div class="template-emoji">📚</div>
-                <div class="template-name">Study Day</div>
-                <div class="template-desc">Focus on learning & revision</div>
+            <nav class="nav-section">
+                <div class="nav-label">Learn</div>
+                <a href="/views/dashboard.html" class="nav-item">
+                    <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+                    Dashboard
+                </a>
+                <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item">
+                    <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>
+                    My Classes
+                </a>
+                <a href="/views/subjects.html" class="nav-item">
+                    <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
+                    AI Tutor Chat
+                </a>
+                <a href="/views/planner.html" class="nav-item active">
+                    <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
+                    Planner
+                </a>
+                <a href="/views/tracking.html" class="nav-item">
+                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>
+                    Activity Tracking
+                </a>
+                <a href="/views/community.html" class="nav-item">
+                    <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+                    Community
+                </a>
+            </nav>
+            <nav class="nav-section">
+                <div class="nav-label">Analytics</div>
+                <a href="/views/analytics.html" class="nav-item">
+                    <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
+                    Analytics
+                </a>
+                <a href="/views/evaluation.html" class="nav-item">
+                    <span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>
+                    Evaluation
+                </a>
+                <a href="/views/progress.html" class="nav-item">
+                    <span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>
+                    Progress Report
+                </a>
+                <a href="/views/calendar.html" class="nav-item">
+                    <span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+                    Unified Calendar
+                </a>
+            </nav>
+            <nav class="nav-section">
+                <div class="nav-label">Account</div>
+                <a href="/views/profile.html" class="nav-item">
+                    <span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>
+                    Profile &amp; Settings
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar" id="userAvatar">?</div>
+                    <div>
+                        <div class="user-name" id="userName">Loading...</div>
+                        <div class="user-level" id="userLevel">Student</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <a href="#"
+                        onclick="window.auth ? window.auth.logout() : (localStorage.clear(), window.location.href='/views/login.html')"
+                        class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
+                        <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket"
+                                aria-hidden="true"></i></span>
+                        Logout
+                    </a>
+                </div>
             </div>
-            <div class="template-card" onclick="selectTemplate('productive_day')">
-                <div class="template-emoji">🚀</div>
-                <div class="template-name">Productive Day</div>
-                <div class="template-desc">Deep work & skill building</div>
-            </div>
-            <div class="template-card" onclick="selectTemplate('casual_wellness_day')">
-                <div class="template-emoji">☀️</div>
-                <div class="template-name">Casual & Wellness Day</div>
-                <div class="template-desc">Relax, meditation & self-care</div>
-            </div>
-        </div>
+        </aside>
 
-        <!-- Schedule -->
-        <div class="section-title">Your Schedule</div>
-        <div class="schedule-list" id="scheduleList">
-            <p style="color:#888; text-align:center;">Select a template or date to load schedule</p>
-        </div>
+        <main class="main">
+            <div class="container planner-page">
+                <div class="page-header planner-page-header">
+                    <div>
+                        <h1><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> Smart Planner</h1>
+                        <p class="subtitle">Plan the week in a focused 10-hour board that feels tighter, clearer, and easier to scan than a long stacked list.</p>
+                    </div>
+                    <div class="planner-header-actions">
+                        <div class="planner-date-picker">
+                            <input class="theme-input" type="date" id="planDate">
+                            <button class="btn btn-secondary" onclick="goToday()">Today</button>
+                        </div>
+                        <button class="btn btn-primary planner-ai-btn" id="generatePlanBtn" onclick="generateSmartPlan()">
+                            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                            Auto-Generate 7-Day Plan
+                        </button>
+                        <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+                            <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
 
-        <!-- Log Activity -->
-        <div class="section-title">Log Activity</div>
-        <div class="activity-form">
-            <h3>➕ Track an Activity</h3>
-            <div class="form-row">
-                <select id="actCategory">
-                    <option value="study">📚 Study</option>
-                    <option value="workout">🏋️ Workout</option>
-                    <option value="food">🍎 Food</option>
-                    <option value="mind">🧘 Mind</option>
-                </select>
-                <input id="actName" placeholder="Activity name" />
+                <div class="bento-grid planner-grid">
+                    <section class="card col-span-8">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Day Templates</h3>
+                            <span class="card-badge">Adaptive</span>
+                        </div>
+                        <div class="template-grid" id="templateGrid">
+                            <div class="template-card" data-template="study_day" onclick="selectTemplate('study_day')">
+                                <div class="template-emoji"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
+                                <div class="template-name">Study Day</div>
+                                <div class="template-desc">Focused review blocks, revision sessions, and coursework momentum.</div>
+                            </div>
+                            <div class="template-card" data-template="productive_day" onclick="selectTemplate('productive_day')">
+                                <div class="template-emoji"><i class="fa-solid fa-rocket" aria-hidden="true"></i></div>
+                                <div class="template-name">Productive Day</div>
+                                <div class="template-desc">Deep work, project pushes, and longer execution windows.</div>
+                            </div>
+                            <div class="template-card" data-template="casual_wellness_day" onclick="selectTemplate('casual_wellness_day')">
+                                <div class="template-emoji"><i class="fa-regular fa-sun" aria-hidden="true"></i></div>
+                                <div class="template-name">Casual and Wellness</div>
+                                <div class="template-desc">Recovery, lighter learning, mindfulness, and sustainable pacing.</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card col-span-4">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Daily Summary</h3>
+                            <span class="card-badge">Live</span>
+                        </div>
+                        <div class="summary-grid" id="summaryGrid">
+                            <div class="summary-card">
+                                <div class="summary-icon"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>
+                                <div class="summary-copy">
+                                    <div class="summary-value" id="sumStudy">0</div>
+                                    <div class="summary-label">Study minutes</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon"><i class="fa-solid fa-dumbbell" aria-hidden="true"></i></div>
+                                <div class="summary-copy">
+                                    <div class="summary-value" id="sumWorkout">0</div>
+                                    <div class="summary-label">Workout minutes</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></div>
+                                <div class="summary-copy">
+                                    <div class="summary-value" id="sumCalories">0</div>
+                                    <div class="summary-label">Calories burned</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon"><i class="fa-solid fa-spa" aria-hidden="true"></i></div>
+                                <div class="summary-copy">
+                                    <div class="summary-value" id="sumMind">0</div>
+                                    <div class="summary-label">Mind minutes</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card col-span-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> Weekly Calendar</h3>
+                            <span class="card-badge">08:00-18:00</span>
+                        </div>
+                        <div class="planner-calendar" id="scheduleList">
+                            <div class="empty-state planner-empty">
+                                <div class="empty-icon"><i class="fa-regular fa-calendar" aria-hidden="true"></i></div>
+                                <p>Select a date or template to build your 10-hour weekly board.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card col-span-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Suggestions</h3>
+                            <span class="card-badge">Personalized</span>
+                        </div>
+                        <div class="suggestions-box" id="suggestionsBox">
+                            <div class="planner-info-note">
+                                <i class="fa-solid fa-stars" aria-hidden="true"></i>
+                                <p>Log activities to get personalized AI suggestions.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card col-span-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-solid fa-plus" aria-hidden="true"></i> Log Activity</h3>
+                        </div>
+                        <div class="activity-form planner-form">
+                            <div class="planner-form-intro">
+                                <h3>Track an Activity</h3>
+                                <p>Capture what actually happened so the next plan, reminders, and suggestions stay realistic.</p>
+                            </div>
+                            <div class="planner-form-grid">
+                                <label class="planner-field">
+                                    <span class="planner-field-label">Category</span>
+                                    <select id="actCategory" class="theme-input">
+                                        <option value="study">Study</option>
+                                        <option value="workout">Workout</option>
+                                        <option value="food">Food</option>
+                                        <option value="mind">Mind</option>
+                                    </select>
+                                </label>
+                                <label class="planner-field planner-field-wide">
+                                    <span class="planner-field-label">Activity name</span>
+                                    <input id="actName" class="theme-input" placeholder="Activity name">
+                                </label>
+                                <label class="planner-field">
+                                    <span class="planner-field-label">Duration</span>
+                                    <input id="actDuration" class="theme-input" type="number" placeholder="Minutes">
+                                </label>
+                                <label class="planner-field">
+                                    <span class="planner-field-label">Calories</span>
+                                    <input id="actCalories" class="theme-input" type="number" placeholder="Optional">
+                                </label>
+                                <label class="planner-field planner-field-full">
+                                    <span class="planner-field-label">Notes</span>
+                                    <input id="actNotes" class="theme-input" placeholder="Notes, topics, or what made this session useful">
+                                </label>
+                            </div>
+                            <div class="planner-form-actions">
+                                <button class="btn btn-primary" onclick="logActivity()">Save Activity</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card col-span-12">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fa-regular fa-bell" aria-hidden="true"></i> Reminders</h3>
+                        </div>
+                        <div class="reminder-form planner-form">
+                            <div class="planner-form-intro">
+                                <h3>Quick Reminder</h3>
+                                <p>Keep nudges concise so they stay useful when the day gets busy.</p>
+                            </div>
+                            <div class="planner-reminder-compose">
+                                <label class="planner-field planner-field-time">
+                                    <span class="planner-field-label">Time</span>
+                                    <input id="reminderTime" class="theme-input" type="time">
+                                </label>
+                                <label class="planner-field planner-field-wide">
+                                    <span class="planner-field-label">Reminder</span>
+                                    <input id="reminderMsg" class="theme-input" placeholder="Reminder message">
+                                </label>
+                                <div class="planner-reminder-action">
+                                    <button class="btn btn-secondary" onclick="addReminder()">Add</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="reminderList" class="planner-reminder-list"></div>
+                    </section>
+                </div>
             </div>
-            <div class="form-row">
-                <input id="actDuration" type="number" placeholder="Duration (min)" />
-                <input id="actCalories" type="number" placeholder="Calories" />
-            </div>
-            <div class="form-row">
-                <input id="actNotes" placeholder="Notes (optional)" style="flex:3" />
-                <button class="btn" onclick="logActivity()">Log</button>
-            </div>
-        </div>
-
-        <!-- Reminders -->
-        <div class="section-title">⏰ Reminders</div>
-        <div class="reminder-form">
-            <input id="reminderTime" type="time" />
-            <input id="reminderMsg" placeholder="Reminder message" style="flex:1" />
-            <button class="btn btn-small" onclick="addReminder()">Add</button>
-        </div>
-        <div id="reminderList"></div>
-
-        <!-- Summary -->
-        <div class="section-title">Daily Summary</div>
-        <div class="summary-grid" id="summaryGrid">
-            <div class="summary-card"><div class="summary-value" id="sumStudy">0</div><div class="summary-label">📚 Study (min)</div></div>
-            <div class="summary-card"><div class="summary-value" id="sumWorkout">0</div><div class="summary-label">🏋️ Workout (min)</div></div>
-            <div class="summary-card"><div class="summary-value" id="sumCalories">0</div><div class="summary-label">🍎 Calories</div></div>
-            <div class="summary-card"><div class="summary-value" id="sumMind">0</div><div class="summary-label">🧘 Mind (min)</div></div>
-        </div>
-
-        <!-- AI Suggestions -->
-        <div class="section-title">🤖 AI Suggestions</div>
-        <div class="suggestions-box" id="suggestionsBox">
-            <p style="color:#888">Log activities to get personalized AI suggestions.</p>
-        </div>
+        </main>
     </div>
 
-    <script src="/assets/js/config.js?v=7"></script>
     <script>
-        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+        const API = window.config?.apiBase || '/api';
         const TOKEN = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
         const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
         if (!TOKEN) window.location.href = '/views/login.html';
 
-        const CATEGORY_EMOJIS = { study: '📚', workout: '🏋️', food: '🍎', mind: '🧘', wellness: '🌿' };
-        let selectedTemplate = null;
-        let completedActivities = new Set();
+        const CATEGORY_META = {
+            study: { icon: 'fa-solid fa-book-open', label: 'Study' },
+            workout: { icon: 'fa-solid fa-dumbbell', label: 'Workout' },
+            food: { icon: 'fa-solid fa-apple-whole', label: 'Food' },
+            mind: { icon: 'fa-solid fa-spa', label: 'Mind' },
+            wellness: { icon: 'fa-regular fa-sun', label: 'Wellness' }
+        };
+        const CALENDAR_START_HOUR = 8;
+        const CALENDAR_VISIBLE_HOURS = 10;
+        const CALENDAR_END_HOUR = CALENDAR_START_HOUR + CALENDAR_VISIBLE_HOURS;
+        const CALENDAR_START_MINUTES = CALENDAR_START_HOUR * 60;
+        const CALENDAR_END_MINUTES = CALENDAR_END_HOUR * 60;
+        const MAX_SLOT_TASKS = 2;
 
-        function getDate() { return document.getElementById('planDate').value; }
-        function goToday() { document.getElementById('planDate').value = new Date().toISOString().split('T')[0]; loadPlan(); }
+        document.getElementById('userAvatar').textContent = (user.name || 'U').slice(0, 1).toUpperCase();
+        document.getElementById('userName').textContent = user.name || 'Learner';
+        document.getElementById('userLevel').textContent = user.role || 'Student';
 
-        // Initialize date
-        document.getElementById('planDate').value = new Date().toISOString().split('T')[0];
-        document.getElementById('planDate').addEventListener('change', loadPlan);
+        function escHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        function getDate() {
+            return document.getElementById('planDate').value;
+        }
+
+        function setTemplateState(templateId = '') {
+            document.querySelectorAll('.template-card').forEach((card) => {
+                card.classList.toggle('active', card.dataset.template === templateId);
+            });
+        }
+
+        function plannerEmpty(message, iconClass = 'fa-regular fa-calendar') {
+            return `<div class="empty-state planner-empty"><div class="empty-icon"><i class="${iconClass}" aria-hidden="true"></i></div><p>${message}</p></div>`;
+        }
+
+        function formatPlannerDate(rawDate) {
+            const dateObj = new Date(rawDate);
+            const safeDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+            return {
+                weekday: safeDate.toLocaleDateString('en-US', { weekday: 'short' }),
+                label: safeDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            };
+        }
+
+        function parseTimeToMinutes(value) {
+            if (!value || typeof value !== 'string' || !value.includes(':')) return null;
+            const [hours, minutes] = value.split(':').map((part) => parseInt(part, 10));
+            if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+            return (hours * 60) + minutes;
+        }
+
+        function formatMinutesLabel(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            const suffix = hours >= 12 ? 'PM' : 'AM';
+            const normalizedHour = hours % 12 || 12;
+            return minutes ? `${normalizedHour}:${String(minutes).padStart(2, '0')} ${suffix}` : `${normalizedHour} ${suffix}`;
+        }
+
+        function formatTimeRange(startTime, endTime) {
+            const startMinutes = parseTimeToMinutes(startTime);
+            if (startMinutes == null) return '--';
+
+            const endMinutes = parseTimeToMinutes(endTime);
+            if (endMinutes == null) return formatMinutesLabel(startMinutes);
+
+            return `${formatMinutesLabel(startMinutes)} - ${formatMinutesLabel(endMinutes)}`;
+        }
+
+        function getTaskSlotIndex(task) {
+            const startMinutes = parseTimeToMinutes(task.start_time);
+            if (startMinutes == null) return null;
+            if (startMinutes < CALENDAR_START_MINUTES || startMinutes >= CALENDAR_END_MINUTES) return null;
+            return Math.floor((startMinutes - CALENDAR_START_MINUTES) / 60);
+        }
+
+        function goToday() {
+            document.getElementById('planDate').value = new Date().toISOString().split('T')[0];
+            loadPlan();
+        }
 
         async function selectTemplate(templateId) {
-            selectedTemplate = templateId;
-            document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
-            // Find the clicked card and add active
-            const cards = document.querySelectorAll('.template-card');
-            cards.forEach(card => {
-                if (card.getAttribute('onclick').includes(templateId)) card.classList.add('active');
-            });
-
             const date = getDate();
-            if (!date) { alert('Please select a date first'); return; }
+            if (!date) {
+                alert('Please select a date first');
+                return;
+            }
 
-            // Create plan
+            setTemplateState(templateId);
+
             await fetch(`${API}/planner/plans`, {
-                method: 'POST', headers,
+                method: 'POST',
+                headers,
                 body: JSON.stringify({ date, template: templateId.replace('_day', '') })
             });
+
             loadPlan();
         }
 
         async function generateSmartPlan() {
             const date = getDate();
-            if (!date) { alert('Please select a starting date first'); return; }
-            
-            const btn = document.querySelector('button[onclick="generateSmartPlan()"]');
+            if (!date) {
+                alert('Please select a starting date first');
+                return;
+            }
+
+            const btn = document.getElementById('generatePlanBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '⏳ Analyzing Coursework...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Analyzing Coursework...';
             btn.disabled = true;
 
             try {
@@ -246,22 +405,124 @@
                     headers,
                     body: JSON.stringify({ start_date: date, days: 7 })
                 });
-                
+
                 if (res.ok) {
                     const data = await res.json();
-                    alert(`✅ Success: ${data.message}\nYour schedule is now synchronized!`);
+                    alert(`Success: ${data.message}`);
                     loadPlan();
                 } else {
                     const error = await res.json();
-                    alert(`❌ Failed: ${error.detail || 'Unknown error'}`);
+                    alert(`Failed: ${error.detail || 'Unknown error'}`);
                 }
             } catch (err) {
                 console.error(err);
-                alert(`❌ Network error while generating AI plan.`);
+                alert('Network error while generating the AI plan.');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
+        }
+
+        function renderTaskCard(task) {
+            const done = task.is_completed;
+            const meta = CATEGORY_META[task.category] || { icon: 'fa-regular fa-circle', label: task.category || 'Task' };
+            return `<article class="planner-slot-task ${done ? 'done' : ''}">
+                <div class="planner-slot-task-main">
+                    <div class="planner-task-icon"><i class="${meta.icon}" aria-hidden="true"></i></div>
+                    <div class="planner-slot-copy">
+                        <div class="planner-task-title">${escHtml(task.title || 'Untitled task')}</div>
+                        <div class="planner-slot-time">${escHtml(formatTimeRange(task.start_time, task.end_time))}</div>
+                    </div>
+                    <button class="planner-task-check ${done ? 'done' : ''}" onclick="toggleComplete('${task.id}')" aria-label="${done ? 'Mark task incomplete' : 'Mark task complete'}">
+                        ${done ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : ''}
+                    </button>
+                </div>
+                <div class="planner-slot-task-meta">
+                    <div class="planner-task-category">${escHtml(meta.label)}</div>
+                </div>
+            </article>`;
+        }
+
+        function renderWeekCalendar(days) {
+            const normalizedDays = days.map((day) => {
+                const formatted = formatPlannerDate(day.date);
+                const slotBuckets = Array.from({ length: CALENDAR_VISIBLE_HOURS }, () => []);
+                const allTasks = Array.isArray(day.tasks) ? [...day.tasks] : [];
+                const sortedTasks = allTasks.sort((a, b) => (parseTimeToMinutes(a.start_time) ?? 0) - (parseTimeToMinutes(b.start_time) ?? 0));
+                let hiddenCount = 0;
+
+                sortedTasks.forEach((task) => {
+                    const slotIndex = getTaskSlotIndex(task);
+                    if (slotIndex == null) {
+                        hiddenCount += 1;
+                        return;
+                    }
+                    slotBuckets[slotIndex].push(task);
+                });
+
+                const visibleCount = slotBuckets.reduce((count, bucket) => count + bucket.length, 0);
+                return {
+                    formatted,
+                    slotBuckets,
+                    visibleCount,
+                    hiddenCount
+                };
+            });
+
+            const headerHtml = normalizedDays.map((day) => {
+                const meta = `${day.visibleCount} ${day.visibleCount === 1 ? 'task' : 'tasks'}`;
+                const overflow = day.hiddenCount > 0
+                    ? `<div class="planner-column-overflow">${day.hiddenCount} outside view</div>`
+                    : '';
+
+                return `<div class="planner-matrix-head">
+                    <div class="planner-matrix-head-inner">
+                        <div class="planner-calendar-weekday">${escHtml(day.formatted.weekday)}</div>
+                        <div class="planner-calendar-date">${escHtml(day.formatted.label)}</div>
+                        <div class="planner-column-meta">${escHtml(meta)}</div>
+                        ${overflow}
+                    </div>
+                </div>`;
+            }).join('');
+
+            const rowsHtml = Array.from({ length: CALENDAR_VISIBLE_HOURS }, (_, slotIndex) => {
+                const label = formatMinutesLabel(CALENDAR_START_MINUTES + (slotIndex * 60));
+                const rowCells = normalizedDays.map((day) => {
+                    const slotTasks = day.slotBuckets[slotIndex];
+                    if (!slotTasks.length) {
+                        return '<div class="planner-matrix-cell"><div class="planner-slot-empty-marker"></div></div>';
+                    }
+
+                    const cards = slotTasks.slice(0, MAX_SLOT_TASKS).map(renderTaskCard).join('');
+                    const overflowCount = slotTasks.length - MAX_SLOT_TASKS;
+                    const overflowHtml = overflowCount > 0
+                        ? `<div class="planner-slot-overflow">+${overflowCount} more</div>`
+                        : '';
+
+                    return `<div class="planner-matrix-cell has-events">
+                        <div class="planner-slot-stack">
+                            ${cards}
+                            ${overflowHtml}
+                        </div>
+                    </div>`;
+                }).join('');
+
+                return `<div class="planner-matrix-time">${escHtml(label)}</div>${rowCells}`;
+            }).join('');
+
+            return `<div class="planner-calendar-shell">
+                <div class="planner-calendar-note">
+                    <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                    <p>Showing a focused 10-hour view from ${escHtml(formatMinutesLabel(CALENDAR_START_MINUTES))} to ${escHtml(formatMinutesLabel(CALENDAR_END_MINUTES))}.</p>
+                </div>
+                <div class="planner-calendar-layout">
+                    <div class="planner-week-matrix">
+                        <div class="planner-matrix-corner">Time</div>
+                        ${headerHtml}
+                        ${rowsHtml}
+                    </div>
+                </div>
+            </div>`;
         }
 
         async function loadPlan() {
@@ -273,93 +534,76 @@
             endDate.setDate(startDate.getDate() + 6);
             const endDateStr = endDate.toISOString().split('T')[0];
 
+            const scheduleList = document.getElementById('scheduleList');
+
             try {
                 const res = await fetch(`${API}/planner/plans/range?start=${date}&end=${endDateStr}`, { headers });
-                if (res.ok) {
-                    const days = await res.json();
-                    const scheduleList = document.getElementById('scheduleList');
-                    
-                    if (!days || days.length === 0) {
-                        scheduleList.innerHTML = '<p style="color:#888;text-align:center;">No plan for this date range. Select a template above or ask AI to generate one.</p>';
-                    } else {
-                        let html = '';
-                        days.forEach(day => {
-                            const dateObj = new Date(day.date);
-                            // To prevent JS UTC offset issues:
-                            const dayName = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-                            
-                            html += `<h3 style="color: #b8c5d6; margin-top: 24px; margin-bottom: 12px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">🗓️ ${dayName}</h3>`;
-                            
-                            if (day.tasks && day.tasks.length > 0) {
-                                html += renderSchedule(day.tasks);
-                            } else {
-                                html += `<p style="color:#888; font-size:0.9rem; margin-bottom: 10px;">Free Day - No tasks scheduled.</p>`;
-                            }
-                        });
-                        scheduleList.innerHTML = html;
-                    }
-                    
-                    // Highlight active template based on the first day
-                    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
-                    if (days.length > 0 && days[0].template) {
-                        document.querySelectorAll('.template-card').forEach(card => {
-                            if (card.getAttribute('onclick').includes(days[0].template)) card.classList.add('active');
-                        });
-                    }
-                } else {
-                    document.getElementById('scheduleList').innerHTML = '<p style="color:#888;text-align:center;">No plan for this date. Select a template above.</p>';
+                if (!res.ok) {
+                    scheduleList.innerHTML = plannerEmpty('No plan for this date. Select a template above.', 'fa-regular fa-calendar-xmark');
+                    return;
                 }
-            } catch (err) { console.error(err); }
+
+                const days = await res.json();
+                if (!days || days.length === 0) {
+                    scheduleList.innerHTML = plannerEmpty('No plan for this date range. Select a template above or let AI build one.', 'fa-regular fa-calendar');
+                } else {
+                    scheduleList.innerHTML = renderWeekCalendar(days);
+                }
+
+                const activeTemplate = days && days.length > 0 ? `${days[0].template || ''}_day`.replace(/_day_day$/, '_day') : '';
+                setTemplateState(activeTemplate);
+            } catch (err) {
+                console.error(err);
+                scheduleList.innerHTML = plannerEmpty('Could not load your planner right now.', 'fa-regular fa-circle-xmark');
+            }
 
             loadSummary();
             loadSuggestions();
             loadReminders();
         }
 
-        function renderSchedule(tasks) {
-            return tasks.map((t) => {
-                const done = t.is_completed;
-                const emoji = CATEGORY_EMOJIS[t.category] || '📌';
-                return `<div class="schedule-item">
-                    <div class="schedule-check ${done ? 'done' : ''}" onclick="toggleComplete('${t.id}')">${done ? '✓' : ''}</div>
-                    <span class="schedule-time">${t.start_time || '--:--'}</span>
-                    <span class="schedule-activity">${emoji} ${t.title}</span>
-                    <span class="schedule-category">${t.category}</span>
-                </div>`;
-            }).join('');
-        }
-
         async function toggleComplete(taskId) {
             await fetch(`${API}/planner/tasks/${taskId}/complete`, {
-                method: 'PATCH', headers
+                method: 'PATCH',
+                headers
             });
             loadPlan();
         }
 
         async function logActivity() {
             const date = getDate();
-            if (!date) { alert('Select a date first'); return; }
+            if (!date) {
+                alert('Select a date first');
+                return;
+            }
+
             const category = document.getElementById('actCategory').value;
             const activityName = document.getElementById('actName').value;
-            const duration = parseInt(document.getElementById('actDuration').value) || 0;
-            const calories = parseInt(document.getElementById('actCalories').value) || 0;
+            const duration = parseInt(document.getElementById('actDuration').value, 10) || 0;
+            const calories = parseInt(document.getElementById('actCalories').value, 10) || 0;
             const notes = document.getElementById('actNotes').value;
 
-            if (!activityName) { alert('Enter an activity name'); return; }
+            if (!activityName) {
+                alert('Enter an activity name');
+                return;
+            }
 
-            const logData = {
-                date,
-                category,
-                data: {
-                    title: activityName,
-                    duration_min: duration,
-                    calories_burned: calories,
-                    notes: notes,
-                    topics: category === 'study' ? [activityName] : []
-                }
-            };
+            await fetch(`${API}/planner/activities`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    date,
+                    category,
+                    data: {
+                        title: activityName,
+                        duration_min: duration,
+                        calories_burned: calories,
+                        notes,
+                        topics: category === 'study' ? [activityName] : []
+                    }
+                })
+            });
 
-            await fetch(`${API}/planner/activities`, { method: 'POST', headers, body: JSON.stringify(logData) });
             document.getElementById('actName').value = '';
             document.getElementById('actDuration').value = '';
             document.getElementById('actCalories').value = '';
@@ -371,41 +615,58 @@
         async function loadSummary() {
             const date = getDate();
             if (!date) return;
+
             try {
                 const res = await fetch(`${API}/planner/activities/summary/${date}`, { headers });
                 if (res.ok) {
-                    const s = await res.json();
-                    document.getElementById('sumStudy').textContent = s.study?.total_duration_min || 0;
-                    document.getElementById('sumWorkout').textContent = s.workout?.total_duration_min || 0;
-                    document.getElementById('sumCalories').textContent = s.workout?.total_calories_burned || 0;
-                    document.getElementById('sumMind').textContent = s.mind?.total_duration_min || 0;
+                    const summary = await res.json();
+                    document.getElementById('sumStudy').textContent = summary.study?.total_duration_min || 0;
+                    document.getElementById('sumWorkout').textContent = summary.workout?.total_duration_min || 0;
+                    document.getElementById('sumCalories').textContent = summary.workout?.total_calories_burned || 0;
+                    document.getElementById('sumMind').textContent = summary.mind?.total_duration_min || 0;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         async function loadSuggestions() {
             const date = getDate();
             if (!date) return;
+
             try {
                 const res = await fetch(`${API}/suggestions/daily/${date}`, { headers });
                 if (res.ok) {
                     const data = await res.json();
-                    const html = (data.suggestions || []).map(s => `<div class="suggestion-item">${s}</div>`).join('');
-                    document.getElementById('suggestionsBox').innerHTML = html || '<p style="color:#888">No suggestions available.</p>';
+                    const html = (data.suggestions || []).map((suggestion) => `<div class="suggestion-item">
+                        <div class="planner-list-icon"><i class="fa-solid fa-sparkles" aria-hidden="true"></i></div>
+                        <div class="planner-list-copy">${escHtml(suggestion)}</div>
+                    </div>`).join('');
+                    document.getElementById('suggestionsBox').innerHTML = html || `<div class="planner-info-note">
+                        <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
+                        <p>No suggestions available yet. Log an activity to help the planner learn your rhythm.</p>
+                    </div>`;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         async function addReminder() {
             const date = getDate();
             const time = document.getElementById('reminderTime').value;
             const message = document.getElementById('reminderMsg').value;
-            if (!time || !message) { alert('Enter time and message'); return; }
+            if (!time || !message) {
+                alert('Enter time and message');
+                return;
+            }
 
             await fetch(`${API}/planner/reminders`, {
-                method: 'POST', headers,
+                method: 'POST',
+                headers,
                 body: JSON.stringify({ date, time, message })
             });
+
             document.getElementById('reminderTime').value = '';
             document.getElementById('reminderMsg').value = '';
             loadReminders();
@@ -414,26 +675,44 @@
         async function loadReminders() {
             const date = getDate();
             if (!date) return;
+
             try {
                 const res = await fetch(`${API}/planner/reminders?date=${date}`, { headers });
                 if (res.ok) {
                     const reminders = await res.json();
-                    const html = reminders.map(r => `<div class="reminder-item">
-                        <span>⏰ <strong>${r.time}</strong> — ${r.message}</span>
-                        <button class="btn btn-small btn-secondary" onclick="deleteReminder('${r.reminder_id}')">✕</button>
+                    const html = reminders.map((reminder) => `<div class="reminder-item">
+                        <div class="planner-list-icon"><i class="fa-regular fa-bell" aria-hidden="true"></i></div>
+                        <div class="planner-reminder-copy">
+                            <div class="planner-reminder-time">${escHtml(reminder.time)}</div>
+                            <div class="planner-reminder-message">${escHtml(reminder.message)}</div>
+                        </div>
+                        <button class="btn btn-small btn-secondary" onclick="deleteReminder('${reminder.reminder_id}')">Remove</button>
                     </div>`).join('');
-                    document.getElementById('reminderList').innerHTML = html || '<p style="color:#888;font-size:0.85rem;">No reminders set.</p>';
+                    document.getElementById('reminderList').innerHTML = html || `<div class="planner-info-note">
+                        <i class="fa-regular fa-bell-slash" aria-hidden="true"></i>
+                        <p>No reminders set for this date yet.</p>
+                    </div>`;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         async function deleteReminder(id) {
-            await fetch(`${API}/planner/reminders/${id}`, { method: 'DELETE', headers });
+            await fetch(`${API}/planner/reminders/${id}`, {
+                method: 'DELETE',
+                headers
+            });
             loadReminders();
         }
 
-        // Initial load
+        const planDateInput = document.getElementById('planDate');
+        planDateInput.addEventListener('change', loadPlan);
+        planDateInput.addEventListener('input', loadPlan);
+        planDateInput.value = new Date().toISOString().split('T')[0];
         loadPlan();
     </script>
 </body>
+
 </html>
+

@@ -1,170 +1,306 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/theme-init.js"></script>
     <title>Unified Calendar - RAG AI Tutor</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-dark: #0a0b10;
-            --card-bg: #151921;
-            --accent: #00ffcc;
-            --secondary: #7000ff;
-            --text-main: #e0e0e0;
-            --text-dim: #94a3b8;
-            --border: rgba(255, 255, 255, 0.1);
-        }
-
-        .calendar-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 1rem;
-        }
-
-        .calendar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background: var(--border);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .calendar-day-label {
-            background: var(--card-bg);
-            padding: 1rem;
-            text-align: center;
-            font-weight: 600;
-            color: var(--accent);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-
-        .calendar-cell {
-            background: var(--card-bg);
-            min-height: 120px;
-            padding: 0.5rem;
-            transition: background 0.2s;
-            position: relative;
-        }
-
-        .calendar-cell:hover {
-            background: #1c212b;
-        }
-
-        .calendar-cell.today {
-            background: rgba(0, 255, 204, 0.05);
-        }
-
-        .day-number {
-            font-size: 0.9rem;
-            color: var(--text-dim);
-            margin-bottom: 0.5rem;
-            display: block;
-        }
-
-        .today .day-number {
-            color: var(--accent);
-            font-weight: 700;
-        }
-
-        .event-item {
-            font-size: 0.75rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            cursor: pointer;
-            border-left: 3px solid transparent;
-        }
-
-        .event-task { background: rgba(112, 0, 255, 0.2); border-left-color: var(--secondary); color: #d8b4fe; }
-        .event-assignment { background: rgba(255, 68, 68, 0.2); border-left-color: #ff4444; color: #fca5a5; }
-        .event-quiz { background: rgba(0, 255, 204, 0.2); border-left-color: var(--accent); color: #99f6e4; }
-        .event-class { background: rgba(59, 130, 246, 0.2); border-left-color: #3b82f6; color: #93c5fd; }
-
-        .sidebar-calendar {
-            width: 250px;
-            padding: 1.5rem;
-            background: var(--card-bg);
-            border-right: 1px solid var(--border);
-            height: 100vh;
-            position: sticky;
-            top: 0;
-        }
-
-        .main-layout {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .calendar-content {
-            flex: 1;
-            padding: 2rem;
-        }
-
-        .btn-nav {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .btn-nav:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-    </style>
+    <meta name="description" content="Unified academic calendar for classes, assignments, quizzes, and planner tasks.">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="/assets/js/config.js?v=11"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
+    <script src="/assets/js/notifications.js"></script>
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app-shell.css">
+    <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body class="dark-theme">
-    <div class="main-layout">
-        <!-- SIDEBAR -->
-        <div class="sidebar-calendar">
-            <h2 style="color: var(--accent); margin-bottom: 2rem;">RAG Tutor</h2>
-            <nav>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="margin-bottom: 1rem;"><a href="/views/dashboard.html" style="color: var(--text-dim); text-decoration: none;">🏠 Dashboard</a></li>
-                    <li style="margin-bottom: 1rem;"><a href="/views/calendar.html" style="color: var(--accent); text-decoration: none; font-weight: 600;">📅 Calendar</a></li>
-                    <li style="margin-bottom: 1rem;"><a href="/views/subjects.html" style="color: var(--text-dim); text-decoration: none;">💬 AI Chat</a></li>
-                </ul>
-            </nav>
-            <div style="margin-top: 4rem; padding: 1rem; background: rgba(112,0,255,0.1); border-radius: 8px;">
-                <h4 style="margin:0; font-size: 0.8rem; color: var(--accent);">Legend</h4>
-                <div style="margin-top: 0.5rem; font-size: 0.7rem;">
-                    <div style="display:flex; align-items:center; margin-bottom: 4px;"><span style="width:10px; height:10px; background:#7000ff; border-radius:2px; margin-right:8px;"></span> Tasks</div>
-                    <div style="display:flex; align-items:center; margin-bottom: 4px;"><span style="width:10px; height:10px; background:#ff4444; border-radius:2px; margin-right:8px;"></span> Assignments</div>
-                    <div style="display:flex; align-items:center; margin-bottom: 4px;"><span style="width:10px; height:10px; background:#00ffcc; border-radius:2px; margin-right:8px;"></span> Quizzes</div>
-                    <div style="display:flex; align-items:center;"><span style="width:10px; height:10px; background:#3b82f6; border-radius:2px; margin-right:8px;"></span> Classes</div>
+
+<body class="page-layout calendar-page">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span>RAG AI Tutor</span>
+        </div>
+        <nav class="nav-section">
+            <div class="nav-label">Learn</div>
+            <a href="/views/dashboard.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+                Dashboard
+            </a>
+            <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>
+                My Classes
+            </a>
+            <a href="/views/subjects.html" class="nav-item">
+                <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
+                AI Tutor Chat
+            </a>
+            <a href="/views/planner.html" class="nav-item">
+                <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
+                Planner
+            </a>
+            <a href="/views/tracking.html" class="nav-item">
+                <span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>
+                Activity Tracking
+            </a>
+            <a href="/views/community.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+                Community
+            </a>
+        </nav>
+        <nav class="nav-section">
+            <div class="nav-label">Analytics</div>
+            <a href="/views/analytics.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
+                Analytics
+            </a>
+            <a href="/views/evaluation.html" class="nav-item">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>
+                Evaluation
+            </a>
+            <a href="/views/progress.html" class="nav-item">
+                <span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>
+                Progress Report
+            </a>
+            <a href="/views/calendar.html" class="nav-item active">
+                <span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>
+                Unified Calendar
+            </a>
+        </nav>
+        <nav class="nav-section">
+            <div class="nav-label">Account</div>
+            <a href="/views/profile.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>
+                Profile & Settings
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar" id="userAvatar">?</div>
+                <div>
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-level" id="userLevel">Student</div>
                 </div>
+            </div>
+            <div style="margin-top:10px;">
+                <a href="#" onclick="window.auth ? window.auth.logout() : (localStorage.clear(), window.location.href='/views/login.html')"
+                    class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
+                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket"
+                            aria-hidden="true"></i></span>
+                    Logout
+                </a>
             </div>
         </div>
+    </aside>
 
-        <div class="calendar-content">
-            <div class="calendar-header">
-                <h1 id="currentMonthYear">March 2026</h1>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn-nav" onclick="prevMonth()">←</button>
-                    <button class="btn-nav" onclick="goToToday()">Today</button>
-                    <button class="btn-nav" onclick="nextMonth()">→</button>
+    <main class="main-content">
+        <div class="page-container calendar-page">
+            <div class="calendar-page-header">
+                <div>
+                    <div class="calendar-page-eyebrow"><i class="fa-solid fa-layer-group"></i> Unified view</div>
+                    <h1><i class="fa-solid fa-calendar-days"></i> Academic Calendar</h1>
+                    <p id="calendarIntro">See tasks, quizzes, classes, and deadlines in one timeline.</p>
+                </div>
+                <div class="calendar-header-actions">
+                    <button class="btn btn-secondary-soft" type="button" onclick="goToToday()">Today</button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+                        <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="calendar-grid" id="calendarGrid">
-                <!-- Day Labels -->
+            <div class="card calendar-hero-card">
+                <div class="calendar-hero-main">
+                    <div class="calendar-hero-copy">
+                        <span class="calendar-kicker">Planning overview</span>
+                        <h2 id="currentMonthYear">Month Year</h2>
+                        <p id="calendarRangeText">Loading your schedule for this month.</p>
+                    </div>
+                    <div class="calendar-stat-strip">
+                        <div class="calendar-stat-card">
+                            <span class="calendar-stat-label">Total events</span>
+                            <strong id="calendarStatTotal">0</strong>
+                        </div>
+                        <div class="calendar-stat-card">
+                            <span class="calendar-stat-label">Assignments</span>
+                            <strong id="calendarStatAssignments">0</strong>
+                        </div>
+                        <div class="calendar-stat-card">
+                            <span class="calendar-stat-label">Quizzes</span>
+                            <strong id="calendarStatQuizzes">0</strong>
+                        </div>
+                        <div class="calendar-stat-card">
+                            <span class="calendar-stat-label">Tasks</span>
+                            <strong id="calendarStatTasks">0</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bento-grid calendar-shell-grid">
+                <section class="card col-span-8">
+                    <div class="calendar-toolbar">
+                        <div class="calendar-toolbar-group">
+                            <button class="btn btn-secondary-soft btn-sm" onclick="prevMonth()"><i
+                                    class="fa-solid fa-chevron-left"></i></button>
+                            <button class="btn btn-secondary-soft btn-sm" onclick="nextMonth()"><i
+                                    class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                        <div class="calendar-legend" id="calendarLegend">
+                            <span class="calendar-legend-item"><i class="calendar-dot tone-task"></i> Tasks</span>
+                            <span class="calendar-legend-item"><i class="calendar-dot tone-assignment"></i>
+                                Assignments</span>
+                            <span class="calendar-legend-item"><i class="calendar-dot tone-quiz"></i> Quizzes</span>
+                            <span class="calendar-legend-item"><i class="calendar-dot tone-class"></i> Classes</span>
+                        </div>
+                    </div>
+
+                    <div class="calendar-month-shell">
+                        <div class="calendar-month-grid" id="calendarGrid">
+                            <div class="calendar-day-label">Sun</div>
+                            <div class="calendar-day-label">Mon</div>
+                            <div class="calendar-day-label">Tue</div>
+                            <div class="calendar-day-label">Wed</div>
+                            <div class="calendar-day-label">Thu</div>
+                            <div class="calendar-day-label">Fri</div>
+                            <div class="calendar-day-label">Sat</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card col-span-4 calendar-side-card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fa-regular fa-clock"></i> Upcoming</h3>
+                        <span class="card-badge" id="calendarUpcomingCount">0 items</span>
+                    </div>
+                    <div class="calendar-upcoming-list" id="calendarUpcomingList">
+                        <div class="empty-state compact">
+                            <div class="empty-icon"><i class="fa-regular fa-calendar"></i></div>
+                            <p>Loading events...</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API = window.config?.apiBase || `${window.location.origin}/api`;
+        const TOKEN = localStorage.getItem('token');
+        if (!TOKEN) window.location.href = '/views/login.html';
+
+        const headers = { Authorization: `Bearer ${TOKEN}` };
+        const typeToneMap = {
+            task: 'task',
+            assignment: 'assignment',
+            quiz: 'quiz',
+            class: 'class',
+            event: 'class'
+        };
+
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let events = [];
+
+        function initUserNav() {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            document.getElementById('userName').textContent = user.name || 'Learner';
+            document.getElementById('userLevel').textContent = user.role || 'Student';
+            document.getElementById('userAvatar').textContent = (user.name || 'L').trim().charAt(0).toUpperCase();
+        }
+
+        function normalizeEvent(raw) {
+            const startValue = raw?.start || raw?.start_time || raw?.date || raw?.end || '';
+            const startDate = new Date(startValue);
+            const validDate = Number.isFinite(startDate.getTime()) ? startDate : null;
+            const tone = typeToneMap[(raw?.type || 'event').toLowerCase()] || 'class';
+            return {
+                id: raw?.id || raw?._id || `${tone}-${Math.random().toString(36).slice(2, 8)}`,
+                title: raw?.title || raw?.name || 'Untitled event',
+                start: validDate,
+                startRaw: startValue,
+                endRaw: raw?.end || '',
+                tone,
+                category: raw?.category || '',
+                completed: Boolean(raw?.completed),
+                color: raw?.color || '',
+                meta: raw
+            };
+        }
+
+        function formatDayLabel(date) {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: date.getMinutes() ? '2-digit' : undefined
+            });
+        }
+
+        function eventChipMarkup(event) {
+            const title = escapeHtml(event.title);
+            return `<button type="button" class="calendar-event-chip tone-${event.tone}${event.completed ? ' done' : ''}" title="${title}">${title}</button>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function fetchEvents() {
+            const start = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+            const end = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+            document.getElementById('calendarUpcomingList').innerHTML = `
+                <div class="empty-state compact">
+                    <div class="empty-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                    <p>Loading events for this month...</p>
+                </div>`;
+
+            try {
+                const response = await fetch(`${API}/calendar/events?start_date=${start}&end_date=${end}`, { headers });
+                if (!response.ok) throw new Error(`Calendar API failed with status ${response.status}`);
+                const payload = await response.json();
+                events = (Array.isArray(payload) ? payload : []).map(normalizeEvent).filter(event => event.start);
+                renderCalendar();
+                renderUpcoming();
+                renderStats();
+            } catch (error) {
+                console.error('Failed to fetch calendar events', error);
+                events = [];
+                renderCalendar();
+                renderUpcoming(error);
+                renderStats();
+            }
+        }
+
+        function renderStats() {
+            const counts = events.reduce((acc, event) => {
+                acc.total += 1;
+                if (event.tone === 'assignment') acc.assignments += 1;
+                if (event.tone === 'quiz') acc.quizzes += 1;
+                if (event.tone === 'task') acc.tasks += 1;
+                return acc;
+            }, { total: 0, assignments: 0, quizzes: 0, tasks: 0 });
+
+            const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(currentYear, currentMonth));
+            document.getElementById('currentMonthYear').textContent = `${monthName} ${currentYear}`;
+            document.getElementById('calendarRangeText').textContent = `${counts.total} event${counts.total === 1 ? '' : 's'} scheduled across your classes and planner.`;
+            document.getElementById('calendarStatTotal').textContent = counts.total;
+            document.getElementById('calendarStatAssignments').textContent = counts.assignments;
+            document.getElementById('calendarStatQuizzes').textContent = counts.quizzes;
+            document.getElementById('calendarStatTasks').textContent = counts.tasks;
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = `
                 <div class="calendar-day-label">Sun</div>
                 <div class="calendar-day-label">Mon</div>
                 <div class="calendar-day-label">Tue</div>
@@ -172,106 +308,115 @@
                 <div class="calendar-day-label">Thu</div>
                 <div class="calendar-day-label">Fri</div>
                 <div class="calendar-day-label">Sat</div>
-                <!-- Cells injected by JS -->
-            </div>
-        </div>
-    </div>
-
-    <script src="/assets/js/config.js"></script>
-    <script>
-        let currentMonth = new Date().getMonth();
-        let currentYear = new Date().getFullYear();
-        let events = [];
-
-        async function fetchEvents() {
-            try {
-                const start = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-                const end = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
-                
-                const response = await fetch(`${CONFIG.API_BASE_URL}/calendar/events?start_date=${start}&end_date=${end}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                events = await response.json();
-                renderCalendar();
-            } catch (err) {
-                console.error("Failed to fetch events", err);
-            }
-        }
-
-        function renderCalendar() {
-            const grid = document.getElementById('calendarGrid');
-            const monthYearLabel = document.getElementById('currentMonthYear');
-            
-            // Clear existing cells (keep labels)
-            const labels = Array.from(grid.querySelectorAll('.calendar-day-label'));
-            grid.innerHTML = '';
-            labels.forEach(l => grid.appendChild(l));
-
-            const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(currentYear, currentMonth));
-            monthYearLabel.innerText = `${monthName} ${currentYear}`;
+            `;
 
             const firstDay = new Date(currentYear, currentMonth, 1).getDay();
             const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             const today = new Date();
-            today.setHours(0,0,0,0);
+            today.setHours(0, 0, 0, 0);
 
-            // Padding for first week
-            for (let i = 0; i < firstDay; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'calendar-cell empty';
-                grid.appendChild(cell);
+            for (let i = 0; i < firstDay; i += 1) {
+                const filler = document.createElement('div');
+                filler.className = 'calendar-day-card is-empty';
+                grid.appendChild(filler);
             }
 
-            for (let day = 1; day <= daysInMonth; day++) {
-                const cell = document.createElement('div');
-                cell.className = 'calendar-cell';
-                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                
+            for (let day = 1; day <= daysInMonth; day += 1) {
                 const cellDate = new Date(currentYear, currentMonth, day);
-                if (cellDate.getTime() === today.getTime()) cell.classList.add('today');
+                const dayKey = cellDate.toISOString().slice(0, 10);
+                const dayEvents = events
+                    .filter(event => event.start.toISOString().slice(0, 10) === dayKey)
+                    .sort((a, b) => a.start - b.start);
 
-                cell.innerHTML = `<span class="day-number">${day}</span>`;
-                
-                // Add events for this day
-                const dayEvents = events.filter(e => e.start.startsWith(dateStr));
-                dayEvents.forEach(e => {
-                    const el = document.createElement('div');
-                    el.className = `event-item event-${e.type}`;
-                    el.innerText = e.title;
-                    el.title = e.title;
-                    cell.appendChild(el);
-                });
-
+                const cell = document.createElement('div');
+                cell.className = `calendar-day-card${cellDate.getTime() === today.getTime() ? ' is-today' : ''}`;
+                const chips = dayEvents.slice(0, 3).map(eventChipMarkup).join('');
+                const overflow = dayEvents.length > 3
+                    ? `<div class="calendar-overflow-chip">+${dayEvents.length - 3} more</div>`
+                    : '';
+                cell.innerHTML = `
+                    <div class="calendar-day-head">
+                        <span class="calendar-day-number">${day}</span>
+                        <span class="calendar-day-meta">${dayEvents.length ? `${dayEvents.length} item${dayEvents.length === 1 ? '' : 's'}` : ''}</span>
+                    </div>
+                    <div class="calendar-day-body">
+                        ${chips || '<div class="calendar-day-empty">No events</div>'}
+                        ${overflow}
+                    </div>
+                `;
                 grid.appendChild(cell);
             }
         }
 
+        function renderUpcoming(error = null) {
+            const list = document.getElementById('calendarUpcomingList');
+            const upcoming = [...events]
+                .filter(event => event.start)
+                .sort((a, b) => a.start - b.start)
+                .slice(0, 8);
+
+            document.getElementById('calendarUpcomingCount').textContent = `${upcoming.length} item${upcoming.length === 1 ? '' : 's'}`;
+
+            if (error) {
+                list.innerHTML = `
+                    <div class="empty-state compact">
+                        <div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <p>Calendar data could not be loaded.</p>
+                    </div>`;
+                return;
+            }
+
+            if (!upcoming.length) {
+                list.innerHTML = `
+                    <div class="empty-state compact">
+                        <div class="empty-icon"><i class="fa-regular fa-calendar-check"></i></div>
+                        <p>No events in this range.</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = upcoming.map(event => `
+                <article class="calendar-upcoming-item tone-${event.tone}">
+                    <div class="calendar-upcoming-badge">
+                        <i class="fa-solid ${event.tone === 'assignment' ? 'fa-file-lines' : event.tone === 'quiz' ? 'fa-brain' : event.tone === 'task' ? 'fa-list-check' : 'fa-school'}"></i>
+                    </div>
+                    <div class="calendar-upcoming-copy">
+                        <strong>${escapeHtml(event.title)}</strong>
+                        <span>${formatDayLabel(event.start)}</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
         function prevMonth() {
-            currentMonth--;
+            currentMonth -= 1;
             if (currentMonth < 0) {
                 currentMonth = 11;
-                currentYear--;
+                currentYear -= 1;
             }
             fetchEvents();
         }
 
         function nextMonth() {
-            currentMonth++;
+            currentMonth += 1;
             if (currentMonth > 11) {
                 currentMonth = 0;
-                currentYear++;
+                currentYear += 1;
             }
             fetchEvents();
         }
 
         function goToToday() {
-            currentMonth = new Date().getMonth();
-            currentYear = new Date().getFullYear();
+            const now = new Date();
+            currentMonth = now.getMonth();
+            currentYear = now.getFullYear();
             fetchEvents();
         }
 
-        // Initial fetch
+        initUserNav();
         fetchEvents();
     </script>
 </body>
+
 </html>
+

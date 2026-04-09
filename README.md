@@ -132,7 +132,7 @@ That single script now does all of this:
 When setup finishes, open:
 
 ```text
-http://127.0.0.1:8002
+http://127.0.0.1:8003
 ```
 
 ### 4. Update `.env`
@@ -151,12 +151,31 @@ CHROMA_API_URL=http://127.0.0.1:8001/api/v2
 CHROMA_TENANT=default_tenant
 CHROMA_DATABASE=default_database
 API_HOST=127.0.0.1
-RUN_PORT=8002
+RUN_PORT=8003
 HF_HUB_OFFLINE=1
 TRANSFORMERS_OFFLINE=1
 ```
 
-### 5. Optional setup flags
+### 5. Seed LMS demo data
+
+To get a usable teacher/student LMS dataset locally:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+python scripts/seed_lms.py --reset
+```
+
+Demo credentials:
+- `lms.teacher@example.com` / `Password@123`
+- `lms.student1@example.com` / `Password@123`
+
+You can also include the seed during setup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SeedLmsDemo
+```
+
+### 6. Optional setup flags
 
 Skip model warmup:
 
@@ -175,7 +194,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SkipAppStart
 Check the backend health endpoint:
 
 ```powershell
-Invoke-WebRequest http://127.0.0.1:8002/health -UseBasicParsing
+Invoke-WebRequest http://127.0.0.1:8003/health -UseBasicParsing
 ```
 
 Useful Docker checks:

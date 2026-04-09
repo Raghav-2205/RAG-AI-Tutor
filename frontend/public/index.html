@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -14,19 +14,6 @@
 </head>
 
 <body>
-
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <div class="brand">🚀 RAG AI Tutor</div>
-    <div class="nav-links">
-      <a href="javascript:loadView('home')" class="nav-button">Home</a>
-      <a href="javascript:navigateToPage('/views/login.html')" id="loginBtn" class="nav-button">Login</a>
-      <a href="javascript:navigateToPage('/views/signup.html')" id="signupBtn" class="nav-button">Sign Up</a>
-      <button id="logoutBtn" onclick="handleLogout()" style="display: none;">Logout</button>
-      <span id="userGreeting" style="display: none; margin-left: 10px; color: #666;"></span>
-    </div>
-  </nav>
-
   <!-- DYNAMIC CONTENT -->
   <main id="app">
     <div class="loading">Loading...</div>
@@ -121,25 +108,7 @@
     }
 
     function updateNavbar() {
-      const loginBtn = document.getElementById('loginBtn');
-      const signupBtn = document.getElementById('signupBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      const userGreeting = document.getElementById('userGreeting');
-
-      if (window.auth && window.auth.isAuthenticated) {
-        if (loginBtn) loginBtn.style.display = 'none';
-        if (signupBtn) signupBtn.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'inline-block';
-        if (userGreeting) {
-          userGreeting.style.display = 'inline';
-          userGreeting.textContent = `Hello, ${window.auth.getDisplayName()}`;
-        }
-      } else {
-        if (loginBtn) loginBtn.style.display = 'inline-block';
-        if (signupBtn) signupBtn.style.display = 'inline-block';
-        if (logoutBtn) logoutBtn.style.display = 'none';
-        if (userGreeting) userGreeting.style.display = 'none';
-      }
+      return;
     }
 
     function handleLogout() {

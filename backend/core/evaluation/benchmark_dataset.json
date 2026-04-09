@@ -1,62 +1,82 @@
 [
     {
         "question": "What is Scrum?",
-        "gold_answer": "Scrum is an agile framework for developing, delivering, and sustaining complex products. It uses iterative and incremental practices with cross-functional, self-organizing teams working in time-boxed sprints.",
+        "gold_answer": "Scrum is an agile framework that helps teams work together to develop and deliver products iteratively.",
         "gold_chunk_id": "scrum_overview",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "What is Scrum? Scrum is a framework",
         "subject": "general"
     },
     {
         "question": "What are the roles in Scrum?",
-        "gold_answer": "The three roles in Scrum are: Product Owner (manages the product backlog and priorities), Scrum Master (facilitates the process and removes impediments), and the Development Team (cross-functional group that delivers the product increment).",
+        "gold_answer": "The main Scrum roles are Product Owner, Scrum Master, and Scrum Team or Development Team.",
         "gold_chunk_id": "scrum_roles",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "Product Owner The Scrum product owner",
         "subject": "general"
     },
     {
         "question": "What is a Sprint in Scrum?",
-        "gold_answer": "A Sprint is a time-boxed iteration, typically 1-4 weeks, during which a potentially releasable product increment is created. Each sprint has a planning session, daily standups, a review, and a retrospective.",
+        "gold_answer": "A Sprint is a short, time-boxed work cycle in Scrum used to complete a set amount of work and deliver an increment.",
         "gold_chunk_id": "scrum_sprint",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "What are sprints? With scrum",
         "subject": "general"
     },
     {
         "question": "What is the Product Backlog?",
-        "gold_answer": "The Product Backlog is an ordered list of everything that is known to be needed in the product. It is the single source of requirements and is managed by the Product Owner. Items are prioritized by value, risk, and dependencies.",
+        "gold_answer": "The Product Backlog is an ordered and prioritized list of work items or product requirements that the team may deliver.",
         "gold_chunk_id": "product_backlog",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "Product to-do list entries",
         "subject": "general"
     },
     {
         "question": "What is a Sprint Retrospective?",
-        "gold_answer": "The Sprint Retrospective is a meeting held at the end of each Sprint where the Scrum Team inspects itself and creates a plan for improvements. The team discusses what went well, what could be improved, and what actions to take.",
+        "gold_answer": "A Sprint Retrospective is a Scrum meeting where the team reflects on the sprint and identifies improvements for future work.",
         "gold_chunk_id": "sprint_retrospective",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "Sprint Review & Team Retrospective Meetings",
         "subject": "general"
     },
     {
-        "question": "What is the difference between Scrum and Kanban?",
-        "gold_answer": "Scrum uses fixed-length sprints with defined roles, while Kanban uses continuous flow with WIP limits. Scrum has prescribed ceremonies and artifacts, while Kanban is more flexible. Both are agile methodologies but differ in structure and cadence.",
-        "gold_chunk_id": "scrum_vs_kanban",
+        "question": "What is Kanban?",
+        "gold_answer": "Kanban is an agile framework and visual system for managing work as it moves through a process.",
+        "gold_chunk_id": "kanban_overview",
+        "gold_chunk_source": "kanban notes_UNIT 1.pptx",
+        "gold_chunk_contains": "Kanban is a framework that falls under the Agile methodology",
         "subject": "general"
     },
     {
-        "question": "What are user stories in agile?",
-        "gold_answer": "User stories are short descriptions of a feature told from the perspective of the user. They follow the format: As a [type of user], I want [an action] so that [a benefit]. User stories help teams focus on delivering value to the customer.",
+        "question": "What are user stories in Scrum?",
+        "gold_answer": "A user story is a Scrum technique for describing a software feature from the end-user perspective, explaining who wants what and why.",
         "gold_chunk_id": "user_stories",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "User Story A user story is",
         "subject": "general"
     },
     {
         "question": "What is the Daily Standup meeting?",
-        "gold_answer": "The Daily Standup (or Daily Scrum) is a 15-minute time-boxed event where the Development Team synchronizes activities and creates a plan for the next 24 hours. Each member answers: What did I do yesterday? What will I do today? Are there any impediments?",
+        "gold_answer": "The Daily Standup or Daily Scrum is a short daily meeting where each team member shares progress, plans, and impediments.",
         "gold_chunk_id": "daily_standup",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "Each team member should briefly provide the answers",
         "subject": "general"
     },
     {
-        "question": "What is velocity in Scrum?",
-        "gold_answer": "Velocity is a measure of the amount of work a Development Team can complete in a single Sprint. It is calculated by summing the story points of completed user stories. Velocity is used for planning and forecasting future sprints.",
-        "gold_chunk_id": "velocity",
+        "question": "What is Sprint Planning?",
+        "gold_answer": "Sprint Planning is the meeting that starts a sprint and defines what can be delivered and how the work will be achieved.",
+        "gold_chunk_id": "sprint_planning",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "Sprint Planning Meeting",
         "subject": "general"
     },
     {
-        "question": "What is the Definition of Done?",
-        "gold_answer": "The Definition of Done (DoD) is a shared understanding of what it means for work to be complete. It ensures transparency and quality. A typical DoD includes criteria like code reviewed, tests passing, documentation updated, and deployed to staging.",
-        "gold_chunk_id": "definition_of_done",
+        "question": "What is a Burndown Chart in Scrum?",
+        "gold_answer": "A Burndown Chart is a graphical representation of work remaining versus time and is commonly used in Scrum to track progress.",
+        "gold_chunk_id": "burndown_chart",
+        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+        "gold_chunk_contains": "What is Burndown Chart in Scrum?",
         "subject": "general"
     }
 ]

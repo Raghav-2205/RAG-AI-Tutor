@@ -8,6 +8,20 @@ logger = logging.getLogger(__name__)
 def _make_id():
     return str(uuid.uuid4())
 
+
+def _clean_notification(doc: dict | None) -> dict | None:
+    if doc is None:
+        return None
+
+    cleaned = {}
+    for key, value in doc.items():
+        if key == "_id":
+            cleaned[key] = str(value)
+        else:
+            cleaned[key] = value
+    return cleaned
+
+
 async def create_notification(
     db,
     user_id: str,
@@ -28,15 +42,20 @@ async def create_notification(
         "created_at": datetime.utcnow()
     }
     await db.notifications.insert_one(doc)
-    return doc
+    return _clean_notification(doc)
 
 async def get_user_notifications(db, user_id: str, limit: int = 20) -> list:
     cursor = db.notifications.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
-    return await cursor.to_list(None)
+    docs = await cursor.to_list(None)
+    return [_clean_notification(doc) for doc in docs]
 
-async def mark_as_read(db, notification_id: str) -> bool:
+async def mark_as_read(db, notification_id: str, user_id: Optional[str] = None) -> bool:
+    query = {"id": notification_id}
+    if user_id is not None:
+        query["user_id"] = user_id
+
     res = await db.notifications.update_one(
-        {"id": notification_id},
+        query,
         {"$set": {"is_read": True}}
     )
     return res.modified_count > 0

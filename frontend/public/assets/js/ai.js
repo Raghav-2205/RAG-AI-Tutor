@@ -11,7 +11,7 @@ class AIManager {
     }
 
     get apiBase() {
-        return window.config?.apiBase || "http://127.0.0.1:8002/api";
+        return window.config?.apiBase || (window.location.origin + '/api');
     }
 
     /* ================= CORE CHAT ================= */
@@ -324,11 +324,16 @@ class AIManager {
      */
     async submitFeedback(source, referenceId, rating, subject = 'general', comment = '') {
         try {
-            const response = await fetch(`${this.config.apiBase}/feedback/`, {
+            const token = window.auth?.token || localStorage.getItem("token");
+            if (!token) {
+                throw new Error("Authentication required");
+            }
+
+            const response = await fetch(`${this.apiBase}/feedback/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.getToken()}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     source,
@@ -448,20 +453,29 @@ class AIManager {
 
             const data = await res.json();
 
-            title.innerText = data.metadata.filename || 'Document';
+            title.innerText = data.metadata.source || 'Document';
 
             content.innerHTML = `
-                <div style="background:rgba(0,0,0,0.3);padding:1rem;border-radius:8px;margin-bottom:1rem;">
-                    <div style="margin-bottom:8px;"><strong style="color:#00ffcc;">Source:</strong> ${this.escapeHtml(data.metadata.source || 'Unknown')}</div>
-                    <div style="margin-bottom:8px;"><strong style="color:#00ffcc;">Page:</strong> ${data.metadata.page !== undefined ? data.metadata.page : 'N/A'}</div>
-                    <div style="margin-bottom:8px;"><strong style="color:#00ffcc;">Type:</strong> ${this.escapeHtml(data.metadata.type || 'N/A')}</div>
+                <div class="subjects-chunk-detail-card">
+                    <div class="subjects-chunk-detail-row">
+                        <span class="subjects-chunk-detail-label">Source:</span>
+                        <span>${this.escapeHtml(data.metadata.source || 'Unknown')}</span>
+                    </div>
+                    <div class="subjects-chunk-detail-row">
+                        <span class="subjects-chunk-detail-label">Page:</span>
+                        <span>${data.metadata.page !== undefined ? data.metadata.page : 'N/A'}</span>
+                    </div>
+                    <div class="subjects-chunk-detail-row">
+                        <span class="subjects-chunk-detail-label">Type:</span>
+                        <span>${this.escapeHtml(data.metadata.type || 'N/A')}</span>
+                    </div>
                 </div>
-                <h4 style="color:#00ffcc;margin-top:0;">Full Content:</h4>
-                <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; font-size: 0.9em;">${this.escapeHtml(data.text)}</div>
+                <h4 class="subjects-chunk-heading">Full Content</h4>
+                <div class="subjects-chunk-text">${this.escapeHtml(data.text)}</div>
             `;
 
         } catch (err) {
-            content.innerHTML = `<div style="color:#ff6b6b;text-align:center;padding:1rem;">
+            content.innerHTML = `<div class="subjects-modal-error">
                 <h3>Error Loading Citation</h3>
                 <p>${err.message}</p>
             </div>`;

@@ -49,26 +49,23 @@ async def submit_feedback(
         
         logger.info(f"[FEEDBACK SUBMIT] User={user_id}, Source={request.source}, RefID={request.reference_id}")
         
-        # Validate reference exists and belongs to user
+        # Validate reference exists and belongs to the user where feasible.
         if request.source == "chat":
-            # Try to find chat by _id (if it's a valid ObjectId) or just allow it
-            # Chat session IDs from frontend might be timestamps like "chat_1234567890"
-            # We'll be lenient here and just log warning if not found
-            try:
-                from bson import ObjectId
-                if ObjectId.is_valid(request.reference_id):
-                    chat = await db.chats.find_one({"_id": ObjectId(request.reference_id), "user_id": current_user["_id"]})
-                    if not chat:
-                        logger.warning(f"[FEEDBACK] Chat {request.reference_id} not found by ObjectId")
-                else:
-                    logger.info(f"[FEEDBACK] Reference ID {request.reference_id} is not ObjectId, allowing anyway")
-            except Exception as e:
-                logger.warning(f"[FEEDBACK] Could not validate chat reference: {e}")
+            chat = await db.chat_sessions.find_one({
+                "chat_id": request.reference_id,
+                "user_id": user_id
+            })
+            if not chat:
+                logger.warning(f"[FEEDBACK] Chat session {request.reference_id} not found for user {user_id}")
         
         elif request.source == "quiz":
-            # Verify quiz exists and belongs to user
-            quiz = await db.quizzes.find_one({"quiz_id": request.reference_id, "user_id": user_id})
-            if not quiz:
+            # Accept either an LMS quiz id or a quiz attempt id for the current user.
+            quiz = await db.lms_quizzes.find_one({"id": request.reference_id})
+            attempt = await db.quiz_attempts.find_one({
+                "$or": [{"id": request.reference_id}, {"quiz_id": request.reference_id}],
+                "student_id": user_id
+            })
+            if not quiz and not attempt:
                 raise HTTPException(status_code=404, detail="Quiz not found or access denied")
         
         # Create feedback document
@@ -200,15 +197,12 @@ async def get_feedback_analytics(
     try:
         user_id = str(current_user["_id"])
         
-        # Get total chats that were feedback-adjusted
-        adjusted_chats = await db.chats.count_documents({
-            "user_id": current_user["_id"],
-            "feedback_adjusted": True
-        })
-        
-        total_chats = await db.chats.count_documents({
-            "user_id": current_user["_id"]
-        })
+        sessions = await db.chat_sessions.find({"user_id": user_id}).to_list(length=200)
+        adjusted_chats = sum(
+            1 for session in sessions
+            if any(msg.get("feedback_adjusted") for msg in session.get("messages", []))
+        )
+        total_chats = len(sessions)
         
         # Get feedback influence logs
         influence_logs = await db.feedback_influence_log.find({

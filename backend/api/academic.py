@@ -10,7 +10,7 @@ try:
 except ImportError:
     pd = None
 
-from backend.utils.dependencies import get_current_user # Need your auth dependency
+from backend.utils.security import get_current_user, require_role
 from backend.models.user import UserInDB, PyObjectId
 from backend.models.academic import (
     Semester, Subject, TimetableSlot, AttendanceRecord, StudentProfile
@@ -54,11 +54,8 @@ async def websocket_attendance_endpoint(websocket: WebSocket, roll_number: str):
 # ==========================================
 
 @router.post("/admin/students/bulk-enroll")
-async def bulk_enroll_students(file: UploadFile = File(...), current_user = Depends(get_current_user)):
+async def bulk_enroll_students(file: UploadFile = File(...), current_user = Depends(require_role("admin"))):
     """Upload Excel/CSV of roll numbers to auto-create student accounts."""
-    if current_user["role"] != "Admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     if not pd:
         raise HTTPException(status_code=500, detail="Pandas is required. Run: pip install pandas openpyxl")
     
@@ -89,7 +86,7 @@ async def bulk_enroll_students(file: UploadFile = File(...), current_user = Depe
                     "hashed_password": "default_password_hash", # Need to hash this in real use
                     "roll_number": roll_number,
                     "level": "undergraduate",
-                    "role": "Student",
+                    "role": "student",
                     "created_at": datetime.utcnow()
                 }
                 await users_col.insert_one(new_user)
@@ -101,11 +98,8 @@ async def bulk_enroll_students(file: UploadFile = File(...), current_user = Depe
 
 
 @router.post("/admin/timetable/upload")
-async def upload_college_timetable(semester_id: str, file: UploadFile = File(...), current_user = Depends(get_current_user)):
+async def upload_college_timetable(semester_id: str, file: UploadFile = File(...), current_user = Depends(require_role("admin"))):
     """Upload structured timetable JSON or CSV."""
-    if current_user["role"] != "Admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
     return {"message": "Timetable successfully mapped to C-212 and stored in DB."}
 
 # ==========================================
@@ -113,12 +107,8 @@ async def upload_college_timetable(semester_id: str, file: UploadFile = File(...
 # ==========================================
 
 @router.get("/teacher/dashboard/today")
-async def teacher_today_schedule(current_teacher = Depends(get_current_user)):
+async def teacher_today_schedule(current_teacher = Depends(require_role("teacher", "admin"))):
     """Gets teacher's classes for today based on TimetableSlot."""
-    role = current_teacher.get("role", "").lower()
-    if role not in ("teacher", "admin"):
-        raise HTTPException(status_code=403, detail="Teacher access required")
-        
     today_name = datetime.now().strftime("%A") # e.g., 'Wednesday'
     
     timetable_col = db_manager.db["timetable"]
@@ -135,7 +125,7 @@ async def teacher_today_schedule(current_teacher = Depends(get_current_user)):
     return {"today": today_name, "classes": slots}
 
 @router.get("/teacher/reports/export-excel")
-async def export_attendance_excel(subject_id: str, current_teacher = Depends(get_current_user)):
+async def export_attendance_excel(subject_id: str, current_teacher = Depends(require_role("teacher", "admin"))):
     """Generates an Excel sheet with all students attendance, streams back to UI."""
     if not pd:
         raise HTTPException(status_code=500, detail="Pandas is required. Run: pip install pandas openpyxl")
@@ -167,11 +157,8 @@ async def export_attendance_excel(subject_id: str, current_teacher = Depends(get
 
 
 @router.post("/teacher/attendance/mark")
-async def mark_slot_attendance(record: AttendanceRecord, current_teacher = Depends(get_current_user)):
+async def mark_slot_attendance(record: AttendanceRecord, current_teacher = Depends(require_role("teacher"))):
     """Marks attendance. Save to AttendanceRecord DB and broadcast to WebSockets."""
-    if current_teacher["role"] != "Teacher":
-        raise HTTPException(status_code=403, detail="Teacher access required")
-        
     attendance_col = db_manager.db["attendance"]
     record_dict = record.model_dump(by_alias=True, exclude={"id"})
     
@@ -203,11 +190,8 @@ async def mark_slot_attendance(record: AttendanceRecord, current_teacher = Depen
 # ==========================================
 
 @router.get("/student/timetable/today")
-async def student_today_schedule(current_student = Depends(get_current_user)):
+async def student_today_schedule(current_student = Depends(require_role("student"))):
     """Returns today's classes for the student."""
-    if current_student["role"] != "Student":
-        raise HTTPException(status_code=403, detail="Student access required")
-        
     today_name = datetime.now().strftime("%A")
     timetable_col = db_manager.db["timetable"]
     
@@ -223,7 +207,7 @@ async def student_today_schedule(current_student = Depends(get_current_user)):
     return {"today": today_name, "classes": slots}
 
 @router.get("/student/attendance/summary")
-async def get_attendance_percentage(current_student = Depends(get_current_user)):
+async def get_attendance_percentage(current_student = Depends(require_role("student"))):
     """Calculates attendance % per subject for the student."""
     roll_number = current_student.get("roll_number")
     if not roll_number:

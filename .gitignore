@@ -58,6 +58,11 @@ test_result.txt
 query
 server_run.log
 server_run.err.log
+server-*.log
+server-*.out.log
+server-*.err.log
+tmp/
+tmp-*.txt
 
 # Temporary ingestion/export folders
 temp_drive_downloads/

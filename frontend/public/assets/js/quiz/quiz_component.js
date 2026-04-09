@@ -1,12 +1,13 @@
 class QuizComponent {
   async openQuiz(subject = "general") {
-    const res = await fetch("http://127.0.0.1:8000/api/quiz/generate", {
+    const apiBase = window.config?.apiBase || (window.location.origin + '/api');
+    const res = await fetch(`${apiBase}/quiz/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`
       },
-      body: JSON.stringify({ subject, numQuestions: 5 })
+      body: JSON.stringify({ subject, num_questions: 5 })
     });
 
     const quiz = await res.json();

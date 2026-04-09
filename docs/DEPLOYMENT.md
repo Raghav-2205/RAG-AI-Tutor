@@ -43,8 +43,8 @@ Create a `.env` file in the root directory:
 
 ```ini
 # Database (MongoDB)
-MONGO_URI=mongodb://localhost:27017
-DB_NAME=rag_tutor_db
+MONGODB_URI=mongodb://localhost:27017/
+DATABASE_NAME=rag_ai_tutor
 
 # Security
 JWT_SECRET_KEY=your_super_secret_key_change_this
@@ -55,7 +55,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Vector Store (ChromaDB)
-CHROMA_API_URL=http://localhost:8000
+RUN_PORT=8003
+CHROMA_API_URL=http://localhost:8001/api/v2
 # Chroma stores data in ./chroma_db if running locally without docker
 ```
 
@@ -93,25 +94,50 @@ docker run -d -p 8000:8000 chromadb/chroma
 
 ## 🚀 Running the System
 
-### 1. Start the Backend
+### 1. Start Required Services
 
-You can run the backend directly with Uvicorn:
+Typical local development uses:
+
+```bash
+docker compose up -d
+```
+
+Minimum checklist:
+- MongoDB must be reachable before auth and LMS flows can work
+- `GEMINI_API_KEY` is required for live RAG generation
+- Chroma settings must be valid for retrieval-backed document flows
+
+### 2. Start the App
+
+Use the repo entrypoint:
+
+```bash
+python run.py
+```
+
+The app will serve both backend and frontend from:
+
+```bash
+http://127.0.0.1:8003
+```
+
+You can still run the backend directly with Uvicorn when needed:
 
 ```bash
 # Development (Auto-reload)
-uvicorn backend.main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8003
 
 # Production
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
+uvicorn backend.main:app --host 0.0.0.0 --port 8003 --workers 4
 ```
 
-### 2. Start the Frontend
+### 3. Start the Frontend
 
 Since the frontend is Vanilla JS, you can serve it via the backend (integrated) or standalone.
 
 **Option A: Integrated (Easiest)**
-The backend automatically serves `frontend/public` at the root URL `http://localhost:8000`.
-Just open `http://localhost:8000` in your browser.
+The FastAPI app automatically serves `frontend/public` at the root URL `http://127.0.0.1:8003`.
+Just open `http://127.0.0.1:8003` in your browser.
 
 **Option B: Standalone (For Dev)**
 Use a simple HTTP server to serve `frontend/public`:
@@ -119,7 +145,7 @@ Use a simple HTTP server to serve `frontend/public`:
 cd frontend/public
 python -m http.server 3000
 ```
-Open `http://localhost:3000`. *Note: Ensure CORS is configured in `backend/main.py`.*
+Open `http://localhost:3000`. *Note: standalone frontend mode still depends on the backend being available at the configured API origin.*
 
 ---
 

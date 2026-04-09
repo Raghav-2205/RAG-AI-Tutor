@@ -1,5 +1,5 @@
 # backend/models/chat_history.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -32,5 +32,4 @@ class ChatSession(BaseModel):
     updated_at: datetime
     message_count: int = 0
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

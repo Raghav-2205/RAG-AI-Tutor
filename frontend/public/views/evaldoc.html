@@ -1,793 +1,604 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Detailed Evaluation - RAG AI Tutor</title>
-    <link rel="stylesheet" href="../assets/css/main.css">
-    <!-- Fallback if needed, but we use inline for now to match evaluation.html -->
-
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            height: 100vh;
-            background: #0a0e27;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            color: #e0e6ed;
-        }
-
-        /* Reusing evaluation.html styles */
-        .navbar {
-            height: 70px;
-            background: #0d112d;
-            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 24px;
-        }
-
-        .brand {
-            color: #00ffcc;
-            font-weight: 700;
-            font-size: 1.2rem;
-        }
-
-        .dashboard-container {
-            flex: 1;
-            display: flex;
-            height: calc(100vh - 70px);
-        }
-
-        .sidebar {
-            width: 220px;
-            background: rgba(13, 17, 45, 0.95);
-            border-right: 1px solid rgba(0, 255, 204, 0.15);
-            padding: 1.5rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .nav-link {
-            padding: 0.7rem 1rem;
-            border-radius: 10px;
-            cursor: pointer;
-            color: #b8c5d6;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-
-        .nav-link:hover {
-            background: rgba(0, 255, 204, 0.08);
-            color: #00ffcc;
-        }
-
-        .nav-link.active {
-            background: rgba(0, 255, 204, 0.15);
-            color: #00ffcc;
-            border-left: 3px solid #00ffcc;
-        }
-
-        .main-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem;
-            background: radial-gradient(circle at center, #1a1f3a, #0a0e27);
-        }
-
-        /* Specific EvalDoc Styles */
-        .header-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-bottom: 2rem;
-        }
-
-        .header-title {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-        }
-
-        .back-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #b8c5d6;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .back-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        .action-btn {
-            background: rgba(0, 255, 204, 0.08);
-            border: 1px solid rgba(0, 255, 204, 0.28);
-            color: #00ffcc;
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.8rem;
-            font-weight: 700;
-            transition: all 0.2s;
-        }
-
-        .action-btn:hover {
-            background: rgba(0, 255, 204, 0.14);
-            transform: translateY(-1px);
-        }
-
-        .action-btn.secondary {
-            color: #d6dde8;
-            border-color: rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .section-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(0, 255, 204, 0.1);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-title {
-            color: #00ffcc;
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid rgba(0, 255, 204, 0.1);
-            padding-bottom: 0.5rem;
-        }
-
-        /* Q&A Section */
-        .qa-box {
-            margin-bottom: 1rem;
-        }
-
-        .qa-label {
-            font-size: 0.75rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.4rem;
-        }
-
-        .qa-text {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: #e0e6ed;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 1rem;
-            border-radius: 8px;
-        }
-
-        .qa-answer {
-            border-left: 3px solid #00ffcc;
-        }
-
-        /* Chunks */
-        .chunk-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-
-        .chunk-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-        }
-
-        .chunk-card.chunk-used {
-            border-color: rgba(0, 255, 204, 0.65);
-            box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.2);
-            background: rgba(0, 255, 204, 0.06);
-        }
-
-        .chunk-card.chunk-semantic {
-            border-color: rgba(245, 158, 11, 0.8);
-            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22);
-        }
-
-        .chunk-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            color: #00ffcc;
-            font-size: 0.8rem;
-            font-weight: 700;
-        }
-
-        .chunk-text {
-            color: #ccc;
-            line-height: 1.5;
-            font-size: 0.85rem;
-        }
-
-        .chunk-highlight {
-            background: rgba(245, 158, 11, 0.2);
-            color: #ffd08a;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-
-        .metrics-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .radar-wrap {
-            margin-top: 1rem;
-            padding: 0.75rem;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 255, 204, 0.14);
-            background: rgba(255, 255, 255, 0.02);
-            height: 300px;
-        }
-
-        .radar-note {
-            margin-top: 0.6rem;
-            color: #8da0b8;
-            font-size: 0.75rem;
-        }
-
-        /* Metrics Bar */
-        .metric-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.8rem;
-            align-items: center;
-        }
-
-        .metric-name {
-            color: #b8c5d6;
-            font-size: 0.9rem;
-        }
-
-        .progress-bg {
-            flex: 1;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            margin: 0 1rem;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #00ffcc;
-            border-radius: 4px;
-            transition: width 0.5s;
-        }
-
-        .metric-val {
-            width: 50px;
-            text-align: right;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        /* Unsupported Sentences */
-        .alert-box {
-            background: rgba(255, 68, 68, 0.1);
-            border: 1px solid rgba(255, 68, 68, 0.3);
-            color: #ffcccc;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-top: 1rem;
-        }
-
-        .alert-title {
-            color: #ff6b6b;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* Badges */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        .badge-VERIFIED {
-            background: rgba(0, 255, 100, 0.2);
-            color: #00ff64;
-        }
-
-        .badge-WARNING {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .badge-REJECTED {
-            background: rgba(255, 68, 68, 0.2);
-            color: #ff4444;
-        }
-
-        @media (max-width: 980px) {
-            .metrics-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .radar-wrap {
-                height: 260px;
-            }
-        }
-
-        @media print {
-            .navbar,
-            .sidebar,
-            .header-actions {
-                display: none !important;
-            }
-
-            body,
-            .main-content,
-            .section-card {
-                background: #ffffff !important;
-                color: #111111 !important;
-                box-shadow: none !important;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Detailed Evaluation - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <link rel="stylesheet" href="/assets/css/app-shell.css" />
+  <script src="/assets/js/theme-controls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
-
-<body>
-    <nav class="navbar">
-        <div class="brand">RAG AI Tutor <span id="docBadge"
-                style="font-size:0.8rem;background:rgba(0,255,204,0.1);color:#00ffcc;padding:2px 8px;border-radius:4px;margin-left:10px;display:none">📄
-                DOC SCOPE</span></div>
-        <div style="font-size:0.9rem; color:#888;">Eval ID: <span id="evalId" style="color:#fff">...</span></div>
+<body class="page-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
     </nav>
-
-    <div class="dashboard-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div style="margin-bottom:1rem;color:#666;font-size:0.8rem;text-transform:uppercase;font-weight:700;">Menu
-            </div>
-            <a href="/views/evaluation.html" class="nav-link active">⬅ Back to Dashboard</a>
-        </aside>
-
-        <!-- Main -->
-        <main class="main-content">
-            <div class="header-row">
-                <div class="header-title">
-                    <h2 style="margin:0; color:#00ffcc;">Detailed Answer Analysis</h2>
-                    <span class="badge" id="mainStatusBadge">LOADING...</span>
-                </div>
-                <div class="header-actions">
-                    <a href="/views/subjects.html" class="action-btn secondary" id="viewChatBtn">View in Chat Context</a>
-                    <button class="action-btn secondary" type="button" onclick="exportReportJson()">Download JSON</button>
-                    <button class="action-btn" type="button" onclick="exportReportPdf()">Export PDF</button>
-                </div>
-            </div>
-
-            <!-- 1. Query & Answer -->
-            <div class="section-card">
-                <div class="section-title">📄 Query & Answer</div>
-                <div class="qa-box">
-                    <div class="qa-label">User Question</div>
-                    <div class="qa-text" id="questionText">...</div>
-                </div>
-                <div class="qa-box">
-                    <div class="qa-label">Generated Answer</div>
-                    <div class="qa-text qa-answer" id="answerText">...</div>
-                </div>
-            </div>
-
-            <div class="metrics-layout">
-                <!-- 2. Metrics & Faithfulness -->
-                <div class="section-card">
-                    <div class="section-title">📊 Generation Metrics</div>
-                    <div id="metricsContainer">
-                        <!-- Bars injected here -->
-                    </div>
-                    <div class="radar-wrap">
-                        <canvas id="qualityRadar"></canvas>
-                    </div>
-                    <div class="radar-note">Spider profile of overall answer quality (0.0 to 1.0 scale).</div>
-                </div>
-
-                <!-- 3. Retrieval Analysis -->
-                <div class="section-card">
-                    <div class="section-title">📚 Retrieval Stats</div>
-                    <div class="metric-row">
-                        <span class="metric-name">Retrieval Confidence</span>
-                        <div class="progress-bg">
-                            <div class="progress-fill" id="bar-confidence" style="width:0%"></div>
-                        </div>
-                        <span class="metric-val" id="val-confidence">-</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-name">Chunk Coverage</span>
-                        <div class="progress-bg">
-                            <div class="progress-fill" id="bar-coverage" style="width:0%"></div>
-                        </div>
-                        <span class="metric-val" id="val-coverage">-</span>
-                    </div>
-                    <div class="metric-row">
-                        <span class="metric-name">Citation Alignment</span>
-                        <div class="progress-bg">
-                            <div class="progress-fill" id="bar-citation" style="width:0%"></div>
-                        </div>
-                        <span class="metric-val" id="val-citation">-</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 4. Faithfulness & Grounding Issues -->
-            <div class="section-card" id="faithfulnessSection">
-                <div class="section-title">⚖️ Faithfulness & Grounding</div>
-                <div id="faithfulnessContent">
-                    <div style="color:#888;font-style:italic">Checking grounding...</div>
-                </div>
-            </div>
-
-            <!-- 5. Source Traceability -->
-            <div class="section-card">
-                <div class="section-title">🔍 Source Document Traceability</div>
-                <div class="chunk-grid" id="chunksContainer">
-                    <div style="color:#666">No chunks retrieved.</div>
-                </div>
-            </div>
-
-        </main>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+      <a href="/views/evaluation.html" class="nav-item active"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
     </div>
+  </aside>
 
-    <script src="../assets/js/config.js?v=7"></script>
-    <script src="../assets/js/auth.js?v=7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script>
-        const token = localStorage.getItem('token');
-        if (!token) window.location.href = '/views/login.html';
+  <main class="main">
+    <div class="container evaldoc-page">
+      <div class="page-header evaldoc-page-header">
+        <div>
+          <div class="evaluation-page-eyebrow"><i class="fa-solid fa-file-waveform" aria-hidden="true"></i> Detailed answer report</div>
+          <h1><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Evaluation Detail</h1>
+          <p>Inspect the exact answer, supporting evidence, and the metrics that determined its evaluation result.</p>
+        </div>
+        <div class="evaldoc-header-actions">
+          <a href="/views/evaluation.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Dashboard</a>
+          <a href="/views/subjects.html" class="btn btn-secondary" id="viewChatBtn"><i class="fa-regular fa-comments" aria-hidden="true"></i> View Chat</a>
+          <button class="btn btn-secondary" type="button" onclick="exportReportJson()"><i class="fa-regular fa-file-code" aria-hidden="true"></i> Download JSON</button>
+          <button class="btn btn-primary" type="button" onclick="exportReportPdf()"><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+      </div>
 
-        let currentReport = null;
-        let radarChart = null;
+      <section class="card evaldoc-hero-card">
+        <div class="evaldoc-hero-top">
+          <div>
+            <div class="evaluation-kicker">Traceable report</div>
+            <h2 id="heroTitle">Loading evaluation detail...</h2>
+          </div>
+          <span class="card-badge evaluation-badge" id="mainStatusBadge">Loading</span>
+        </div>
+        <div class="evaldoc-chip-row">
+          <span class="evaluation-chip" id="evalIdBadge">Eval --</span>
+          <span class="evaluation-chip" id="docBadge">Document scope: All</span>
+          <span class="evaluation-chip" id="subjectBadge">Subject</span>
+          <span class="evaluation-chip" id="timestampBadge">Timestamp</span>
+        </div>
+      </section>
 
-        function clampScore(value) {
-            const n = Number(value);
-            if (!Number.isFinite(n)) return 0;
-            return Math.max(0, Math.min(1, n));
+      <section class="evaldoc-summary-grid">
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Final RAG Score</div>
+          <div class="evaldoc-summary-value" id="summaryRag">--</div>
+          <div class="evaldoc-summary-copy">Overall weighted quality outcome.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Faithfulness</div>
+          <div class="evaldoc-summary-value" id="summaryFaithfulness">--</div>
+          <div class="evaldoc-summary-copy">How well the answer stays grounded in retrieved context.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Retrieval Confidence</div>
+          <div class="evaldoc-summary-value" id="summaryRetrieval">--</div>
+          <div class="evaldoc-summary-copy">Confidence inferred from the retrieval layer.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Chunk Coverage</div>
+          <div class="evaldoc-summary-value" id="summaryCoverage">--</div>
+          <div class="evaldoc-summary-copy">How much of the answer was actually covered by retrieved chunks.</div>
+        </article>
+      </section>
+
+      <div class="bento-grid evaldoc-grid">
+        <section class="card col-span-8">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-regular fa-message" aria-hidden="true"></i> Query &amp; Answer</h3>
+            <span class="card-badge">Context</span>
+          </div>
+          <div class="evaldoc-qa-stack">
+            <div class="evaldoc-qa-block">
+              <div class="evaldoc-qa-label">User question</div>
+              <div class="evaldoc-qa-text" id="questionText">Loading...</div>
+            </div>
+            <div class="evaldoc-qa-block">
+              <div class="evaldoc-qa-label">Generated answer</div>
+              <div class="evaldoc-qa-text answer" id="answerText">Loading...</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card col-span-4">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Report Meta</h3>
+            <span class="card-badge">Scope</span>
+          </div>
+          <div class="evaldoc-meta-list" id="metaList">
+            <div class="evaldoc-meta-item"><span>Evaluation ID</span><strong>--</strong></div>
+            <div class="evaldoc-meta-item"><span>Document</span><strong>All documents</strong></div>
+            <div class="evaldoc-meta-item"><span>Subject</span><strong>General</strong></div>
+            <div class="evaldoc-meta-item"><span>Chat session</span><strong>Unavailable</strong></div>
+          </div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Generation Metrics</h3>
+            <span class="card-badge">Scores</span>
+          </div>
+          <div class="evaldoc-metric-stack" id="metricsContainer"></div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-compass-drafting" aria-hidden="true"></i> Quality Profile</h3>
+            <span class="card-badge">Radar</span>
+          </div>
+          <div class="evaldoc-radar-wrap"><canvas id="qualityRadar"></canvas></div>
+          <p class="evaldoc-radar-note">A quick visual snapshot of grounding, relevance, semantic alignment, and retrieval quality.</p>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Retrieval Analysis</h3>
+            <span class="card-badge">Evidence</span>
+          </div>
+          <div class="evaldoc-metric-stack">
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Retrieval confidence</span><strong id="val-confidence">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-confidence" style="width:0%"></div></div>
+            </div>
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Chunk coverage</span><strong id="val-coverage">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-coverage" style="width:0%"></div></div>
+            </div>
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Citation alignment</span><strong id="val-citation">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-citation" style="width:0%"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Faithfulness &amp; Grounding</h3>
+            <span class="card-badge">Grounding</span>
+          </div>
+          <div id="faithfulnessContent" class="evaldoc-faithfulness">
+            <div class="evaluation-empty-state compact">Checking grounding...</div>
+          </div>
+        </section>
+
+        <section class="card col-span-12">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Source Document Traceability</h3>
+            <span class="card-badge">Chunks</span>
+          </div>
+          <div class="evaldoc-chunk-grid" id="chunksContainer">
+            <div class="evaluation-empty-state compact">No chunks retrieved.</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = `${window.config?.apiBase || '/api'}/evaluation`;
+    const token = window.auth?.token || localStorage.getItem('token');
+    if (!token) window.location.href = '/views/login.html';
+
+    let currentReport = null;
+    let currentRawReport = null;
+    let radarChart = null;
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+    const safeNum = (value, fallback = 0) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const normalizeScore = (value) => {
+      const n = safeNum(value, 0);
+      if (n > 1 && n <= 100) return clamp(n / 100);
+      return clamp(n);
+    };
+
+    function logoutUser() {
+      if (window.auth?.logout) return window.auth.logout();
+      localStorage.clear();
+      window.location.href = '/views/login.html';
+    }
+
+    function updateUserShell() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const name = user.name || user.email || 'Student';
+      const role = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      $('userName').textContent = name;
+      $('userLevel').textContent = role;
+      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'S';
+    }
+
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizeArray(value) {
+      if (Array.isArray(value)) return value.filter((item) => item != null && item !== '');
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return normalizeArray(parsed);
+          } catch (error) {
+            return [trimmed];
+          }
         }
+        return trimmed.split(/\n+/).map((item) => item.trim()).filter(Boolean);
+      }
+      if (value && typeof value === 'object') return Object.values(value).filter(Boolean);
+      return [];
+    }
 
-        function getColor(value) {
-            if (value >= 0.85) return '#00ffcc';
-            if (value >= 0.6) return '#f59e0b';
-            return '#ff4444';
-        }
+    function normalizeChunkTexts(raw) {
+      const candidates = Array.isArray(raw.retrieved_chunks_text) ? raw.retrieved_chunks_text
+        : normalizeArray(raw.retrieved_chunks_text).length ? normalizeArray(raw.retrieved_chunks_text)
+        : Array.isArray(raw.retrieved_chunks) ? raw.retrieved_chunks
+        : Array.isArray(raw.chunks) ? raw.chunks
+        : [];
+      return candidates.map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.text || item.content || item.chunk_text || '';
+        return '';
+      }).filter(Boolean);
+    }
 
-        function escapeHtml(value = '') {
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
+    function normalizeChunkIds(raw, count) {
+      const candidates = Array.isArray(raw.retrieved_chunk_ids) ? raw.retrieved_chunk_ids
+        : normalizeArray(raw.retrieved_chunk_ids).length ? normalizeArray(raw.retrieved_chunk_ids)
+        : Array.isArray(raw.retrieved_chunks) ? raw.retrieved_chunks.map((item) => item?.id || item?.chunk_id || item?.source || item?.document_name || '')
+        : Array.isArray(raw.chunks) ? raw.chunks.map((item) => item?.id || item?.chunk_id || item?.source || item?.document_name || '')
+        : [];
+      return Array.from({ length: Math.max(count, candidates.length) }, (_, index) => String(candidates[index] || `Chunk ${index + 1}`));
+    }
 
-        function renderRadarChart(data) {
-            const canvas = document.getElementById('qualityRadar');
-            if (!canvas || typeof Chart === 'undefined') return;
+    function normalizeCoverage(raw, chunkTexts) {
+      const usage = raw.chunk_usage || raw.chunkUsage || {};
+      const direct = [
+        usage.covered_ratio,
+        usage.coverage_ratio,
+        usage.coverage,
+        usage.coveredRatio
+      ].map((item) => Number(item)).find((item) => Number.isFinite(item));
+      if (Number.isFinite(direct)) return normalizeScore(direct);
 
-            const labels = ['Faithfulness', 'Relevance', 'BERTScore', 'Citation', 'RAG Score', 'Retrieval'];
-            const values = [
-                clampScore(data.faithfulness_score),
-                clampScore(data.answer_relevance),
-                clampScore(data.bert_score),
-                clampScore(data.citation_alignment_score),
-                clampScore(data.final_rag_score),
-                clampScore(data.retrieval_confidence)
-            ];
+      const usedCount = Array.isArray(usage.used_chunk_indices) ? usage.used_chunk_indices.length
+        : Array.isArray(usage.used_chunks) ? usage.used_chunks.length
+        : Number(usage.used);
+      const retrievedCount = Number(usage.retrieved) || Number(usage.total) || chunkTexts.length;
+      if (Number.isFinite(usedCount) && Number.isFinite(retrievedCount) && retrievedCount > 0) return clamp(usedCount / retrievedCount);
+      return 0;
+    }
 
-            if (radarChart) radarChart.destroy();
+    function normalizeUsedIndices(raw) {
+      const usage = raw.chunk_usage || raw.chunkUsage || {};
+      if (Array.isArray(usage.used_chunk_indices)) return usage.used_chunk_indices.map((item) => Number(item)).filter((item) => Number.isInteger(item));
+      return [];
+    }
 
-            radarChart = new Chart(canvas, {
-                type: 'radar',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Quality Profile',
-                        data: values,
-                        borderColor: 'rgba(0, 255, 204, 0.95)',
-                        backgroundColor: 'rgba(0, 255, 204, 0.18)',
-                        pointBackgroundColor: '#00ffcc',
-                        pointBorderColor: '#0a0e27',
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#cfd8e3' } }
-                    },
-                    scales: {
-                        r: {
-                            min: 0,
-                            max: 1,
-                            ticks: {
-                                stepSize: 0.2,
-                                color: '#8da0b8',
-                                backdropColor: 'transparent'
-                            },
-                            grid: { color: 'rgba(141, 160, 184, 0.28)' },
-                            angleLines: { color: 'rgba(141, 160, 184, 0.2)' },
-                            pointLabels: { color: '#d9e2ee', font: { size: 11 } }
-                        }
-                    }
-                }
-            });
-        }
+    function normalizeEvaluationResult(raw, fallbackId) {
+      const chunkTexts = normalizeChunkTexts(raw);
+      const chunkIds = normalizeChunkIds(raw, chunkTexts.length);
+      const unsupported = normalizeArray(raw.unsupported_sentences || raw.unsupported || raw.grounding_issues);
+      const coverage = normalizeCoverage(raw, chunkTexts);
+      return {
+        raw,
+        id: String(raw._id || raw.id || fallbackId || 'N/A'),
+        question: raw.question || '',
+        answer: raw.answer || '',
+        subject: raw.subject || 'general',
+        chatId: raw.chat_id || null,
+        documentId: raw.document_id || null,
+        documentName: raw.document_name || raw.document || null,
+        validationStatus: raw.validation_status || 'UNKNOWN',
+        reason: raw.reason || '',
+        timestamp: raw.timestamp || null,
+        faithfulness: normalizeScore(raw.faithfulness_score),
+        relevance: normalizeScore(raw.answer_relevance),
+        bert: normalizeScore(raw.bert_score),
+        citation: normalizeScore(raw.citation_alignment_score || raw.citation_alignment),
+        rag: normalizeScore(raw.final_rag_score),
+        retrievalConfidence: normalizeScore(raw.retrieval_confidence || raw.retrieval?.confidence),
+        recall: normalizeScore(raw.recall_at_5),
+        coverage,
+        unsupported,
+        chunkTexts,
+        chunkIds,
+        usedIndices: normalizeUsedIndices(raw)
+      };
+    }
 
-        function getCandidatePhrases(sentences) {
-            const phrases = [];
-            (sentences || []).forEach((sentence) => {
-                const cleaned = String(sentence || '').trim();
-                if (!cleaned) return;
-                if (cleaned.length > 12) phrases.push(cleaned);
+    function getThemeMetricColor(tone) {
+      const styles = getComputedStyle(document.documentElement);
+      if (tone === 'good') return styles.getPropertyValue('--accent').trim() || '#19c37d';
+      if (tone === 'warn') return styles.getPropertyValue('--warning').trim() || '#f59e0b';
+      return styles.getPropertyValue('--danger').trim() || '#ef4444';
+    }
 
-                const words = cleaned.split(/\s+/).filter((word) => word.length > 3);
-                if (words.length >= 5) phrases.push(words.slice(0, 5).join(' '));
-                if (words.length >= 9) phrases.push(words.slice(2, 7).join(' '));
-            });
+    function getScoreTone(value, inverse = false) {
+      if (inverse) return value <= 0.15 ? 'good' : value <= 0.3 ? 'warn' : 'bad';
+      return value >= 0.85 ? 'good' : value >= 0.6 ? 'warn' : 'bad';
+    }
 
-            return [...new Set(phrases)]
-                .map((phrase) => phrase.trim())
-                .filter((phrase) => phrase.length >= 12)
-                .sort((a, b) => b.length - a.length);
-        }
+    function renderRadarChart(report) {
+      const canvas = $('qualityRadar');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const styles = getComputedStyle(document.documentElement);
+      const accent = styles.getPropertyValue('--accent').trim() || '#19c37d';
+      const border = styles.getPropertyValue('--border').trim() || 'rgba(125,125,125,0.2)';
+      const textMuted = styles.getPropertyValue('--text-muted').trim() || '#6b7280';
+      const bgPrimary = styles.getPropertyValue('--bg-primary').trim() || '#ffffff';
 
-        function buildHighlightRanges(text, phrases) {
-            const lower = String(text || '').toLowerCase();
-            const ranges = [];
-
-            phrases.forEach((phrase) => {
-                const idx = lower.indexOf(phrase.toLowerCase());
-                if (idx !== -1) ranges.push({ start: idx, end: idx + phrase.length });
-            });
-
-            ranges.sort((a, b) => a.start - b.start);
-            const merged = [];
-            ranges.forEach((range) => {
-                const last = merged[merged.length - 1];
-                if (!last || range.start > last.end) {
-                    merged.push({ ...range });
-                } else {
-                    last.end = Math.max(last.end, range.end);
-                }
-            });
-
-            return merged;
-        }
-
-        function highlightChunkText(text, unsupportedSentences) {
-            const raw = String(text || '');
-            const phrases = getCandidatePhrases(unsupportedSentences);
-            const ranges = buildHighlightRanges(raw, phrases);
-
-            if (!ranges.length) return { html: escapeHtml(raw), semantic: false };
-
-            let html = '';
-            let cursor = 0;
-            ranges.forEach((range) => {
-                html += escapeHtml(raw.slice(cursor, range.start));
-                html += `<span class="chunk-highlight">${escapeHtml(raw.slice(range.start, range.end))}</span>`;
-                cursor = range.end;
-            });
-            html += escapeHtml(raw.slice(cursor));
-
-            return { html, semantic: true };
-        }
-
-        function setChatContextLink(chatId = null) {
-            const btn = document.getElementById('viewChatBtn');
-            if (!btn) return;
-            btn.href = chatId
-                ? `/views/subjects.html?chat_id=${encodeURIComponent(chatId)}`
-                : '/views/subjects.html';
-            btn.textContent = 'View in Chat Context';
-            btn.title = chatId ? `Open chat session ${chatId}` : 'Open chat workspace';
-        }
-
-        function exportReportJson() {
-            if (!currentReport) return;
-            const blob = new Blob([JSON.stringify(currentReport, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const evalId = document.getElementById('evalId').textContent || 'evaluation-report';
-            link.href = url;
-            link.download = `evaluation-${evalId}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-        function exportReportPdf() {
-            window.print();
-        }
-
-        function renderDashboard(data) {
-            const statusEl = document.getElementById('mainStatusBadge');
-            statusEl.textContent = data.validation_status;
-            statusEl.className = `badge badge-${data.validation_status}`;
-
-            if (data.document_id) {
-                const badge = document.getElementById('docBadge');
-                badge.style.display = 'inline-block';
-                badge.textContent = 'DOC ' + (data.document_name || 'SCOPE');
-                badge.title = `Scoped to Document ID: ${data.document_id}`;
+      const data = [report.faithfulness, report.relevance, report.bert, report.citation, report.rag, report.retrievalConfidence];
+      if (radarChart) radarChart.destroy();
+      radarChart = new Chart(canvas, {
+        type: 'radar',
+        data: {
+          labels: ['Faithfulness', 'Relevance', 'BERTScore', 'Citation', 'RAG Score', 'Retrieval'],
+          datasets: [{
+            label: 'Quality profile',
+            data,
+            borderColor: accent,
+            backgroundColor: accent,
+            pointBackgroundColor: accent,
+            pointBorderColor: bgPrimary,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            r: {
+              min: 0,
+              max: 1,
+              ticks: { stepSize: 0.2, color: textMuted, backdropColor: 'transparent' },
+              grid: { color: border },
+              angleLines: { color: border },
+              pointLabels: { color: textMuted, font: { size: 11, family: 'Space Grotesk' } }
             }
-
-            document.getElementById('questionText').textContent = data.question || '';
-            document.getElementById('answerText').textContent = data.answer || '';
-
-            const renderBar = (label, value) => {
-                const v = clampScore(value);
-                return `
-                    <div class="metric-row">
-                        <span class="metric-name">${label}</span>
-                        <div class="progress-bg">
-                            <div class="progress-fill" style="width:${(v * 100).toFixed(0)}%; background:${getColor(v)}"></div>
-                        </div>
-                        <span class="metric-val">${v.toFixed(2)}</span>
-                    </div>
-                `;
-            };
-
-            const metricsContainer = document.getElementById('metricsContainer');
-            metricsContainer.innerHTML = [
-                renderBar('Faithfulness', data.faithfulness_score),
-                renderBar('Answer Relevance', data.answer_relevance),
-                renderBar('BERTScore (Semantic)', data.bert_score),
-                renderBar('Final RAG Score', data.final_rag_score)
-            ].join('');
-
-            const retrieval = clampScore(data.retrieval_confidence);
-            document.getElementById('val-confidence').textContent = retrieval.toFixed(2);
-            document.getElementById('bar-confidence').style.width = `${retrieval * 100}%`;
-            document.getElementById('bar-confidence').style.background = getColor(retrieval);
-
-            const coverage = clampScore(data.chunk_usage?.covered_ratio);
-            document.getElementById('val-coverage').textContent = `${(coverage * 100).toFixed(0)}%`;
-            document.getElementById('bar-coverage').style.width = `${coverage * 100}%`;
-            document.getElementById('bar-coverage').style.background = getColor(coverage);
-
-            const citation = clampScore(data.citation_alignment_score);
-            document.getElementById('val-citation').textContent = citation.toFixed(2);
-            document.getElementById('bar-citation').style.width = `${citation * 100}%`;
-            document.getElementById('bar-citation').style.background = getColor(citation);
-
-            renderRadarChart(data);
-
-            const unsupported = data.unsupported_sentences || [];
-            const faithfulnessContent = document.getElementById('faithfulnessContent');
-
-            if (clampScore(data.faithfulness_score) === 1 && unsupported.length === 0) {
-                faithfulnessContent.innerHTML = '<div style="color:#00ffcc;font-weight:600">Answer is fully grounded in the provided context.</div>';
-            } else {
-                let html = `<div style="margin-bottom:0.5rem">Faithfulness Score: <strong>${clampScore(data.faithfulness_score).toFixed(2)}</strong></div>`;
-                if (data.reason) {
-                    html += `<div style="font-size:0.9rem;color:#ccc;margin-bottom:0.8rem">Reasoning: ${escapeHtml(data.reason)}</div>`;
-                }
-                if (unsupported.length > 0) {
-                    html += `<div class="alert-box">
-                        <div class="alert-title">Unsupported claims detected</div>
-                        <ul style="margin:0;padding-left:1.2rem;font-size:0.9rem">
-                            ${unsupported.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
-                        </ul>
-                    </div>`;
-                    html += '<div style="margin-top:0.7rem;color:#8da0b8;font-size:0.8rem">Matching phrases are highlighted in source chunks below.</div>';
-                }
-                faithfulnessContent.innerHTML = html;
-            }
-
-            const chunks = Array.isArray(data.retrieved_chunks_text) ? data.retrieved_chunks_text : [];
-            const usedIndices = new Set(data.chunk_usage?.used_chunk_indices || []);
-            const chunksContainer = document.getElementById('chunksContainer');
-
-            if (!chunks.length) {
-                chunksContainer.innerHTML = '<div style="color:#666">No chunks retrieved.</div>';
-                return;
-            }
-
-            chunksContainer.innerHTML = chunks.map((chunkText, i) => {
-                const source = data.retrieved_chunk_ids ? data.retrieved_chunk_ids[i] : `Chunk ${i + 1}`;
-                const highlighted = highlightChunkText(chunkText, unsupported);
-                const classes = ['chunk-card'];
-                if (usedIndices.has(i)) classes.push('chunk-used');
-                if (highlighted.semantic) classes.push('chunk-semantic');
-
-                return `<div class="${classes.join(' ')}">
-                    <div class="chunk-header">
-                        <span>CHUNK ${i + 1}</span>
-                        <span style="opacity:0.7">${escapeHtml(source && source.length > 20 ? '...' + source.slice(-15) : source)}</span>
-                    </div>
-                    <div class="chunk-text">${highlighted.html}</div>
-                </div>`;
-            }).join('');
+          }
         }
+      });
+    }
 
-        async function init() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const id = urlParams.get('id');
-            const chatIdFromUrl = urlParams.get('chat_id');
+    function getCandidatePhrases(sentences) {
+      const phrases = [];
+      sentences.forEach((sentence) => {
+        const cleaned = String(sentence || '').trim();
+        if (!cleaned) return;
+        if (cleaned.length > 12) phrases.push(cleaned);
+        const words = cleaned.split(/\s+/).filter((word) => word.length > 3);
+        if (words.length >= 5) phrases.push(words.slice(0, 5).join(' '));
+        if (words.length >= 9) phrases.push(words.slice(2, 7).join(' '));
+      });
+      return [...new Set(phrases)].filter((phrase) => phrase.length >= 12).sort((a, b) => b.length - a.length);
+    }
 
-            document.getElementById('evalId').textContent = id || 'N/A';
-            setChatContextLink(chatIdFromUrl);
+    function buildHighlightRanges(text, phrases) {
+      const lower = String(text || '').toLowerCase();
+      const ranges = [];
+      phrases.forEach((phrase) => {
+        const idx = lower.indexOf(phrase.toLowerCase());
+        if (idx !== -1) ranges.push({ start: idx, end: idx + phrase.length });
+      });
+      ranges.sort((a, b) => a.start - b.start);
+      const merged = [];
+      ranges.forEach((range) => {
+        const last = merged[merged.length - 1];
+        if (!last || range.start > last.end) merged.push({ ...range });
+        else last.end = Math.max(last.end, range.end);
+      });
+      return merged;
+    }
 
-            if (!id) {
-                alert('No Evaluation ID provided.');
-                return;
-            }
+    function highlightChunkText(text, unsupportedSentences) {
+      const raw = String(text || '');
+      const ranges = buildHighlightRanges(raw, getCandidatePhrases(unsupportedSentences));
+      if (!ranges.length) return { html: escapeHtml(raw), semantic: false };
+      let html = '';
+      let cursor = 0;
+      ranges.forEach((range) => {
+        html += escapeHtml(raw.slice(cursor, range.start));
+        html += `<span class="evaldoc-chunk-highlight">${escapeHtml(raw.slice(range.start, range.end))}</span>`;
+        cursor = range.end;
+      });
+      html += escapeHtml(raw.slice(cursor));
+      return { html, semantic: true };
+    }
 
-            try {
-                const res = await fetch(`/api/evaluation/results/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+    function setChatContextLink(chatId = null) {
+      const btn = $('viewChatBtn');
+      btn.href = chatId ? `/views/subjects.html?chat_id=${encodeURIComponent(chatId)}` : '/views/subjects.html';
+      btn.title = chatId ? `Open chat session ${chatId}` : 'Open chat workspace';
+    }
 
-                if (res.status === 401) {
-                    window.location.href = '/views/login.html';
-                    return;
-                }
-                if (!res.ok) throw new Error('Failed to load result');
+    function exportReportJson() {
+      if (!currentRawReport) return;
+      const blob = new Blob([JSON.stringify(currentRawReport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `evaluation-${currentReport?.id || 'report'}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
 
-                const data = await res.json();
-                currentReport = data;
-                const resolvedChatId = data.chat_id || chatIdFromUrl;
-                setChatContextLink(resolvedChatId);
-                renderDashboard(data);
-            } catch (err) {
-                console.error(err);
-                document.getElementById('questionText').innerHTML = `<span style="color:#ff4444">Error loading data: ${escapeHtml(err.message)}</span>`;
-            }
+    function exportReportPdf() {
+      window.print();
+    }
+
+    function renderMetricRow(label, value, inverse = false) {
+      const tone = getScoreTone(value, inverse);
+      const color = getThemeMetricColor(tone);
+      return `
+        <div class="evaldoc-progress-row compact">
+          <div class="evaldoc-progress-copy"><span>${label}</span><strong>${value.toFixed(2)}</strong></div>
+          <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" style="width:${(value * 100).toFixed(0)}%; background:${color};"></div></div>
+        </div>
+      `;
+    }
+
+    function renderFaithfulness(report) {
+      const container = $('faithfulnessContent');
+      if (report.faithfulness === 1 && !report.unsupported.length) {
+        container.innerHTML = '<div class="evaluation-note good"><span class="evaluation-note-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div>Answer is fully grounded in the provided context.</div></div>';
+        return;
+      }
+      const notes = report.unsupported.length
+        ? `<div class="evaldoc-grounding-list">${report.unsupported.map((item) => `<div class="evaluation-note warn"><span class="evaluation-note-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span><div>${escapeHtml(item)}</div></div>`).join('')}</div>`
+        : '<div class="evaluation-empty-state compact">No unsupported claims were explicitly flagged.</div>';
+      container.innerHTML = `
+        <div class="evaldoc-faithfulness-score">Faithfulness score <strong>${report.faithfulness.toFixed(2)}</strong></div>
+        ${report.reason ? `<p class="evaldoc-faithfulness-reason">${escapeHtml(report.reason)}</p>` : ''}
+        ${notes}
+      `;
+    }
+
+    function renderChunks(report) {
+      const container = $('chunksContainer');
+      if (!report.chunkTexts.length) {
+        container.innerHTML = '<div class="evaluation-empty-state compact">No chunks retrieved for this answer.</div>';
+        return;
+      }
+      container.innerHTML = report.chunkTexts.map((chunkText, index) => {
+        const highlighted = highlightChunkText(chunkText, report.unsupported);
+        const classes = ['evaldoc-chunk-card'];
+        if (report.usedIndices.includes(index)) classes.push('used');
+        if (highlighted.semantic) classes.push('semantic');
+        return `
+          <article class="${classes.join(' ')}">
+            <div class="evaldoc-chunk-head">
+              <span>Chunk ${index + 1}</span>
+              <span>${escapeHtml(report.chunkIds[index] || `Chunk ${index + 1}`)}</span>
+            </div>
+            <div class="evaldoc-chunk-text">${highlighted.html}</div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderMeta(report) {
+      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'WARNING' ? 'warn' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
+      $('mainStatusBadge').textContent = report.validationStatus.replace(/_/g, ' ');
+      $('mainStatusBadge').className = `card-badge evaluation-badge tone-${statusTone}`;
+      $('heroTitle').textContent = report.documentName || report.question || 'Evaluation detail';
+      $('evalIdBadge').textContent = `Eval ${report.id}`;
+      $('docBadge').textContent = report.documentName ? `Document: ${report.documentName}` : 'Document scope: All';
+      $('subjectBadge').textContent = `Subject: ${String(report.subject || 'general').replace(/_/g, ' ')}`;
+      $('timestampBadge').textContent = report.timestamp && !Number.isNaN(new Date(report.timestamp).getTime())
+        ? new Date(report.timestamp).toLocaleString([], { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Timestamp unavailable';
+      $('metaList').innerHTML = `
+        <div class="evaldoc-meta-item"><span>Evaluation ID</span><strong>${escapeHtml(report.id)}</strong></div>
+        <div class="evaldoc-meta-item"><span>Document</span><strong>${escapeHtml(report.documentName || 'All documents')}</strong></div>
+        <div class="evaldoc-meta-item"><span>Subject</span><strong>${escapeHtml(String(report.subject || 'general').replace(/_/g, ' '))}</strong></div>
+        <div class="evaldoc-meta-item"><span>Chat session</span><strong>${escapeHtml(report.chatId || 'Unavailable')}</strong></div>
+      `;
+    }
+
+    function renderDashboard(rawData, fallbackId) {
+      const report = normalizeEvaluationResult(rawData, fallbackId);
+      currentRawReport = rawData;
+      currentReport = report;
+
+      renderMeta(report);
+      $('questionText').textContent = report.question || 'No question saved for this validation.';
+      $('answerText').textContent = report.answer || 'No answer saved for this validation.';
+      $('summaryRag').textContent = report.rag.toFixed(2);
+      $('summaryFaithfulness').textContent = report.faithfulness.toFixed(2);
+      $('summaryRetrieval').textContent = report.retrievalConfidence.toFixed(2);
+      $('summaryCoverage').textContent = `${(report.coverage * 100).toFixed(0)}%`;
+
+      $('metricsContainer').innerHTML = [
+        renderMetricRow('Faithfulness', report.faithfulness),
+        renderMetricRow('Answer Relevance', report.relevance),
+        renderMetricRow('BERTScore', report.bert),
+        renderMetricRow('Citation Alignment', report.citation),
+        renderMetricRow('Recall@5', report.recall),
+        renderMetricRow('Hallucination Rate', normalizeScore(rawData.hallucination_rate), true),
+        renderMetricRow('Final RAG Score', report.rag)
+      ].join('');
+
+      $('val-confidence').textContent = report.retrievalConfidence.toFixed(2);
+      $('bar-confidence').style.width = `${(report.retrievalConfidence * 100).toFixed(0)}%`;
+      $('bar-confidence').style.background = getThemeMetricColor(getScoreTone(report.retrievalConfidence));
+
+      $('val-coverage').textContent = `${(report.coverage * 100).toFixed(0)}%`;
+      $('bar-coverage').style.width = `${(report.coverage * 100).toFixed(0)}%`;
+      $('bar-coverage').style.background = getThemeMetricColor(getScoreTone(report.coverage));
+
+      $('val-citation').textContent = report.citation.toFixed(2);
+      $('bar-citation').style.width = `${(report.citation * 100).toFixed(0)}%`;
+      $('bar-citation').style.background = getThemeMetricColor(getScoreTone(report.citation));
+
+      renderFaithfulness(report);
+      renderChunks(report);
+      renderRadarChart(report);
+    }
+
+    async function init() {
+      updateUserShell();
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const chatId = params.get('chat_id');
+      setChatContextLink(chatId);
+
+      if (!id) {
+        $('questionText').innerHTML = '<span class="evaldoc-error-text">No evaluation ID provided.</span>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/results/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) {
+          window.location.href = '/views/login.html';
+          return;
         }
+        if (!res.ok) throw new Error('Failed to load evaluation result');
+        const data = await res.json();
+        setChatContextLink(data.chat_id || chatId);
+        renderDashboard(data, id);
+      } catch (error) {
+        console.error(error);
+        $('questionText').innerHTML = `<span class="evaldoc-error-text">Error loading data: ${escapeHtml(error.message)}</span>`;
+        $('answerText').textContent = 'The report could not be rendered.';
+      }
+    }
 
-        init();
-    </script>
+    document.addEventListener('lms:themechange', () => {
+      if (currentReport) renderRadarChart(currentReport);
+    });
+
+    init();
+  </script>
 </body>
-
 </html>
-
 

@@ -2,7 +2,7 @@
 
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
@@ -19,6 +19,10 @@ from backend.vector_db import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 # ================= CONFIG =================
 
@@ -120,7 +124,7 @@ async def upload_document(
         "chunks_count": len(chunks),
         "file_path": str(file_path),
         "status": "processed",
-        "created_at": datetime.utcnow(),
+        "created_at": _utcnow(),
     }
 
     await db.documents.insert_one(doc_record)
@@ -181,8 +185,8 @@ async def upload_document(
         "class_id": class_id, # Added LMS context
         "title": f"Chat about {file.filename}",
         "messages": [],
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
+        "created_at": _utcnow(),
+        "updated_at": _utcnow()
     }
     
     await db.chat_sessions.insert_one(chat_session)

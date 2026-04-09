@@ -91,8 +91,11 @@ async def get_user_stats(db, user_id: str) -> Dict[str, Any]:
         "is_complete": True
     })
 
-    # Count questions asked
-    questions = await db.chat_history.count_documents({"user_id": user_id})
+    # Count questions asked from chat sessions (legacy chat_history may not exist)
+    questions = 0
+    sessions = await db.chat_sessions.find({"user_id": user_id}).to_list(None)
+    for session in sessions:
+        questions += sum(1 for msg in session.get("messages", []) if msg.get("role") == "user")
 
     # Forum posts
     forum_posts = await db.forum_posts.count_documents({"author_id": user_id})

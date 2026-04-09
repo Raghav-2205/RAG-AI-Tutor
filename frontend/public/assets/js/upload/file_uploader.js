@@ -7,12 +7,13 @@ class FileUploader {
   }
 
   async upload(files) {
+    const apiBase = window.config?.apiBase || (window.location.origin + '/api');
     for (const file of files) {
       const form = new FormData();
       form.append("file", file);
       form.append("subject", "general");
 
-      await fetch("http://127.0.0.1:8000/api/upload", {
+      await fetch(`${apiBase}/upload/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`

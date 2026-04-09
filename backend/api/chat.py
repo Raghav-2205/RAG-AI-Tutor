@@ -10,7 +10,7 @@ Supports:
 - Retrieving full chat history for a session
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -28,6 +28,13 @@ import asyncio
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+UTC_MIN = datetime.min.replace(tzinfo=timezone.utc)
 
 
 # ===== REQUEST/RESPONSE MODELS =====
@@ -120,8 +127,8 @@ async def chat(
             "class_id": request.class_id,  # NEW: store LMS class context
             "title": generate_title(request.message),
             "messages": [],
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "created_at": _utcnow(),
+            "updated_at": _utcnow()
         }
         await db.chat_sessions.insert_one(session)
         logger.info(f"[CHAT] Created new session {chat_id}")
@@ -197,13 +204,13 @@ async def chat(
     user_message = {
         "role": "user",
         "content": request.message,
-        "timestamp": datetime.utcnow()
+        "timestamp": _utcnow()
     }
     
     assistant_message = {
         "role": "assistant",
         "content": rag_result["answer"],
-        "timestamp": datetime.utcnow(),
+        "timestamp": _utcnow(),
         "citations": rag_result["citations"],
         "chunks": rag_result.get("chunks", []),
         "feedback_adjusted": feedback_adjusted,
@@ -220,7 +227,7 @@ async def chat(
                 }
             },
             "$set": {
-                "updated_at": datetime.utcnow()
+                "updated_at": _utcnow()
             }
         }
     )
@@ -240,7 +247,7 @@ async def chat(
             "user_id": user_id,
             "category": "chat",
             "class_id": session.get("class_id") or request.class_id,
-            "date": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            "date": _utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
             "data": {"subject": request.subject, "chat_id": chat_id}
         })
     except Exception:
@@ -300,8 +307,8 @@ async def chat_stream(
             "subject": request.subject,
             "title": generate_title(request.message),
             "messages": [],
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "created_at": _utcnow(),
+            "updated_at": _utcnow()
         }
         await db.chat_sessions.insert_one(session)
 
@@ -389,7 +396,7 @@ async def chat_stream(
                         )
 
                         if validation_result:
-                            val_dict = validation_result.dict()
+                            val_dict = validation_result.model_dump()
                             if "_id" in val_dict and val_dict["_id"] is not None:
                                 val_dict["_id"] = str(val_dict["_id"])
                             # Convert all datetime fields to ISO format
@@ -417,12 +424,12 @@ async def chat_stream(
                 user_msg = {
                     "role": "user",
                     "content": request.message,
-                    "timestamp": datetime.utcnow()
+                    "timestamp": _utcnow()
                 }
                 assistant_msg = {
                     "role": "assistant",
                     "content": full_answer,
-                    "timestamp": datetime.utcnow(),
+                    "timestamp": _utcnow(),
                     "citations": citations,
                     "chunks": chunks,
                     "validation_result": validation_payload,
@@ -433,7 +440,7 @@ async def chat_stream(
                     {"chat_id": chat_id},
                     {
                         "$push": {"messages": {"$each": [user_msg, assistant_msg]}},
-                        "$set": {"updated_at": datetime.utcnow()}
+                        "$set": {"updated_at": _utcnow()}
                     }
                 )
                 logger.info(f"[STREAM] Saved answer for session {chat_id}")

@@ -1,144 +1,324 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/theme-init.js"></script>
     <title>Teacher Portal - RAG AI Tutor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script src="/assets/js/config.js?v=11"></script>
+    <script src="/assets/js/route-guard.js?v=2"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
+    <script src="/assets/js/notifications.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0e27; color: #e0e6ed; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
-        .navbar { height: 70px; background: #0d112d; border-bottom: 1px solid rgba(0,255,204,0.15); display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
-        .brand { color: #00ffcc; font-weight: 700; font-size: 1.2rem; }
-        .nav-links { display: flex; gap: 12px; align-items: center; }
-        .nav-links a, .nav-links button { background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); color: #00ffcc; padding: 8px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-links a:hover, .nav-links button:hover { background: rgba(0,255,204,0.2); transform: translateY(-1px); }
-        .logout-btn { border-color: #ff4444 !important; color: #ff4444 !important; background: rgba(255,68,68,0.1) !important; }
-
-        .portal-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .portal-header { margin-bottom: 2rem; }
-        .portal-header h1 { color: #00ffcc; font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .portal-header p { color: #888; }
-        .role-badge { display: inline-block; background: linear-gradient(135deg, rgba(138,43,226,0.3), rgba(0,255,204,0.3)); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; color: #d1a3ff; margin-left: 12px; }
-
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .card { background: rgba(30,35,62,0.9); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; transition: all 0.3s; }
-        .card:hover { border-color: rgba(0,255,204,0.3); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,255,204,0.1); }
-        .card h3 { color: #00ffcc; margin-bottom: 0.5rem; font-size: 1.1rem; }
-        .card p { color: #b8c5d6; font-size: 0.9rem; line-height: 1.5; }
-        .card-icon { font-size: 2rem; margin-bottom: 0.8rem; }
-
-        .module-card { cursor: pointer; }
-        .module-card:hover { background: rgba(0,255,204,0.05); }
-
-        .section-title { color: #b8c5d6; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-
-        .btn { background: linear-gradient(135deg, #00ffcc, #00d4aa); color: #0f0c29; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
-        .btn:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
-        .btn-secondary { background: rgba(255,255,255,0.1); color: #e0e6ed; border: 1px solid rgba(255,255,255,0.2); }
-
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,14,39,0.92); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-card { background: #1e233e; border-radius: 20px; padding: 2rem; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
-        .modal-card h2 { color: #00ffcc; margin-bottom: 1rem; }
-        .modal-card input, .modal-card textarea, .modal-card select { width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; margin-bottom: 12px; font-size: 0.9rem; }
-        .modal-card textarea { min-height: 80px; resize: vertical; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem; }
-
-        .stat-number { font-size: 2rem; font-weight: 700; color: #00ffcc; }
-        .stat-label { font-size: 0.8rem; color: #888; }
-
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; }
-        .list-item:hover { background: rgba(0,255,204,0.05); }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .card { animation: fadeIn 0.4s ease-out; }
-
-        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
-
-        /* Toast Notification */
-        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: #1e233e; border: 1px solid rgba(0,255,204,0.3); border-radius: 12px; padding: 12px 20px; color: #e0e6ed; font-size: 0.9rem; animation: slideIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,255,204,0.15); min-width: 260px; }
-        .toast.error { border-color: rgba(255,68,68,0.4); }
-        .toast.success { border-color: rgba(0,255,204,0.5); }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
-
-        /* Badge */
-        .stat-chip { display: inline-block; background: rgba(0,255,204,0.1); border: 1px solid rgba(0,255,204,0.2); border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; color: #00ffcc; margin-top: 4px; }
-    </style>
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/app-shell.css">
+    <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
-    <nav class="navbar">
-        <div class="brand">🎓 Teacher Portal</div>
-        <div class="nav-links">
-            <span id="notif-bell" style="cursor:pointer; position:relative; font-size:1.2rem; margin-right:15px;" onclick="toggleNotifications()">🔔<span id="notif-count" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; font-size:0.6rem; padding:2px 4px; border-radius:50%;">0</span></span>
-            <a href="/views/subjects.html">💬 AI Chat</a>
-            <a href="/views/calendar.html" style="border-color: var(--accent); color: var(--accent);">📅 Calendar</a>
-            <a href="/views/community.html">🗣️ Community</a>
-            <a href="/views/dashboard.html">📊 Dashboard</a>
-            <button class="logout-btn" onclick="localStorage.clear(); window.location.href='/views/login.html';">Logout</button>
+
+<body class="page-layout teacher-portal-page">
+    <!-- ═══════ SIDEBAR ═══════ -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span>Teacher Portal</span>
         </div>
-
-    </nav>
-
-    <div class="portal-container">
-        <div class="portal-header">
-            <h1>Welcome, <span id="teacherName">Teacher</span> <span class="role-badge">👩‍🏫 Teacher</span></h1>
-            <p>Manage your classes, assignments, and students.</p>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-            <button class="btn" onclick="showModal('createClassModal')">➕ Create Class</button>
-            <button class="btn" onclick="showModal('createAssignmentModal')">📝 New Assignment</button>
-            <button class="btn btn-secondary" onclick="showModal('enrollStudentModal')">👤 Enroll Student</button>
-            <button class="btn btn-secondary" onclick="showModal('postNoticeModal')">📢 Post Notice</button>
-        </div>
-
-
-        <!-- Stats -->
-        <div class="section-title">Overview</div>
-        <div class="grid">
-            <div class="card">
-                <div class="card-icon">📚</div>
-                <div class="stat-number" id="classCount">0</div>
-                <div class="stat-label">Your Classes</div>
+        <nav class="nav-section">
+            <div class="nav-label">Learn & Manage</div>
+            <a href="/views/dashboard.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+                Dashboard
+            </a>
+            <a href="/views/teacher_portal.html" class="nav-item active">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-school" aria-hidden="true"></i></span> Teacher
+                Portal
+            </a>
+            <a href="/views/subjects.html" class="nav-item">
+                <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span> AI Chat
+            </a>
+            <a href="/views/calendar.html" class="nav-item">
+                <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
+                Calendar
+            </a>
+            <a href="/views/community.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span> Community
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar" id="userAvatar">T</div>
+                <div>
+                    <div class="user-name" id="teacherNameNav">Teacher</div>
+                    <div class="user-level" id="userLevelNav">Admin</div>
+                </div>
             </div>
-            <div class="card">
-                <div class="card-icon">📝</div>
-                <div class="stat-number" id="assignmentCount">0</div>
-                <div class="stat-label">Assignments</div>
+            <div style="margin-top:10px;">
+                <a href="#" onclick="localStorage.clear(); window.location.href='/views/login.html';" class="nav-item"
+                    style="margin-bottom:0;padding:8px 4px;font-size:13px;">
+                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket"
+                            aria-hidden="true"></i></span> Logout
+                </a>
             </div>
-            <div class="card">
-                <div class="card-icon">👥</div>
-                <div class="stat-number" id="studentCount">0</div>
-                <div class="stat-label">Total Students</div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-container">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex:1;">
+                    <h1>Welcome, <span id="teacherName" style="color:var(--accent)">Teacher</span> <span class="role-badge"
+                            style="background:var(--accent);color:#000;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">👩‍🏫
+                            Teacher</span></h1>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+                            <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                        </button>
+                        <button class="nav-icon-btn" onclick="toggleNotifications()" title="Notifications">
+                            <i class="fa-regular fa-bell"></i><span class="nav-badge" id="notif-count"
+                                style="display:none;">0</span>
+                        </button>
+                    </div>
+                <div class="stat-number" id="classCount" style="font-size:32px;font-weight:700;color:var(--accent);">0
+                </div>
+                <div class="stat-label" style="color:var(--text-muted);">Your Classes</div>
+            </div>
+            <div class="card col-span-2"
+                style="display:flex;flex-direction:column;justify-content:center;padding:24px;">
+                <div class="activity-icon"
+                    style="font-size:24px;margin-bottom:12px;background:var(--bg-secondary);padding:12px;border-radius:12px;width:fit-content;">
+                    <i class="fa-solid fa-file-lines"></i></div>
+                <div class="stat-number" id="assignmentCount"
+                    style="font-size:32px;font-weight:700;color:var(--accent);">0</div>
+                <div class="stat-label" style="color:var(--text-muted);">Assignments</div>
+            </div>
+            <div class="card col-span-2"
+                style="display:flex;flex-direction:column;justify-content:center;padding:24px;">
+                <div class="activity-icon"
+                    style="font-size:24px;margin-bottom:12px;background:var(--bg-secondary);padding:12px;border-radius:12px;width:fit-content;">
+                    <i class="fa-solid fa-users"></i></div>
+                <div class="stat-number" id="studentCount" style="font-size:32px;font-weight:700;color:var(--accent);">0
+                </div>
+                <div class="stat-label" style="color:var(--text-muted);">Total Students</div>
             </div>
         </div>
 
         <!-- Today's Schedule -->
-        <div class="section-title">Today's Live Schedule</div>
-        <div class="grid" id="todayScheduleList">
-            <div class="card"><p style="color:#888">Loading today's schedule...</p></div>
+        <div class="section-title"
+            style="margin-bottom:12px; color:var(--text-muted); text-transform:uppercase; font-size:12px; font-weight:600;">
+            Today's Live Schedule</div>
+        <div class="bento-grid" id="todayScheduleList" style="margin-bottom:32px;">
+            <div class="card col-span-6">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-calendar-day"></i> Today's Classes</h3>
+                    <span class="card-badge">Live</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="activity-item">
+                        <div class="activity-icon chat">📚</div>
+                        <div class="activity-text">
+                            <div class="title">Mathematics - Calculus I</div>
+                            <div class="sub">9:00 AM - 10:30 AM • Room A-101</div>
+                        </div>
+                        <div class="activity-time">Now</div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon quiz">🔬</div>
+                        <div class="activity-text">
+                            <div class="title">Physics - Quantum Mechanics</div>
+                            <div class="sub">11:00 AM - 12:30 PM • Lab B-205</div>
+                        </div>
+                        <div class="activity-time">2h</div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon doc">💻</div>
+                        <div class="activity-text">
+                            <div class="title">Computer Science - Data Structures</div>
+                            <div class="sub">2:00 PM - 3:30 PM • Room C-301</div>
+                        </div>
+                        <div class="activity-time">5h</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card col-span-6">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-chart-line"></i> Today's Analytics</h3>
+                    <span class="card-badge">Real-time</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="quality-metric">
+                        <div class="quality-dot" style="background: var(--success);"></div>
+                        <div class="quality-name">Attendance Rate</div>
+                        <div class="quality-val">87%</div>
+                    </div>
+                    <div class="quality-metric">
+                        <div class="quality-dot" style="background: var(--accent);"></div>
+                        <div class="quality-name">Active Sessions</div>
+                        <div class="quality-val">12</div>
+                    </div>
+                    <div class="quality-metric">
+                        <div class="quality-dot" style="background: var(--warning);"></div>
+                        <div class="quality-name">Pending Submissions</div>
+                        <div class="quality-val">8</div>
+                    </div>
+                    <div class="quality-metric">
+                        <div class="quality-dot" style="background: var(--danger);"></div>
+                        <div class="quality-name">Overdue Tasks</div>
+                        <div class="quality-val">3</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Your Classes -->
-        <div class="section-title">Your Classes</div>
-        <div class="grid" id="classList">
-            <div class="card"><p style="color:#888">Loading classes...</p></div>
+        <div class="section-title"
+            style="margin-bottom:12px; color:var(--text-muted); text-transform:uppercase; font-size:12px; font-weight:600;">
+            Your Classes</div>
+        <div class="bento-grid" id="classList" style="margin-bottom:32px;">
+            <div class="card col-span-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-calculator"></i> Mathematics</h3>
+                    <span class="card-badge">24 Students</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="class-meta">
+                        <span>Calculus I</span>
+                        <span>•</span>
+                        <span>Section A</span>
+                    </div>
+                    <div class="class-actions">
+                        <span class="tag tag-accent">MWF 9:00 AM</span>
+                        <span class="tag tag-purple">Room A-101</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card col-span-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-atom"></i> Physics</h3>
+                    <span class="card-badge">18 Students</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="class-meta">
+                        <span>Quantum Mechanics</span>
+                        <span>•</span>
+                        <span>Section B</span>
+                    </div>
+                    <div class="class-actions">
+                        <span class="tag tag-accent">TTh 11:00 AM</span>
+                        <span class="tag tag-purple">Lab B-205</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card col-span-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-laptop-code"></i> Computer Science</h3>
+                    <span class="card-badge">32 Students</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="class-meta">
+                        <span>Data Structures</span>
+                        <span>•</span>
+                        <span>Section C</span>
+                    </div>
+                    <div class="class-actions">
+                        <span class="tag tag-accent">Daily 2:00 PM</span>
+                        <span class="tag tag-purple">Room C-301</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Recent Assignments -->
-        <div class="section-title">Recent Assignments</div>
-        <div id="assignmentList">
-            <div class="card"><p style="color:#888">Loading assignments...</p></div>
+        <div class="section-title"
+            style="margin-bottom:12px; color:var(--text-muted); text-transform:uppercase; font-size:12px; font-weight:600;">
+            Recent Assignments</div>
+        <div id="assignmentList" style="margin-bottom:32px; display:flex; flex-direction:column; gap:12px;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-file-lines"></i> Calculus Problem Set #5</h3>
+                    <span class="card-badge tag-warning">Due in 2 days</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="assignment-meta">
+                        <span class="tag tag-accent">Mathematics</span>
+                        <span class="tag tag-purple">Section A</span>
+                        <span class="tag tag-success">24/24 Submitted</span>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-muted);">Posted 3 days ago</div>
+                            <div style="font-size: 14px; font-weight: 600;">Due: Oct 28, 11:59 PM</div>
+                        </div>
+                        <button class="btn btn-sm btn-primary">View Submissions</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-flask"></i> Physics Lab Report</h3>
+                    <span class="card-badge tag-success">Graded</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="assignment-meta">
+                        <span class="tag tag-accent">Physics</span>
+                        <span class="tag tag-purple">Section B</span>
+                        <span class="tag tag-warning">16/18 Submitted</span>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 12px; color: var(--text-muted);">Posted 1 week ago</div>
+                            <div style="font-size: 14px; font-weight: 600;">Average Score: 85%</div>
+                        </div>
+                        <button class="btn btn-sm btn-secondary">Grade Remaining</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Submissions to Grade -->
-        <div class="section-title">Submissions to Grade</div>
-        <div id="submissionList">
-            <div class="card"><p style="color:#888">Loading submissions...</p></div>
+        <div class="section-title"
+            style="margin-bottom:12px; color:var(--text-muted); text-transform:uppercase; font-size:12px; font-weight:600;">
+            Submissions to Grade</div>
+        <div id="submissionList" style="margin-bottom:32px; display:flex; flex-direction:column; gap:12px;">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-user-graduate"></i> John Smith - Data Structures</h3>
+                    <span class="card-badge tag-urgent">New</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="submission-preview">
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px;">Submitted 2 hours ago</p>
+                        <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; font-size: 13px;">
+                            Implemented binary search tree with proper balancing. All test cases pass...
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-primary">Grade Now</button>
+                        <button class="btn btn-sm btn-secondary">View Full Submission</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-user-graduate"></i> Sarah Johnson - Calculus I</h3>
+                    <span class="card-badge tag-warning">Pending</span>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div class="submission-preview">
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px;">Submitted 5 hours ago</p>
+                        <div style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; font-size: 13px;">
+                            Completed all integration problems. Showed step-by-step work for each...
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-primary">Grade Now</button>
+                        <button class="btn btn-sm btn-secondary">View Full Submission</button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </main>
 
     <!-- MANAGE UNITS MODAL -->
     <div id="manageUnitsModal" class="modal-overlay">
@@ -162,11 +342,14 @@
         <div class="modal-card">
             <h2>Upload Study Material</h2>
             <input id="matTitle" placeholder="Material Title (e.g., Lecture Notes 1)">
-            <input type="file" id="matFile" multiple style="margin-bottom: 14px;" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt">
-            <p style="text-align:center; margin-bottom:10px; font-size:12px; color:var(--muted)">OR</p>
+            <input type="file" id="matFile" multiple style="margin-bottom: 14px;"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt">
+            <p style="text-align:center; margin-bottom:10px; font-size:12px; color:var(--text-muted)">OR</p>
             <input id="matUrl" placeholder="File URL or Link" style="margin-bottom: 14px;">
             <textarea id="matDesc" placeholder="Description (optional)"></textarea>
-            <select id="matUnitId"><option value="">Select Unit (optional)...</option></select>
+            <select id="matUnitId">
+                <option value="">Select Unit (optional)...</option>
+            </select>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="hideModal('uploadMaterialModal')">Cancel</button>
                 <button class="btn" onclick="uploadMaterial()">Upload</button>
@@ -209,11 +392,13 @@
                 <input id="quizTime" type="number" placeholder="Time Limit (mins)">
                 <input id="quizAttempts" type="number" placeholder="Max Attempts" value="1">
             </div>
-            
-            <div id="questionBuilder" style="margin-top:1rem; border:1px solid rgba(255,255,255,0.1); padding:10px; border-radius:8px; max-height:300px; overflow-y:auto;">
+
+            <div id="questionBuilder"
+                style="margin-top:1rem; border:1px solid rgba(255,255,255,0.1); padding:10px; border-radius:8px; max-height:300px; overflow-y:auto;">
                 <h4>Questions</h4>
                 <div id="mcqList"></div>
-                <button class="btn btn-secondary btn-sm" style="margin-top:10px; width:100%" onclick="addMcqQuestion()">➕ Add Question</button>
+                <button class="btn btn-secondary btn-sm" style="margin-top:10px; width:100%"
+                    onclick="addMcqQuestion()">➕ Add Question</button>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="hideModal('createQuizModal')">Cancel</button>
@@ -253,7 +438,9 @@
     <div id="createAssignmentModal" class="modal-overlay">
         <div class="modal-card">
             <h2>New Assignment</h2>
-            <select id="assignClassId"><option value="">Select Class...</option></select>
+            <select id="assignClassId">
+                <option value="">Select Class...</option>
+            </select>
             <input id="assignTitle" placeholder="Assignment Title" required>
             <textarea id="assignDesc" placeholder="Description / Instructions"></textarea>
             <input id="assignDueDate" type="date" placeholder="Due Date">
@@ -269,7 +456,9 @@
     <div id="enrollStudentModal" class="modal-overlay">
         <div class="modal-card">
             <h2>Enroll Student</h2>
-            <select id="enrollClassId"><option value="">Select Class...</option></select>
+            <select id="enrollClassId">
+                <option value="">Select Class...</option>
+            </select>
             <input id="enrollEmail" type="email" placeholder="Student Email" required>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="hideModal('enrollStudentModal')">Cancel</button>
@@ -300,7 +489,7 @@
     <div id="takeAttendanceModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 600px;">
             <h2>Take Attendance</h2>
-            <p id="attendanceDateLabel" style="color:#888; margin-bottom:1rem;"></p>
+            <p id="attendanceDateLabel" style="color:var(--text-muted); margin-bottom:1rem;"></p>
             <div id="studentAttendanceList" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem;">
                 <!-- Student rows with P/A toggle -->
             </div>
@@ -316,10 +505,11 @@
         <div class="modal-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                 <h2 style="margin:0">Notifications</h2>
-                <button class="btn btn-small btn-secondary" onclick="markAllNotificationsRead()">Mark all as read</button>
+                <button class="btn btn-small btn-secondary" onclick="markAllNotificationsRead()">Mark all as
+                    read</button>
             </div>
             <div id="notifList" style="max-height:400px; overflow-y:auto;">
-                <p style="color:#888; text-align:center;">No notifications.</p>
+                <p style="color:var(--text-muted); text-align:center;">No notifications.</p>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="hideModal('notificationsModal')">Close</button>
@@ -341,20 +531,20 @@
                     <div class="stat-number" id="classEngagement">0%</div>
                 </div>
             </div>
-            
+
             <div style="height: 200px; margin-top: 1.5rem;">
                 <canvas id="classPerformanceChart"></canvas>
             </div>
 
             <div style="margin-top: 1.5rem;">
-                <h3 style="color: #00ffcc; font-size: 1rem; margin-bottom: 0.5rem;">Performance Breakdown</h3>
+                <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Performance Breakdown</h3>
                 <div id="studentPerformanceList" style="max-height: 200px; overflow-y: auto;">
                     <!-- Top and low performers -->
                 </div>
             </div>
 
             <div style="margin-top: 1.5rem; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
-                <h3 style="color: #00ffcc; font-size: 1rem; margin-bottom: 0.5rem;">⚡ Live Interactions</h3>
+                <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">⚡ Live Interactions</h3>
                 <div id="liveActivityContainer" style="max-height: 150px; overflow-y: auto;">
                     Loading...
                 </div>
@@ -367,15 +557,30 @@
     </div>
 
 
-    <script src="/assets/js/config.js?v=7"></script>
+    <script src="/assets/js/config.js?v=11"></script>
     <script>
-        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-        const TOKEN = localStorage.getItem('token');
-        const USER = JSON.parse(localStorage.getItem('user') || '{}');
+        const API = window.config?.apiBase || '/api';
+        const SESSION = window.routeGuard?.requireAuth({ roles: ['teacher', 'admin'] });
+        if (!SESSION) throw new Error('Teacher access required');
+        const TOKEN = SESSION.token;
+        const USER = SESSION.user || {};
+        const ROLE_LABEL = window.routeGuard?.displayRole(SESSION.role) || 'Teacher';
         const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+        
+        // Theme toggle is provided by theme-controls.js
+        
+        function parsePayload(payload) {
+            if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) return payload.data;
+            return payload;
+        }
+        function getApiError(payload, fallback = 'Request failed') {
+            if (payload && typeof payload === 'object') return payload.detail || payload.error || fallback;
+            return fallback;
+        }
 
-        if (!TOKEN) { window.location.href = '/views/login.html'; }
         document.getElementById('teacherName').textContent = USER.name || 'Teacher';
+        if (document.getElementById('teacherNameNav')) document.getElementById('teacherNameNav').textContent = USER.name || 'Teacher';
+        if (document.getElementById('userLevelNav')) document.getElementById('userLevelNav').textContent = ROLE_LABEL;
 
         function showModal(id) { document.getElementById(id).style.display = 'flex'; }
         function hideModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -390,30 +595,30 @@
                     if (todayRes.ok) {
                         const todayData = await todayRes.json();
                         const todayList = document.getElementById('todayScheduleList');
-                        
+
                         if (!todayData.classes || todayData.classes.length === 0) {
-                            todayList.innerHTML = `<div class="card"><p style="color:#888">No classes scheduled for today (${todayData.today}).</p></div>`;
+                            todayList.innerHTML = `<div class="card"><p style="color:var(--text-muted)">No classes scheduled for today (${todayData.today}).</p></div>`;
                         } else {
                             todayList.innerHTML = todayData.classes.map(c => `
-                                <div class="card" style="border-left: 4px solid #ffaa44;">
+                                <div class="card" style="border-left: 4px solid var(--warning);">
                                     <div style="display:flex; justify-content:space-between;">
                                         <h3>${c.subject_id}</h3>
                                         <span class="role-badge" style="margin:0">${c.start_time} - ${c.end_time}</span>
                                     </div>
-                                    <p style="margin:8px 0;">Room: <strong style="color:#00ffcc">${c.room}</strong> | Period: ${c.period_number}</p>
+                                    <p style="margin:8px 0;">Room: <strong style="color:var(--accent)">${c.room}</strong> | Period: ${c.period_number}</p>
                                     <button class="btn" style="width:100%; margin-top:10px; padding:8px" onclick="openAttendance('${c.id}')">Mark Attendance</button>
                                 </div>
                             `).join('');
                         }
                     }
-                } catch(e) {
+                } catch (e) {
                     console.error("Live schedule error:", e);
                 }
 
                 // Load classes
                 const classRes = await fetch(`${API}/lms/classes`, { headers });
                 if (!classRes.ok) throw new Error(`Classes API failed with status ${classRes.status}`);
-                const classData = await classRes.json();
+                const classData = parsePayload(await classRes.json());
                 cachedClasses = Array.isArray(classData) ? classData : [];
                 document.getElementById('classCount').textContent = cachedClasses.length;
 
@@ -426,8 +631,8 @@
                         <div style="display:flex; justify-content:space-between; align-items:flex-start">
                             <div class="card-icon">📘</div>
                             <div style="display:flex; gap:6px">
-                                <button title="Edit Class" style="background:rgba(0,255,204,0.1); border:1px solid rgba(0,255,204,0.2); color:#00ffcc; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="openEditClass('${c.id}','${c.name}','${c.section||''}','${c.subject||''}','${c.description||''}')">✏️</button>
-                                <button title="Delete Class" style="background:rgba(255,68,68,0.1); border:1px solid rgba(255,68,68,0.2); color:#ff4444; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="deleteClass('${c.id}','${c.name}')">🗑️</button>
+                                <button title="Edit Class" style="background:var(--accent-soft); border:1px solid var(--accent-border-soft); color:var(--accent); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="openEditClass('${c.id}','${c.name}','${c.section || ''}','${c.subject || ''}','${c.description || ''}')">✏️</button>
+                                <button title="Delete Class" style="background:var(--danger-soft); border:1px solid var(--danger-border-soft); color:var(--danger); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.8rem" onclick="deleteClass('${c.id}','${c.name}')">🗑️</button>
                             </div>
                         </div>
                         <h3>${c.name}${c.section ? ' — ' + c.section : ''}</h3>
@@ -447,7 +652,7 @@
                         </div>
                     </div>`;
                 }).join('');
-                document.getElementById('classList').innerHTML = classHtml || '<div class="card"><p style="color:#888">No classes yet. Click "Create Class" to start.</p></div>';
+                document.getElementById('classList').innerHTML = classHtml || '<div class="card"><p style="color:var(--text-muted)">No classes yet. Click "Create Class" to start.</p></div>';
                 document.getElementById('studentCount').textContent = totalStudents;
 
                 // Populate class selectors
@@ -457,31 +662,31 @@
 
                 // Load assignments
                 const assignRes = await fetch(`${API}/lms/assignments`, { headers });
-                const assignments = await assignRes.json();
+                const assignments = parsePayload(await assignRes.json()) || [];
                 document.getElementById('assignmentCount').textContent = assignments.length;
 
                 const assignHtml = assignments.slice(0, 5).map(a => `<div class="list-item">
                     <div>
                         <strong>${a.title}</strong>
-                        <div style="color:#888;font-size:0.8rem">Due: ${a.due_date || 'No deadline'} · Max: ${a.max_marks} marks</div>
+                        <div style="color:var(--text-muted);font-size:0.8rem">Due: ${a.due_date || 'No deadline'} · Max: ${a.max_marks} marks</div>
                     </div>
                     <button class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;" onclick="viewSubmissions('${a.assignment_id}')">View Submissions</button>
                 </div>`).join('');
-                document.getElementById('assignmentList').innerHTML = assignHtml || '<div class="card"><p style="color:#888">No assignments yet.</p></div>';
+                document.getElementById('assignmentList').innerHTML = assignHtml || '<div class="card"><p style="color:var(--text-muted)">No assignments yet.</p></div>';
 
                 // Load submissions
                 const subRes = await fetch(`${API}/lms/submissions`, { headers });
-                const submissions = await subRes.json();
+                const submissions = parsePayload(await subRes.json()) || [];
                 const ungraded = submissions.filter(s => !s.graded);
 
                 const subHtml = ungraded.slice(0, 5).map(s => `<div class="list-item">
                     <div>
                         <strong>${s.student_name || s.student_email}</strong>
-                        <div style="color:#888;font-size:0.8rem">Submitted: ${new Date(s.submitted_at).toLocaleDateString()}</div>
+                        <div style="color:var(--text-muted);font-size:0.8rem">Submitted: ${new Date(s.submitted_at).toLocaleDateString()}</div>
                     </div>
-                    <button class="btn" style="font-size:0.8rem;padding:6px 12px;" onclick="gradeSubmission('${s.submission_id}')">Grade</button>
+                    <button class="btn" style="font-size:0.8rem;padding:6px 12px;" onclick="gradeSubmission('${s.submission_id}', '${s.student_name || s.student_email || 'Student'}')">Grade</button>
                 </div>`).join('');
-                document.getElementById('submissionList').innerHTML = subHtml || '<div class="card"><p style="color:#00ffcc">✅ All submissions graded!</p></div>';
+                document.getElementById('submissionList').innerHTML = subHtml || '<div class="card"><p style="color:var(--accent)">✅ All submissions graded!</p></div>';
 
             } catch (err) {
                 console.error('Load error:', err);
@@ -543,17 +748,20 @@
         async function enrollStudent() {
             const classId = document.getElementById('enrollClassId').value;
             const email = document.getElementById('enrollEmail').value;
-            if (!classId || !email) { alert('Please select a class and enter the student email.'); return; }
+            if (!classId || !email) { showToast('❌ Please select a class and enter the student email.', 'error'); return; }
             const res = await fetch(`${API}/lms/classes/${classId}/enroll-by-email`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ student_email: email })
             });
             const data = await res.json();
-            if (res.ok) { 
-                alert(data.message || 'Student enrolled!');
-                hideModal('enrollStudentModal'); 
-                loadData(); 
-            } else { alert(data.detail || 'Enrollment failed'); }
+            if (res.ok) {
+                showToast(`✅ ${data.message || 'Student enrolled!'}`, 'success');
+                hideModal('enrollStudentModal');
+                document.getElementById('enrollEmail').value = '';
+                loadData();
+            } else {
+                showToast('❌ ' + getApiError(data, 'Enrollment failed'), 'error');
+            }
         }
 
         async function postNotice() {
@@ -564,7 +772,7 @@
             // FIX C10: Use /api/announcements — that's the registered backend endpoint
             const res = await fetch(`${API}/announcements`, {
                 method: 'POST', headers,
-                body: JSON.stringify({ title, content, priority })
+                body: JSON.stringify({ title, body: content, priority })
             });
             if (res.ok) {
                 showToast('📢 Notice posted successfully!', 'success');
@@ -578,6 +786,9 @@
         }
 
         let activeSubId = null;
+        function gradeSubmission(subId, userName = 'Student') {
+            openGrade(subId, userName);
+        }
         function openGrade(subId, userName) {
             activeSubId = subId;
             document.getElementById('gradeStudentName').textContent = `Grading: ${userName}`;
@@ -587,8 +798,8 @@
         async function submitGrade() {
             const marks = parseInt(document.getElementById('gradeScore').value);
             const feedback = document.getElementById('gradeFeedback').value;
-            if (isNaN(marks)) { alert('Please enter a valid score'); return; }
-            
+            if (isNaN(marks)) { showToast('❌ Please enter a valid score', 'error'); return; }
+
             const res = await fetch(`${API}/lms/submissions/grade`, {
                 method: 'POST', headers, body: JSON.stringify({
                     submission_id: activeSubId,
@@ -596,11 +807,17 @@
                     feedback: feedback
                 })
             });
-            if (res.ok) { 
-                alert('Graded!'); 
-                hideModal('gradeModal'); 
-                if (currentAssignmentId) viewSubmissions(currentAssignmentId); 
-            } else { alert('Grading failed'); }
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                showToast('✅ Submission graded!', 'success');
+                document.getElementById('gradeScore').value = '';
+                document.getElementById('gradeFeedback').value = '';
+                hideModal('gradeModal');
+                if (currentAssignmentId) await viewSubmissions(currentAssignmentId);
+                await loadData();
+            } else {
+                showToast('❌ ' + getApiError(data, 'Grading failed'), 'error');
+            }
         }
 
         let currentClassId = null;
@@ -611,11 +828,12 @@
             fetch(`${API}/lms/classes/${classId}/units`, { headers })
                 .then(res => res.json())
                 .then(units => {
+                    units = parsePayload(units) || [];
                     const list = document.getElementById('unitList');
                     list.innerHTML = (units || []).map(u => `<div class="list-item">
                         <span>${u.title}</span>
-                        <span style="color:#888;font-size:0.8rem">#${u.order_index || 0}</span>
-                    </div>`).join('') || '<p style="color:#888">No units defined.</p>';
+                        <span style="color:var(--text-muted);font-size:0.8rem">#${u.order_index || 0}</span>
+                    </div>`).join('') || '<p style="color:var(--text-muted)">No units defined.</p>';
                     showModal('manageUnitsModal');
                 });
         }
@@ -629,9 +847,9 @@
             const res = await fetch(`${API}/lms/classes/${currentClassId}/units`, {
                 method: 'POST', headers, body: JSON.stringify(body)
             });
-            if (res.ok) { 
+            if (res.ok) {
                 document.getElementById('unitTitle').value = '';
-                openUnits(currentClassId); 
+                openUnits(currentClassId);
             }
         }
 
@@ -639,7 +857,7 @@
             currentClassId = classId;
             // Fetch units to populate the dropdown
             const unitRes = await fetch(`${API}/lms/classes/${classId}/units`, { headers });
-            const units = await unitRes.json();
+            const units = parsePayload(await unitRes.json()) || [];
             const options = (units || []).map(u => `<option value="${u.id}">${u.title}</option>`).join('');
             document.getElementById('matUnitId').innerHTML = '<option value="">Select Unit (optional)...</option>' + options;
             showModal('uploadMaterialModal');
@@ -648,25 +866,25 @@
         async function uploadMaterial() {
             let fileUrl = document.getElementById('matUrl').value;
             const fileInput = document.getElementById('matFile');
-            
+
             if (fileInput.files.length > 0) {
                 // Upload files to local server first
                 for (let i = 0; i < fileInput.files.length; i++) {
                     const formData = new FormData();
                     formData.append('file', fileInput.files[i]);
                     formData.append('subject', 'general'); // Or current class subject
-                    
+
                     try {
                         const uploadRes = await fetch(`${API}/upload/`, {
                             method: 'POST',
-                            headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                            headers: { 'Authorization': `Bearer ${TOKEN}` },
                             body: formData
                         });
-                        
+
                         if (uploadRes.ok) {
                             const uploadData = await uploadRes.json();
                             let currentFileUrl = `/uploads/${uploadData.filename}`; // Or the real URL it builds
-                            
+
                             const params = new URLSearchParams({
                                 title: document.getElementById('matTitle').value || fileInput.files[i].name,
                                 file_url: currentFileUrl,
@@ -679,14 +897,14 @@
                         } else {
                             alert('Failed to process file upload via API.');
                         }
-                    } catch(e) {
+                    } catch (e) {
                         console.error("File upload error", e);
                         alert("Upload error.");
                     }
                 }
-                
-                hideModal('uploadMaterialModal'); 
-                alert('Material(s) added successfully!'); 
+
+                hideModal('uploadMaterialModal');
+                alert('Material(s) added successfully!');
                 document.getElementById('matTitle').value = '';
                 document.getElementById('matUrl').value = '';
                 document.getElementById('matFile').value = '';
@@ -703,9 +921,9 @@
             const res = await fetch(`${API}/lms/classes/${currentClassId}/materials?${params.toString()}`, {
                 method: 'POST', headers
             });
-            if (res.ok) { 
-                hideModal('uploadMaterialModal'); 
-                alert('Material added successfully!'); 
+            if (res.ok) {
+                hideModal('uploadMaterialModal');
+                alert('Material added successfully!');
                 document.getElementById('matTitle').value = '';
                 document.getElementById('matUrl').value = '';
                 document.getElementById('matFile').value = '';
@@ -716,22 +934,22 @@
         async function viewSubmissions(assignmentId) {
             currentAssignmentId = assignmentId;
             const res = await fetch(`${API}/lms/submissions`, { headers });
-            const allSubs = await res.json();
+            const allSubs = parsePayload(await res.json()) || [];
             const subs = allSubs.filter(s => s.assignment_id === assignmentId);
-            
+
             const content = document.getElementById('subListContent');
             content.innerHTML = (subs || []).map(s => `
                 <div class="list-item">
                     <div>
                         <strong>${s.student_name || s.student_email || 'Student'}</strong>
-                        <div style="color:#888;font-size:0.8rem">Status: ${s.status} · ${s.points_earned || 0} pts</div>
+                        <div style="color:var(--text-muted);font-size:0.8rem">Status: ${s.status} · ${s.points_earned || 0} pts</div>
                     </div>
                     <div style="display:flex; gap:8px">
                         ${s.file_url ? `<a href="${s.file_url}" target="_blank" class="btn btn-secondary" style="font-size:0.75rem; padding:4px 8px; text-decoration:none;">📎 File</a>` : ''}
                         <button class="btn" style="font-size:0.75rem; padding:4px 8px;" onclick="openGrade('${s.id}', '${s.student_name || s.student_email || 'Student'}')">Grade</button>
                     </div>
                 </div>
-            `).join('') || '<p style="color:#888; text-align:center">No submissions yet.</p>';
+            `).join('') || '<p style="color:var(--text-muted); text-align:center">No submissions yet.</p>';
             showModal('viewSubmissionsModal');
         }
 
@@ -740,11 +958,12 @@
             fetch(`${API}/lms/classes/${classId}/quizzes`, { headers })
                 .then(res => res.json())
                 .then(quizzes => {
+                    quizzes = parsePayload(quizzes) || [];
                     const list = document.getElementById('quizList');
                     list.innerHTML = (quizzes || []).map(q => `<div class="list-item">
                         <span>${q.title}</span>
                         <button class="btn btn-secondary" style="font-size:0.7rem" onclick="viewQuizStats('${q.id}')">Stats</button>
-                    </div>`).join('') || '<p style="color:#888">No quizzes created.</p>';
+                    </div>`).join('') || '<p style="color:var(--text-muted)">No quizzes created.</p>';
                     showModal('manageQuizzesModal');
                 });
         }
@@ -754,7 +973,7 @@
             mcqCount++;
             const container = document.getElementById('mcqList');
             const html = `
-                <div class="mcq-item" id="mcqItem-${mcqCount}" style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:10px; position:relative;">
+                <div class="mcq-item" id="mcqItem-${mcqCount}" style="background:var(--bg-secondary); padding:10px; border-radius:8px; margin-bottom:10px; position:relative;">
                     <button class="btn btn-secondary btn-sm" style="position:absolute; right:10px; top:10px; color:var(--danger)" onclick="document.getElementById('mcqItem-${mcqCount}').remove()">X</button>
                     <input class="q-title" placeholder="Question Text" style="margin-bottom:8px; font-weight:bold;">
                     <div style="display:flex; gap:10px; margin-bottom:4px;">
@@ -778,12 +997,12 @@
         async function createQuiz() {
             const questionNodes = document.querySelectorAll('.mcq-item');
             const questions = [];
-            
+
             questionNodes.forEach((node, i) => {
                 const radios = node.querySelectorAll('input[type="radio"]');
                 let correctLabel = "A";
-                radios.forEach(r => { if(r.checked) correctLabel = r.value; });
-                
+                radios.forEach(r => { if (r.checked) correctLabel = r.value; });
+
                 questions.push({
                     question: node.querySelector('.q-title').value,
                     points: parseInt(node.querySelector('.q-points').value) || 10,
@@ -807,8 +1026,8 @@
             const res = await fetch(`${API}/lms/classes/${currentClassId}/quizzes`, {
                 method: 'POST', headers, body: JSON.stringify(body)
             });
-            if (res.ok) { 
-                hideModal('createQuizModal'); 
+            if (res.ok) {
+                hideModal('createQuizModal');
                 openQuizzes(currentClassId);
                 // Reset quiz form
                 document.getElementById('quizTitle').value = '';
@@ -825,34 +1044,34 @@
                 const data = await res.json();
 
                 const container = document.createElement('div');
-                container.style.cssText = 'position:fixed;inset:0;background:rgba(10,14,39,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;';
+                container.style.cssText = 'position:fixed;inset:0;background:var(--bg-primary);z-index:2000;display:flex;align-items:center;justify-content:center;';
                 container.innerHTML = `
-                    <div style="background:#1e233e;border-radius:20px;padding:2rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid rgba(0,255,204,0.2);">
+                    <div style="background:var(--bg-secondary);border-radius:20px;padding:2rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;border:1px solid rgba(0,255,204,0.2);">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
-                            <h2 style="color:#00ffcc;margin:0;">📊 ${data.title || 'Quiz'} Stats</h2>
-                            <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#888;font-size:1.5rem;cursor:pointer;">✕</button>
+                            <h2 style="color:var(--accent);margin:0;">📊 ${data.title || 'Quiz'} Stats</h2>
+                            <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;">✕</button>
                         </div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
                             <div style="background:rgba(0,255,204,0.08);border:1px solid rgba(0,255,204,0.2);border-radius:12px;padding:1rem;text-align:center;">
-                                <div style="font-size:2rem;font-weight:700;color:#00ffcc;">${data.avg_score}%</div>
-                                <div style="color:#888;font-size:0.8rem;">Avg Score</div>
+                                <div style="font-size:2rem;font-weight:700;color:var(--accent);">${data.avg_score}%</div>
+                                <div style="color:var(--text-muted);font-size:0.8rem;">Avg Score</div>
                             </div>
                             <div style="background:rgba(0,255,204,0.08);border:1px solid rgba(0,255,204,0.2);border-radius:12px;padding:1rem;text-align:center;">
-                                <div style="font-size:2rem;font-weight:700;color:#00ffcc;">${data.attempt_count}</div>
-                                <div style="color:#888;font-size:0.8rem;">Attempts</div>
+                                <div style="font-size:2rem;font-weight:700;color:var(--accent);">${data.attempt_count}</div>
+                                <div style="color:var(--text-muted);font-size:0.8rem;">Attempts</div>
                             </div>
                         </div>
                         <h3 style="color:#b8c5d6;font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.8rem;">Student Results</h3>
-                        ${data.results.length === 0 ? '<p style="color:#888;text-align:center;">No attempts yet.</p>' : data.results.map((r, i) => `
-                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;border-left:3px solid ${r.percentage >= 80 ? '#00ffcc' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">
+                        ${data.results.length === 0 ? '<p style="color:var(--text-muted);text-align:center;">No attempts yet.</p>' : data.results.map((r, i) => `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:6px;border-left:3px solid ${r.percentage >= 80 ? 'var(--accent)' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">
                                 <span style="color:#e0e6ed;">${i + 1}. ${r.student_name}</span>
-                                <span style="font-weight:700;color:${r.percentage >= 80 ? '#00ffcc' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">${r.percentage}%</span>
+                                <span style="font-weight:700;color:${r.percentage >= 80 ? 'var(--accent)' : r.percentage >= 60 ? '#f59e0b' : '#ff4444'};">${r.percentage}%</span>
                             </div>
                         `).join('')}
                     </div>
                 `;
                 document.body.appendChild(container);
-            } catch(e) {
+            } catch (e) {
                 showToast('Error loading quiz stats: ' + e.message, 'error');
             }
         }
@@ -863,14 +1082,14 @@
 
             try {
                 const res = await fetch(`${API}/lms/classes/${classId}/analytics`, { headers });
-                const data = await res.json();
+                const data = parsePayload(await res.json()) || {};
 
-                document.getElementById('classAvgScore').textContent = `${Math.round(data.avg_quiz_score || 0)}%`;
-                document.getElementById('classEngagement').textContent = `${Math.round(data.attendance_pct || 0)}%`;
+                document.getElementById('classAvgScore').textContent = `${Math.round(data.avg_quiz_score || data.avg_score || 0)}%`;
+                document.getElementById('classEngagement').textContent = `${Math.round(data.engagement_rate || data.attendance_pct || 0)}%`;
 
                 // Render Chart
                 const ctx = document.getElementById('classPerformanceChart').getContext('2d');
-                
+
                 // Clear old chart if exists (Chart.js doesn't auto-clear canvas)
                 if (window.teacherChart) window.teacherChart.destroy();
 
@@ -880,8 +1099,8 @@
                         labels: ['Avg Performance', 'Target Score'],
                         datasets: [{
                             label: 'Score %',
-                            data: [data.avg_score, 75],
-                            backgroundColor: ['#00ffcc', 'rgba(255,255,255,0.1)'],
+                            data: [data.avg_quiz_score || data.avg_score || 0, 75],
+                            backgroundColor: ['var(--accent)', 'rgba(255,255,255,0.1)'],
                             borderRadius: 8
                         }]
                     },
@@ -890,61 +1109,61 @@
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
+                            y: { beginAtZero: true, max: 100, grid: { color: 'var(--bg-secondary)' } }
                         }
                     }
                 });
 
                 // Performance List — fetch per-student names via engagement endpoint
                 const list = document.getElementById('studentPerformanceList');
-                list.innerHTML = '<p style="color:#888;font-size:0.8rem;">Loading student breakdown...</p>';
+                list.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Loading student breakdown...</p>';
                 try {
                     const engRes = await fetch(`${API}/lms/classes/${classId}/students/engagement`, { headers });
                     if (engRes.ok) {
                         const engData = await engRes.json();
                         const students = engData.students || [];
                         const sorted = [...students].sort((a, b) => (b.avg_score || 0) - (a.avg_score || 0));
-                        let html = '<h4 style="color:#00ffcc;font-size:0.9rem;margin-bottom:0.5rem;">🏆 All Students</h4>';
+                        let html = '<h4 style="color:var(--accent);font-size:0.9rem;margin-bottom:0.5rem;">🏆 All Students</h4>';
                         if (sorted.length === 0) {
-                            html += '<p style="color:#888;font-size:0.8rem;">No student data yet.</p>';
+                            html += '<p style="color:var(--text-muted);font-size:0.8rem;">No student data yet.</p>';
                         } else {
                             html += sorted.map((s, i) => {
                                 const score = s.avg_score != null ? s.avg_score + '%' : 'N/A';
-                                const color = s.avg_score == null ? '#888' : s.avg_score >= 70 ? '#00ffcc' : '#ff6b6b';
+                                const color = s.avg_score == null ? 'var(--text-muted)' : s.avg_score >= 70 ? 'var(--accent)' : '#ff6b6b';
                                 return `<div class="list-item" style="border-left:3px solid ${color};">
-                                    <span style="color:#e0e6ed;">${i+1}. ${s.name || s.email || 'Unknown'}</span>
+                                    <span style="color:#e0e6ed;">${i + 1}. ${s.name || s.email || 'Unknown'}</span>
                                     <span style="font-weight:600;color:${color};">${score}</span>
                                 </div>`;
                             }).join('');
                         }
                         list.innerHTML = html;
                     } else {
-                        list.innerHTML = '<p style="color:#888;font-size:0.8rem;">No analytics yet.</p>';
+                        list.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">No analytics yet.</p>';
                     }
-                } catch(engErr) {
-                    list.innerHTML = '<p style="color:#888;font-size:0.8rem;">Could not load student breakdown.</p>';
+                } catch (engErr) {
+                    list.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Could not load student breakdown.</p>';
                 }
 
                 // Fetch Live Activity
-                document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#888">Loading live activity...</p>';
+                document.getElementById('liveActivityContainer').innerHTML = '<p style="color:var(--text-muted)">Loading live activity...</p>';
                 try {
                     const liveRes = await fetch(`${API}/lms/classes/${classId}/live-activity`, { headers });
-                    if(liveRes.ok) {
+                    if (liveRes.ok) {
                         const liveData = await liveRes.json();
-                        let liveHtml = `<p style="color:#00ffcc; font-weight:bold;">🟢 ${liveData.online} Students Online Now</p>`;
-                        if(liveData.recent_logs && liveData.recent_logs.length > 0) {
+                        let liveHtml = `<p style="color:var(--accent); font-weight:bold;">🟢 ${liveData.online} Students Online Now</p>`;
+                        if (liveData.recent_logs && liveData.recent_logs.length > 0) {
                             liveHtml += liveData.recent_logs.map(l => `
-                                <div style="font-size:0.85rem; color:#bbb; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <span style="color:#fff;">${l.student_name}</span> completed action: <span style="color:#00ffcc">${l.action}</span> 
+                                <div style="font-size:0.85rem; color:#bbb; padding: 4px 0; border-bottom: 1px solid var(--bg-secondary);">
+                                    <span style="color:#fff;">${l.student_name}</span> completed action: <span style="color:var(--accent)">${l.action}</span> 
                                     <span style="float:right; color:#666;">${new Date(l.time).toLocaleTimeString()}</span>
                                 </div>
                             `).join('');
                         } else {
-                            liveHtml += `<p style="color:#888; font-size:0.8rem;">No recent activity in the last 5 minutes.</p>`;
+                            liveHtml += `<p style="color:var(--text-muted); font-size:0.8rem;">No recent activity in the last 5 minutes.</p>`;
                         }
                         document.getElementById('liveActivityContainer').innerHTML = liveHtml;
                     }
-                } catch(e) {
+                } catch (e) {
                     document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#ff4444">Failed to load live activity</p>';
                 }
 
@@ -954,23 +1173,23 @@
         }
 
         async function uploadClassExcel(classId, files) {
-            if(!files || files.length === 0) return;
+            if (!files || files.length === 0) return;
             const formData = new FormData();
             formData.append("file", files[0]);
             try {
                 const res = await fetch(`${API}/lms/classes/${classId}/upload-excel`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${TOKEN}` }, 
+                    headers: { 'Authorization': `Bearer ${TOKEN}` },
                     body: formData
                 });
                 const data = await res.json();
-                if(res.ok) {
+                if (res.ok) {
                     showToast('✅ ' + data.message, 'success');
                     loadData();
                 } else {
                     showToast('❌ Error: ' + (data.detail || JSON.stringify(data)), 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 showToast('Upload failed: ' + e, 'error');
             }
         }
@@ -980,11 +1199,11 @@
             currentClassId = classId;
             const date = new Date().toISOString().split('T')[0];
             document.getElementById('attendanceDateLabel').textContent = `Date: ${date}`;
-            
+
             // Get class details to get student IDs
             const cls = cachedClasses.find(c => c.id === classId);
             const studentIds = cls.students || [];
-            
+
             if (studentIds.length === 0) {
                 showToast('⚠️ No students enrolled in this class.', 'error');
                 return;
@@ -992,32 +1211,32 @@
 
             // Load real student names
             const list = document.getElementById('studentAttendanceList');
-            list.innerHTML = '<p style="color:#888">Loading students...</p>';
+            list.innerHTML = '<p style="color:var(--text-muted)">Loading students...</p>';
             showModal('takeAttendanceModal');
 
             try {
                 const studRes = await fetch(`${API}/lms/classes/${classId}/students`, { headers });
                 const studData = await studRes.json();
                 const students = studData.students || [];
-                
+
                 // Fall back to IDs if API fails
-                const rows = students.length > 0 ? students : studentIds.map(sid => ({id: sid, name: sid, email: ''}));
+                const rows = students.length > 0 ? students : studentIds.map(sid => ({ id: sid, name: sid, email: '' }));
                 list.innerHTML = rows.map(s => `
                     <div class="list-item" data-student-id="${s.id}">
                         <div>
                             <div style="font-weight:600;color:#e0e6ed;">${s.name || s.email || s.id}</div>
-                            ${s.email && s.name ? `<div style="font-size:0.75rem;color:#888;">${s.email}</div>` : ''}
+                            ${s.email && s.name ? `<div style="font-size:0.75rem;color:var(--text-muted);">${s.email}</div>` : ''}
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="present" checked style="margin-right:4px;"> <span style="color:#00ffcc;">P</span></label>
+                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="present" checked style="margin-right:4px;"> <span style="color:var(--accent);">P</span></label>
                             <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="absent" style="margin-right:4px;"> <span style="color:#ff6b6b;">A</span></label>
                         </div>
                     </div>
                 `).join('');
-            } catch(e) {
+            } catch (e) {
                 list.innerHTML = studentIds.map(sid => `
                     <div class="list-item" data-student-id="${sid}">
-                        <span style="color:#888;font-family:monospace;font-size:0.8rem;">${sid}</span>
+                        <span style="color:var(--text-muted);font-family:monospace;font-size:0.8rem;">${sid}</span>
                         <div style="display:flex; gap:10px;">
                             <label><input type="radio" name="att-${sid}" value="present" checked> P</label>
                             <label><input type="radio" name="att-${sid}" value="absent"> A</label>
@@ -1063,7 +1282,7 @@
                 } else {
                     badge.style.display = 'none';
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
 
         async function toggleNotifications() {
@@ -1076,18 +1295,18 @@
             const res = await fetch(`${API}/notifications/`, { headers });
             const notifs = await res.json();
             const list = document.getElementById('notifList');
-            
+
             list.innerHTML = notifs.map(n => `
-                <div class="list-item" style="${n.is_read ? 'opacity:0.6' : 'border-left: 3px solid #00ffcc'}">
+                <div class="list-item" style="${n.is_read ? 'opacity:0.6' : 'border-left: 3px solid var(--accent)'}">
                     <div style="flex:1">
-                        <div style="font-weight:600; color:#00ffcc">${n.title}</div>
+                        <div style="font-weight:600; color:var(--accent)">${n.title}</div>
                         <div style="font-size:0.85rem">${n.message}</div>
-                        <div style="font-size:0.7rem; color:#888; margin-top:4px">${new Date(n.created_at).toLocaleString()}</div>
+                        <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px">${new Date(n.created_at).toLocaleString()}</div>
                     </div>
                     ${!n.is_read ? `<button class="btn btn-small btn-secondary" onclick="markNotifRead('${n.id}')">✔</button>` : ''}
                 </div>
-            `).join('') || '<p style="color:#888; text-align:center;">No notifications yet.</p>';
-            
+            `).join('') || '<p style="color:var(--text-muted); text-align:center;">No notifications yet.</p>';
+
             showModal('notificationsModal');
         }
 
@@ -1130,7 +1349,7 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 showToast('✅ Export downloaded!', 'success');
-            } catch(e) {
+            } catch (e) {
                 showToast('Export error: ' + e, 'error');
             }
         }
@@ -1140,26 +1359,26 @@
             currentClassId = classId;
             const modal = document.getElementById('studentsModal');
             document.getElementById('studentsModalTitle').textContent = 'Enrolled Students';
-            document.getElementById('studentsModalList').innerHTML = '<p style="color:#888">Loading...</p>';
+            document.getElementById('studentsModalList').innerHTML = '<p style="color:var(--text-muted)">Loading...</p>';
             modal.style.display = 'flex';
             try {
                 const res = await fetch(`${API}/lms/classes/${classId}/students`, { headers });
                 const data = await res.json();
                 const students = data.students || [];
                 if (students.length === 0) {
-                    document.getElementById('studentsModalList').innerHTML = '<p style="color:#888">No students enrolled yet.</p>';
+                    document.getElementById('studentsModalList').innerHTML = '<p style="color:var(--text-muted)">No students enrolled yet.</p>';
                     return;
                 }
                 document.getElementById('studentsModalList').innerHTML = students.map(s => `
                     <div class="list-item">
                         <div>
                             <div style="font-weight:600;color:#e0e6ed">${s.name}</div>
-                            <div style="font-size:0.8rem;color:#888">${s.email}</div>
+                            <div style="font-size:0.8rem;color:var(--text-muted)">${s.email}</div>
                         </div>
                         <button style="background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.2);color:#ff4444;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.8rem" onclick="removeStudent('${classId}','${s.id}','${s.name}')">Remove</button>
                     </div>
                 `).join('');
-            } catch(e) {
+            } catch (e) {
                 document.getElementById('studentsModalList').innerHTML = `<p style="color:#ff4444">Error: ${e}</p>`;
             }
         }
@@ -1178,7 +1397,7 @@
                 } else {
                     showToast('❌ Failed to remove student', 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 showToast('Error: ' + e, 'error');
             }
         }
@@ -1213,7 +1432,7 @@
                     const err = await res.json();
                     showToast('❌ ' + (err.detail || 'Update failed'), 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 showToast('Error: ' + e, 'error');
             }
         }
@@ -1232,7 +1451,7 @@
                 } else {
                     showToast('❌ Failed to delete class', 'error');
                 }
-            } catch(e) {
+            } catch (e) {
                 showToast('Error: ' + e, 'error');
             }
         }
@@ -1242,11 +1461,13 @@
     </script>
 
     <!-- Student Roster Modal -->
-    <div class="modal-overlay" id="studentsModal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-overlay" id="studentsModal" style="display:none"
+        onclick="if(event.target===this)this.style.display='none'">
         <div class="modal-card" style="max-width:580px">
             <h2 id="studentsModalTitle">👥 Students</h2>
             <div id="studentsModalList" style="max-height:400px; overflow-y:auto; margin-top:12px"></div>
-            <div class="modal-actions"><button class="btn btn-secondary" onclick="document.getElementById('studentsModal').style.display='none'">Close</button></div>
+            <div class="modal-actions"><button class="btn btn-secondary"
+                    onclick="document.getElementById('studentsModal').style.display='none'">Close</button></div>
         </div>
     </div>
 
@@ -1269,4 +1490,6 @@
     <div id="toast-container"></div>
 
 </body>
+
 </html>
+

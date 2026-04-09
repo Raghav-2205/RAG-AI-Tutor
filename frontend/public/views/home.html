@@ -1,11 +1,551 @@
-<section class="hero">
-  <div class="hero-content">
-    <h1>RAG AI Tutor</h1>
-    <p>Real-time personalized learning with AI</p>
+<style>
+  html,
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: #07111f;
+  }
 
-    <div class="hero-actions">
-      <button class="primary" onclick="navigateToPage('/views/signup.html')">Get Started</button>
-      <button class="secondary" onclick="navigateToPage('/views/login.html')">Login</button>
-    </div>
+  .landing-home {
+    --landing-bg: #07111f;
+    --landing-bg-soft: rgba(9, 21, 38, 0.92);
+    --landing-surface: rgba(12, 25, 43, 0.82);
+    --landing-surface-strong: rgba(13, 30, 51, 0.96);
+    --landing-border: rgba(128, 177, 255, 0.18);
+    --landing-border-strong: rgba(128, 177, 255, 0.32);
+    --landing-text: #ebf2ff;
+    --landing-muted: rgba(231, 240, 255, 0.76);
+    --landing-accent: #73a8ff;
+    --landing-accent-strong: #3f7eff;
+    --landing-accent-soft: rgba(115, 168, 255, 0.12);
+    min-height: 100vh;
+    padding: clamp(18px, 3vw, 28px);
+    color: var(--landing-text);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(88, 141, 255, 0.18), transparent 30%),
+      radial-gradient(circle at 88% 12%, rgba(111, 185, 255, 0.14), transparent 24%),
+      linear-gradient(180deg, #09111d 0%, #0b1728 44%, #07111f 100%);
+  }
+
+  .landing-home * {
+    box-sizing: border-box;
+  }
+
+  .landing-home a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .landing-home__frame {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+  }
+
+  .landing-home__nav {
+    position: sticky;
+    top: 18px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px 18px;
+    margin-bottom: clamp(26px, 5vw, 52px);
+    border-radius: 22px;
+    border: 1px solid var(--landing-border);
+    background: rgba(9, 20, 36, 0.76);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 24px 54px rgba(4, 9, 20, 0.28);
+  }
+
+  .landing-home__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .landing-home__brand-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, rgba(115, 168, 255, 0.26), rgba(63, 126, 255, 0.38));
+    border: 1px solid var(--landing-border-strong);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    color: #eff6ff;
+    font-size: 1.05rem;
+  }
+
+  .landing-home__links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .landing-home__link,
+  .landing-home__cta-nav {
+    min-height: 42px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.94rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  }
+
+  .landing-home__link {
+    color: var(--landing-muted);
+  }
+
+  .landing-home__link:hover {
+    color: var(--landing-text);
+    background: rgba(255, 255, 255, 0.03);
+    border-color: var(--landing-border);
+  }
+
+  .landing-home__cta-nav {
+    color: #f8fbff;
+    background: linear-gradient(135deg, var(--landing-accent), var(--landing-accent-strong));
+    box-shadow: 0 14px 28px rgba(63, 126, 255, 0.2);
+  }
+
+  .landing-home__hero {
+    min-height: calc(100vh - 160px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 26px;
+    padding: clamp(18px, 4vw, 38px) 0 clamp(20px, 4vw, 44px);
+  }
+
+  .landing-home__eyebrow {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #a3c5ff;
+  }
+
+  .landing-home__title {
+    margin: 0;
+    max-width: 11ch;
+    font-size: clamp(3.2rem, 8vw, 6.3rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+  }
+
+  .landing-home__title span {
+    display: block;
+    color: #9fc1ff;
+  }
+
+  .landing-home__subtitle {
+    margin: 0;
+    max-width: 66ch;
+    font-size: clamp(1rem, 2vw, 1.18rem);
+    line-height: 1.85;
+    color: var(--landing-muted);
+  }
+
+  .landing-home__hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .landing-home__cta-primary,
+  .landing-home__cta-secondary {
+    min-height: 52px;
+    padding: 0 22px;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    font-size: 0.98rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .landing-home__cta-primary {
+    color: #f8fbff;
+    background: linear-gradient(135deg, var(--landing-accent), var(--landing-accent-strong));
+    box-shadow: 0 18px 34px rgba(63, 126, 255, 0.22);
+  }
+
+  .landing-home__cta-secondary {
+    color: var(--landing-text);
+    border-color: var(--landing-border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .landing-home__cta-primary:hover,
+  .landing-home__cta-secondary:hover,
+  .landing-home__cta-nav:hover {
+    transform: translateY(-1px);
+  }
+
+  .landing-home__proof {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .landing-home__proof-card {
+    padding: 20px 22px;
+    border-radius: 22px;
+    border: 1px solid var(--landing-border);
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+  }
+
+  .landing-home__proof-value {
+    display: block;
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .landing-home__proof-label {
+    display: block;
+    margin-top: 8px;
+    color: var(--landing-muted);
+    line-height: 1.6;
+    font-size: 0.92rem;
+  }
+
+  .landing-home__section {
+    margin-top: clamp(44px, 7vw, 96px);
+  }
+
+  .landing-home__section-head {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .landing-home__section-head h2 {
+    margin: 0;
+    max-width: 16ch;
+    font-size: clamp(1.9rem, 3.6vw, 3rem);
+    line-height: 1.03;
+    letter-spacing: -0.05em;
+  }
+
+  .landing-home__section-head p {
+    margin: 0;
+    max-width: 66ch;
+    color: var(--landing-muted);
+    line-height: 1.8;
+  }
+
+  .landing-home__stack {
+    display: grid;
+    gap: 18px;
+  }
+
+  .landing-home__story-card {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 20px;
+    padding: clamp(22px, 3vw, 28px);
+    border-radius: 28px;
+    border: 1px solid var(--landing-border);
+    background:
+      radial-gradient(circle at top right, rgba(115, 168, 255, 0.08), transparent 26%),
+      linear-gradient(180deg, rgba(13, 28, 48, 0.96), rgba(9, 20, 35, 0.96));
+    box-shadow: 0 26px 60px rgba(4, 9, 20, 0.28);
+  }
+
+  .landing-home__story-index {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--landing-accent-soft);
+    border: 1px solid var(--landing-border);
+    color: #a7c7ff;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .landing-home__story-card h3 {
+    margin: 0 0 10px;
+    font-size: clamp(1.15rem, 2vw, 1.45rem);
+    letter-spacing: -0.03em;
+  }
+
+  .landing-home__story-card p {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--landing-muted);
+    line-height: 1.8;
+    font-size: 0.96rem;
+  }
+
+  .landing-home__workflow {
+    display: grid;
+    gap: 16px;
+  }
+
+  .landing-home__workflow-step {
+    padding: 20px 22px;
+    border-radius: 22px;
+    border: 1px solid var(--landing-border);
+    background: rgba(255, 255, 255, 0.03);
+    display: grid;
+    gap: 8px;
+  }
+
+  .landing-home__workflow-step strong {
+    font-size: 1rem;
+  }
+
+  .landing-home__workflow-step p {
+    margin: 0;
+    color: var(--landing-muted);
+    line-height: 1.75;
+  }
+
+  .landing-home__audience {
+    display: grid;
+    gap: 16px;
+  }
+
+  .landing-home__audience-card {
+    padding: 22px 24px;
+    border-radius: 24px;
+    border: 1px solid var(--landing-border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .landing-home__audience-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.06rem;
+  }
+
+  .landing-home__audience-card p {
+    margin: 0;
+    color: var(--landing-muted);
+    line-height: 1.78;
+  }
+
+  .landing-home__final {
+    margin-top: clamp(50px, 7vw, 110px);
+    padding: clamp(28px, 4vw, 42px);
+    border-radius: 32px;
+    border: 1px solid var(--landing-border);
+    background:
+      radial-gradient(circle at top, rgba(115, 168, 255, 0.14), transparent 36%),
+      linear-gradient(180deg, rgba(14, 29, 49, 0.98), rgba(8, 18, 31, 0.98));
+    box-shadow: 0 26px 70px rgba(4, 9, 20, 0.3);
+    text-align: center;
+  }
+
+  .landing-home__final h2 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.3rem);
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }
+
+  .landing-home__final p {
+    margin: 16px auto 0;
+    max-width: 56ch;
+    color: var(--landing-muted);
+    line-height: 1.8;
+  }
+
+  .landing-home__final-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 26px;
+  }
+
+  @media (max-width: 920px) {
+    .landing-home__proof {
+      grid-template-columns: 1fr;
+    }
+
+    .landing-home__story-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .landing-home {
+      padding: 14px;
+    }
+
+    .landing-home__nav {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .landing-home__links,
+    .landing-home__hero-actions,
+    .landing-home__final-actions {
+      width: 100%;
+    }
+
+    .landing-home__link,
+    .landing-home__cta-nav,
+    .landing-home__cta-primary,
+    .landing-home__cta-secondary {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    .landing-home__hero {
+      min-height: auto;
+      padding-top: 10px;
+    }
+  }
+</style>
+
+<section class="landing-home">
+  <div class="landing-home__frame">
+    <nav class="landing-home__nav">
+      <a class="landing-home__brand" href="/views/home.html">
+        <span class="landing-home__brand-mark">AI</span>
+        <span>RAG AI Tutor</span>
+      </a>
+      <div class="landing-home__links">
+        <a class="landing-home__link" href="#value">Why it works</a>
+        <a class="landing-home__link" href="#workflow">Workflow</a>
+        <a class="landing-home__link" href="#audience">Who it helps</a>
+        <a class="landing-home__link" href="/views/login.html">Login</a>
+        <a class="landing-home__cta-nav" href="/views/signup.html">Get Started</a>
+      </div>
+    </nav>
+
+    <section class="landing-home__hero">
+      <p class="landing-home__eyebrow">Academic Premium Learning Platform</p>
+      <h1 class="landing-home__title">Grounded AI support for <span>real coursework.</span></h1>
+      <p class="landing-home__subtitle">
+        Upload your lecture notes, slides, and course material, ask grounded questions, inspect citations, and stay inside one learning flow built for study, planning, assignments, and progress.
+      </p>
+      <div class="landing-home__hero-actions">
+        <a class="landing-home__cta-primary" href="/views/signup.html">Create your account</a>
+        <a class="landing-home__cta-secondary" href="/views/login.html">Sign in</a>
+      </div>
+
+      <div class="landing-home__proof" id="value">
+        <div class="landing-home__proof-card">
+          <span class="landing-home__proof-value">Grounded answers</span>
+          <span class="landing-home__proof-label">Ask from your actual uploaded course material instead of relying on generic responses.</span>
+        </div>
+        <div class="landing-home__proof-card">
+          <span class="landing-home__proof-value">Citations you can inspect</span>
+          <span class="landing-home__proof-label">Open the referenced chunk, verify the source, and understand what the answer was built from.</span>
+        </div>
+        <div class="landing-home__proof-card">
+          <span class="landing-home__proof-value">One connected workflow</span>
+          <span class="landing-home__proof-label">Move from tutoring to planner, quizzes, assignments, and analytics without leaving the platform.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-home__section">
+      <div class="landing-home__section-head">
+        <h2>Designed to feel like a real academic workspace.</h2>
+        <p>The page now flows top to bottom with deliberate rhythm, stronger hierarchy, and fewer isolated tiles so the product reads like a serious learning platform from the first screen.</p>
+      </div>
+      <div class="landing-home__stack">
+        <article class="landing-home__story-card">
+          <div class="landing-home__story-index">01</div>
+          <div>
+            <h3>Start from the material you actually study.</h3>
+            <p>Bring in notes, slides, handouts, and other course documents. The tutor is built to work from that context so the learning experience stays tied to your syllabus instead of drifting into generic explanations.</p>
+          </div>
+        </article>
+        <article class="landing-home__story-card">
+          <div class="landing-home__story-index">02</div>
+          <div>
+            <h3>Ask, inspect, and verify before you trust the answer.</h3>
+            <p>Each strong answer should be traceable. The platform connects tutoring with citations, document context, and evaluation-oriented review so the user can inspect what supports the response.</p>
+          </div>
+        </article>
+        <article class="landing-home__story-card">
+          <div class="landing-home__story-index">03</div>
+          <div>
+            <h3>Stay in one study flow from question to outcome.</h3>
+            <p>Instead of bouncing across disconnected tools, the platform keeps tutoring, planning, assignments, quizzes, and progress reporting inside one continuous academic experience.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="landing-home__section" id="workflow">
+      <div class="landing-home__section-head">
+        <h2>A cleaner path from upload to understanding.</h2>
+        <p>The product story is simpler when it is shown as one vertical workflow instead of a collection of unrelated cards.</p>
+      </div>
+      <div class="landing-home__workflow">
+        <div class="landing-home__workflow-step">
+          <strong>Upload course material</strong>
+          <p>Add PDFs, slides, notes, and class files so the system can work from your actual academic context.</p>
+        </div>
+        <div class="landing-home__workflow-step">
+          <strong>Ask focused questions</strong>
+          <p>Use the tutor to understand concepts, clarify confusion, and review material in a way that stays tied to the uploaded documents.</p>
+        </div>
+        <div class="landing-home__workflow-step">
+          <strong>Verify with citations</strong>
+          <p>Inspect the supporting chunk and understand what part of the material informed the answer before you reuse it for study.</p>
+        </div>
+        <div class="landing-home__workflow-step">
+          <strong>Continue into the LMS flow</strong>
+          <p>Move directly into assignments, planner, analytics, quizzes, and tracking without losing the thread of what you were studying.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-home__section" id="audience">
+      <div class="landing-home__section-head">
+        <h2>Built for people who need more than a generic chatbot.</h2>
+        <p>This is positioned as a learning workspace for real coursework, not a novelty interface for casual prompting.</p>
+      </div>
+      <div class="landing-home__audience">
+        <article class="landing-home__audience-card">
+          <h3>Students</h3>
+          <p>Study against real class material, prepare for assessments, plan workload, and review progress with grounded support.</p>
+        </article>
+        <article class="landing-home__audience-card">
+          <h3>Teachers</h3>
+          <p>Support classroom workflows through connected assignments, quizzes, communication, and a learning environment that stays academically structured.</p>
+        </article>
+        <article class="landing-home__audience-card">
+          <h3>Serious academic use</h3>
+          <p>Prioritize reliability, inspectability, and continuity across the tutoring and LMS experience rather than flashy but shallow interaction.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="landing-home__final">
+      <h2>Start with your material, not a blank prompt.</h2>
+      <p>Create an account, bring in the documents you actually learn from, and use the tutor inside a platform built for coursework, planning, and measurable progress.</p>
+      <div class="landing-home__final-actions">
+        <a class="landing-home__cta-primary" href="/views/signup.html">Get Started</a>
+        <a class="landing-home__cta-secondary" href="/views/login.html">Login</a>
+      </div>
+    </section>
   </div>
 </section>

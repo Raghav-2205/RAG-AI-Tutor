@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="/assets/js/theme-init.js"></script>
     <title>RAG AI Tutor - Workspace</title>
 
     <style>
@@ -26,7 +27,7 @@
         .navbar {
             height: 70px;
             background: #0d112d;
-            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -34,7 +35,7 @@
         }
 
         .brand {
-            color: #00ffcc;
+            color: var(--accent);
             font-weight: 700;
             font-size: 1.2rem;
         }
@@ -51,7 +52,7 @@
         /* SIDEBAR */
         .sidebar {
             background: rgba(13, 17, 45, 0.95);
-            border-right: 1px solid rgba(0, 255, 204, 0.15);
+            border-right: 1px solid var(--border);
             padding: 1.5rem;
             display: flex;
             flex-direction: column;
@@ -81,14 +82,14 @@
         }
 
         .nav-item:hover {
-            background: rgba(0, 255, 204, 0.1);
-            color: #00ffcc;
+            background: var(--accent-soft);
+            color: var(--accent);
         }
 
         /* CHAT HISTORY SIDEBAR */
         .new-chat-btn {
-            background: linear-gradient(135deg, #00ffcc, #00d4aa);
-            color: #0f0c29;
+            background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--page-icon)));
+            color: var(--bg-primary);
             border: none;
             padding: 12px 16px;
             border-radius: 12px;
@@ -104,7 +105,7 @@
 
         .new-chat-btn:hover {
             transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(0, 255, 204, 0.3);
+            box-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 18%, transparent);
         }
 
         .chat-list-container {
@@ -123,17 +124,17 @@
         }
 
         .chat-list-container::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             border-radius: 3px;
         }
 
         .chat-list-container::-webkit-scrollbar-thumb {
-            background: rgba(0, 255, 204, 0.3);
+            background: color-mix(in oklab, var(--accent) 24%, var(--border));
             border-radius: 3px;
         }
 
         .chat-list-container::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 255, 204, 0.5);
+            background: color-mix(in oklab, var(--accent) 34%, var(--border));
         }
 
         .chat-list-header {
@@ -162,12 +163,12 @@
         }
 
         .chat-item:hover {
-            background: rgba(0, 255, 204, 0.08);
+            background: var(--accent-soft);
         }
 
         .chat-item.active {
-            background: rgba(0, 255, 204, 0.15);
-            border-left-color: #00ffcc;
+            background: var(--accent-soft-strong);
+            border-left-color: var(--accent);
         }
 
         .chat-content {
@@ -187,7 +188,7 @@
 
         .chat-timestamp {
             font-size: 0.75rem;
-            color: #888;
+            color: var(--text-muted);
         }
 
         .delete-chat-btn {
@@ -213,7 +214,7 @@
 
         .loading-chats {
             text-align: center;
-            color: #888;
+            color: var(--text-muted);
             padding: 2rem 1rem;
             font-size: 0.9rem;
         }
@@ -265,12 +266,12 @@
         }
 
         .chat-feed::-webkit-scrollbar-thumb {
-            background: rgba(0, 255, 204, 0.3);
+            background: color-mix(in oklab, var(--accent) 24%, var(--border));
             border-radius: 4px;
         }
 
         .chat-feed::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 255, 204, 0.5);
+            background: color-mix(in oklab, var(--accent) 34%, var(--border));
         }
 
         .msg {
@@ -286,7 +287,7 @@
 
         .msg.ai {
             align-self: flex-start;
-            background: rgba(255, 255, 255, 0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             line-height: 1.7;
         }
 
@@ -295,7 +296,7 @@
         .msg.ai h2,
         .msg.ai h3 {
             margin: 0.8rem 0 0.5rem 0;
-            color: #00ffcc;
+            color: var(--accent);
         }
 
         .msg.ai p {
@@ -313,7 +314,7 @@
         }
 
         .msg.ai code {
-            background: rgba(0, 255, 204, 0.1);
+            background: var(--accent-soft);
             padding: 2px 6px;
             border-radius: 4px;
             font-family: 'Courier New', monospace;
@@ -336,23 +337,23 @@
         /* Citation styling */
         .citation {
             display: inline-block;
-            background: linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(138, 43, 226, 0.2));
-            color: #00ffcc;
+            background: linear-gradient(135deg, var(--accent-soft-strong), color-mix(in oklab, var(--page-icon) 16%, transparent));
+            color: var(--accent);
             padding: 2px 8px;
             border-radius: 12px;
             font-size: 0.85em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            border: 1px solid rgba(0, 255, 204, 0.3);
+            border: 1px solid var(--accent-border-soft);
             margin: 0 2px;
             position: relative;
         }
 
         .citation:hover {
-            background: linear-gradient(135deg, rgba(0, 255, 204, 0.3), rgba(138, 43, 226, 0.3));
+            background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 20%, var(--bg-card)), color-mix(in oklab, var(--page-icon) 18%, var(--bg-card)));
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 255, 204, 0.3);
+            box-shadow: 0 6px 16px color-mix(in oklab, var(--accent) 16%, transparent);
         }
 
         .citation-tooltip {
@@ -360,8 +361,8 @@
             bottom: 100%;
             left: 50%;
             transform: translateX(-50%) translateY(-8px);
-            background: #1e233e;
-            border: 1px solid rgba(0, 255, 204, 0.3);
+            background: var(--bg-card2);
+            border: 1px solid var(--accent-border-soft);
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 0.75em;
@@ -390,7 +391,7 @@
         }
 
         .feedback-label {
-            color: #888;
+            color: var(--text-muted);
             font-size: 0.85em;
         }
 
@@ -400,31 +401,31 @@
         }
 
         .feedback-btn {
-            background: rgba(255, 255, 255, 0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 6px 12px;
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
             font-size: 1.1em;
-            color: #888;
+            color: var(--text-muted);
         }
 
         .feedback-btn:hover {
             background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(0, 255, 204, 0.3);
+            border-color: var(--accent-border-soft);
             transform: scale(1.1);
         }
 
         .feedback-btn.selected {
-            background: rgba(0, 255, 204, 0.15);
-            border-color: #00ffcc;
-            color: #00ffcc;
+            background: var(--accent-soft-strong);
+            border-color: var(--accent-border-soft);
+            color: var(--accent);
         }
 
         .feedback-comment {
             width: 100%;
-            background: rgba(255, 255, 255, 0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             border: 1px solid rgba(255, 255, 255, 0.15);
             padding: 8px 12px;
             border-radius: 8px;
@@ -437,12 +438,12 @@
         }
 
         .feedback-comment:focus {
-            border-color: rgba(0, 255, 204, 0.3);
+            border-color: var(--accent-border-soft);
         }
 
         .feedback-submit {
-            background: linear-gradient(135deg, #00ffcc, #00d4aa);
-            color: #0f0c29;
+            background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--page-icon)));
+            color: var(--bg-primary);
             padding: 6px 16px;
             border-radius: 12px;
             border: none;
@@ -455,11 +456,11 @@
 
         .feedback-submit:hover {
             transform: scale(1.05);
-            box-shadow: 0 2px 10px rgba(0, 255, 204, 0.3);
+            box-shadow: 0 8px 18px color-mix(in oklab, var(--accent) 18%, transparent);
         }
 
         .feedback-thanks {
-            color: #00ffcc;
+            color: var(--accent);
             font-size: 0.85em;
             font-style: italic;
         }
@@ -469,7 +470,7 @@
             display: inline-block;
             width: 2px;
             height: 1em;
-            background: #00ffcc;
+            background: var(--accent);
             margin-left: 2px;
             vertical-align: text-bottom;
             animation: blink 0.75s step-end infinite;
@@ -491,7 +492,7 @@
         }
 
         .input-box {
-            background: #1e233e;
+            background: var(--bg-card2);
             border-radius: 24px;
             padding: 12px;
             display: flex;
@@ -513,7 +514,7 @@
             border-radius: 50%;
             border: none;
             cursor: pointer;
-            background: #00ffcc;
+            background: var(--accent);
             font-weight: bold;
         }
 
@@ -528,7 +529,7 @@
         }
 
         .modal-card {
-            background: #1e233e;
+            background: var(--bg-card2);
             border-radius: 24px;
             padding: 2rem;
             width: 90%;
@@ -536,7 +537,7 @@
         }
 
         .quiz-option {
-            background: rgba(255, 255, 255, 0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             padding: 1rem;
             border-radius: 12px;
             cursor: pointer;
@@ -593,7 +594,7 @@
         }
 
         .metric-badge {
-            background: rgba(255,255,255,0.05);
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
             border: 1px solid rgba(255,255,255,0.1);
             padding: 4px 8px;
             border-radius: 6px;
@@ -615,13 +616,13 @@
             bottom: 120%;
             left: 50%;
             transform: translateX(-50%);
-            background: #1e233e;
+            background: var(--bg-card2);
             color: #e0e6ed;
             padding: 6px 10px;
             border-radius: 6px;
             font-size: 0.7rem;
             white-space: nowrap;
-            border: 1px solid rgba(0,255,204,0.3);
+            border: 1px solid var(--accent-border-soft);
             z-index: 100;
             transition: opacity 0.2s;
             pointer-events: none;
@@ -654,7 +655,7 @@
             transition: transform 0.3s ease;
             display: inline-block;
             margin-left: 8px;
-            color: #888;
+            color: var(--text-muted);
         }
 
         .hallucination-warning {
@@ -681,136 +682,356 @@
         .action-link {
             display: inline-block;
             margin-top: 12px;
-            color: #00ffcc;
+            color: var(--accent);
             text-decoration: none;
             font-size: 0.8rem;
             font-weight: 600;
         }
         .action-link:hover { text-decoration: underline; }
 
-</style>
+    </style>
+    <meta name="description" content="Ask questions, upload sources, and chat with the RAG AI tutor in a dashboard-style workspace." />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script src="/assets/js/config.js?v=11"></script>
+    <link rel="stylesheet" href="/assets/css/theme.css" />
+    <link rel="stylesheet" href="/assets/css/app-shell.css" />
+    <script src="/assets/js/theme-controls.js"></script>
+    <style>
+        .subjects-page {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-display);
+        }
+
+        .subjects-page .navbar {
+            background: color-mix(in oklab, var(--bg-card) 92%, var(--bg-primary));
+            border-bottom: 1px solid var(--border);
+        }
+
+        .subjects-page .brand,
+        .subjects-page .msg.ai h1,
+        .subjects-page .msg.ai h2,
+        .subjects-page .msg.ai h3,
+        .subjects-page .feedback-thanks,
+        .subjects-page .action-link {
+            color: var(--accent);
+        }
+
+        .subjects-page .dashboard-container,
+        .subjects-page .main-workspace {
+            background:
+                radial-gradient(circle at top center, color-mix(in oklab, var(--accent) 6%, transparent), transparent 42%),
+                linear-gradient(180deg, var(--bg-secondary), var(--bg-primary));
+        }
+
+        .subjects-page .sidebar {
+            background: color-mix(in oklab, var(--bg-card) 94%, var(--bg-primary));
+            border-right: 1px solid var(--border);
+        }
+
+        .subjects-page .sidebar-section h3,
+        .subjects-page .chat-list-header,
+        .subjects-page .chat-timestamp,
+        .subjects-page .loading-chats,
+        .subjects-page .feedback-label,
+        .subjects-page .expand-icon {
+            color: var(--text-muted);
+        }
+
+        .subjects-page .nav-item {
+            color: var(--text-primary);
+        }
+
+        .subjects-page .nav-item:hover,
+        .subjects-page .nav-item.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .subjects-page .new-chat-btn,
+        .subjects-page .feedback-submit,
+        .subjects-page .send-btn {
+            background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 55%, var(--page-icon)));
+            color: var(--bg-primary);
+            box-shadow: none;
+        }
+
+        .subjects-page .new-chat-btn:hover,
+        .subjects-page .feedback-submit:hover,
+        .subjects-page .send-btn:hover {
+            box-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 20%, transparent);
+        }
+
+        .subjects-page .chat-list-container::-webkit-scrollbar-track,
+        .subjects-page .chat-feed::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .subjects-page .chat-list-container::-webkit-scrollbar-thumb,
+        .subjects-page .chat-feed::-webkit-scrollbar-thumb {
+            background: color-mix(in oklab, var(--accent) 16%, var(--border));
+        }
+
+        .subjects-page .chat-list-container::-webkit-scrollbar-thumb:hover,
+        .subjects-page .chat-feed::-webkit-scrollbar-thumb:hover {
+            background: color-mix(in oklab, var(--accent) 24%, var(--border));
+        }
+
+        .subjects-page .chat-item:hover {
+            background: var(--accent-soft);
+        }
+
+        .subjects-page .chat-item.active {
+            background: var(--accent-soft-strong);
+            border-left-color: var(--accent);
+        }
+
+        .subjects-page .chat-title,
+        .subjects-page .msg,
+        .subjects-page textarea,
+        .subjects-page .metric-badge strong {
+            color: var(--text-primary);
+        }
+
+        .subjects-page .msg.user {
+            background: color-mix(in oklab, var(--bg-card2) 92%, var(--page-icon) 8%);
+        }
+
+        .subjects-page .msg.ai,
+        .subjects-page .input-box,
+        .subjects-page .modal-card,
+        .subjects-page .citation-tooltip,
+        .subjects-page .metric-tooltip {
+            background: var(--bg-card2);
+            border: 1px solid var(--border);
+        }
+
+        .subjects-page .msg.ai code,
+        .subjects-page .feedback-btn.selected {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-color: var(--accent-border-soft);
+        }
+
+        .subjects-page .citation {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent-border-soft);
+        }
+
+        .subjects-page .citation:hover {
+            background: var(--accent-soft-strong);
+            box-shadow: 0 4px 14px color-mix(in oklab, var(--accent) 16%, transparent);
+        }
+
+        .subjects-page .feedback-btn,
+        .subjects-page .feedback-comment,
+        .subjects-page .quiz-option,
+        .subjects-page .metric-badge {
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .subjects-page .feedback-btn:hover,
+        .subjects-page .feedback-comment:focus {
+            border-color: var(--accent-border-soft);
+        }
+
+        .subjects-page .typing-cursor {
+            background: var(--accent);
+        }
+
+        .subjects-page .input-area {
+            background: linear-gradient(to top, var(--bg-primary) 78%, transparent);
+        }
+
+        .subjects-page .validation-card {
+            background: color-mix(in oklab, var(--bg-card2) 88%, transparent);
+            border-left-color: var(--success);
+        }
+
+        .subjects-page .hallucination-warning {
+            color: color-mix(in oklab, var(--danger) 70%, white);
+        }
+
+        .subjects-page .hallucination-warning h4 {
+            color: var(--danger);
+        }
+    </style>
 </head>
 
-<body>
+<body class="page-layout subjects-page">
+    <aside class="sidebar subjects-sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
+            <span>AI Tutor Chat</span>
+        </div>
+        <nav class="nav-section">
+            <div class="nav-label">Learn</div>
+            <a href="/views/dashboard.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line"></i></span> Dashboard
+            </a>
+            <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item">
+                <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open"></i></span> My Classes
+            </a>
+            <a href="/views/subjects.html" class="nav-item active">
+                <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments"></i></span> AI Tutor Chat
+            </a>
+            <a href="/views/planner.html" class="nav-item">
+                <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar"></i></span> Planner
+            </a>
+            <a href="/views/community.html" class="nav-item">
+                <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users"></i></span> Community
+            </a>
+        </nav>
+        <nav class="nav-section">
+            <div class="nav-label">Analytics</div>
+            <a href="/views/analytics.html" class="nav-item">
+                <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie"></i></span> Analytics
+            </a>
+            <a href="/views/progress.html" class="nav-item">
+                <span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard"></i></span> Progress Report
+            </a>
+        </nav>
 
-    <nav class="navbar">
-        <div class="brand">RAG AI Tutor</div>
-        <button onclick="localStorage.clear(); window.location.href='/views/login.html';"
-            style="background:none;border:1px solid #ff4444;color:#ff4444;padding:6px 16px;border-radius:20px;cursor:pointer;">
-            Logout
-        </button>
-    </nav>
+        <div class="subjects-chat-rail">
+            <button class="new-chat-btn" id="newChatBtn" onclick="chatHistory.createNewChat()">
+                <span class="chat-btn-icon">➕</span>
+                <span class="chat-btn-text">New Chat</span>
+            </button>
 
-    <div class="dashboard-container">
+            <div id="chatSearchBar" class="subjects-chat-search">
+                <span class="subjects-search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input id="chatSearchInput" type="text" placeholder="Search chats..." oninput="chatHistory.handleSearch(event)">
+            </div>
 
-        <aside class="sidebar">
-                        <!-- ...existing code... -->
-                        <!-- NEW CHAT BUTTON -->
-                        <button class="new-chat-btn" id="newChatBtn" onclick="chatHistory.createNewChat()">
-                            <span class="chat-btn-icon">➕</span>
-                            <span class="chat-btn-text">New Chat</span>
-                        </button>
-
-                        <!-- SEARCH BAR -->
-                        <div id="chatSearchBar" style="margin-bottom: 0.5rem;">
-                            <input id="chatSearchInput" type="text" placeholder="Search chats..." style="width:100%;padding:8px;border-radius:8px;border:none;background:#1e233e;color:#fff;" oninput="chatHistory.handleSearch(event)">
-                        </div>
-
-            <!-- CHAT HISTORY LIST -->
             <div class="chat-list-container">
                 <div class="chat-list-header">Recent</div>
                 <div id="chatList" class="chat-list">
-                    <!-- Dynamically populated by JavaScript -->
                     <div class="loading-chats">Loading chats...</div>
                 </div>
             </div>
+        </div>
 
-            <!-- TOOLS SECTION (Minimized) -->
-            <div class="tools-section">
-                <div class="nav-item" onclick="window.location.href='/views/dashboard.html'" title="Dashboard">
-                    📊
-                </div>
-                <div class="nav-item" onclick="document.getElementById('hiddenFileInput').click()"
-                    title="Upload Document">
-                    📄
-                </div>
-                <div class="nav-item" onclick="window.location.href='/views/quiz.html'" title="Take Quiz">
-                    🎯
-                </div>
-
-                <div class="nav-item" onclick="clearAllDocuments()" style="color: #ff6b6b;" title="Clear Documents">
-                    🗑️
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar" id="navAvatar">U</div>
+                <div>
+                    <div class="user-name" id="navUserName">User</div>
+                    <div class="user-level" id="navUserRole">Student</div>
                 </div>
             </div>
-        </aside>
-
-        <main class="main-workspace">
-
-            <div id="chatFeed" class="chat-feed">
-                <h1 style="text-align:center;color:#00ffcc;margin-top:20vh;">
-                    What do you want to learn?
-                </h1>
+            <div style="margin-top:10px;">
+                <a href="#" onclick="localStorage.clear(); window.location.href='/views/login.html';" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
+                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span> Logout
+                </a>
             </div>
+        </div>
+    </aside>
 
-            <div class="input-area">
-                <div class="input-box" style="border-radius: 28px; padding: 10px 14px; display: flex; align-items: center; background: #1e233e; margin: 0 auto; max-width: 800px; border: 1px solid rgba(255,255,255,0.1);">
-                    <button class="attach-btn" onclick="document.getElementById('hiddenFileInput').click()" style="background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:36px; height:36px; cursor:pointer; color:#b8c5d6; font-size:1.6rem; display:flex; align-items:center; justify-content:center; margin-right:12px; transition: all 0.2s; font-weight: 300;" title="Attach files" onmouseover="this.style.background='rgba(0,255,204,0.1)';this.style.color='#00ffcc'" onmouseout="this.style.background='rgba(255,255,255,0.1)';this.style.color='#b8c5d6'">+</button>
-                    <textarea id="chatInput" rows="1" placeholder="Ask anything..." style="flex:1; background:transparent; border:none; color:#fff; resize:none; outline:none; font-family: inherit; font-size: 1rem; margin-top: 4px;"></textarea>
-                    <button style="background:none; border:none; color:#b8c5d6; font-size:1.2rem; cursor:pointer; padding:0 8px; margin-right:4px;" title="Voice Input">🎤</button>
-                    <button id="sendBtn" class="send-btn" onclick="sendMessage()" style="width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; background: #00ffcc; font-weight: bold; color: #0a0e27;">➤</button>
+    <main class="main-content">
+        <div class="page-container subjects-page-shell">
+            <div class="page-header subjects-page-header">
+                <div>
+                    <h1><i class="fa-solid fa-comments"></i> AI Tutor</h1>
+                    <p>Ask questions, upload context, and learn interactively inside the same dashboard language as the rest of the app.</p>
+                </div>
+                <div class="subjects-page-actions">
+                    <button class="btn btn-secondary-soft" onclick="document.getElementById('hiddenFileInput').click()"><i class="fa-solid fa-file-arrow-up"></i> Upload</button>
+                    <button class="btn btn-secondary-soft subjects-danger-btn" onclick="clearAllDocuments()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+                        <i class="fa-solid fa-moon" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
 
-        </main>
-    </div>
+            <section class="subjects-chat-shell">
+                <div id="chatFeed" class="chat-feed subjects-chat-feed">
+                    <div class="subjects-welcome">
+                        <div class="subjects-welcome-icon"><i class="fa-solid fa-comments"></i></div>
+                        <h3>Start a new chat</h3>
+                        <p>Upload a document or type your question to begin.</p>
+                    </div>
+                </div>
+
+                <div class="input-area subjects-input-area">
+                    <div class="input-box subjects-input-box">
+                        <button class="attach-btn subjects-attach-btn" onclick="document.getElementById('hiddenFileInput').click()" title="Upload files" aria-label="Upload files">
+                            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+                        </button>
+                        <textarea id="chatInput" class="subjects-chat-input" rows="1" placeholder="Ask anything about your lesson, assignment, or uploaded material..."></textarea>
+                        <button id="voiceBtn" class="subjects-voice-btn" type="button" onclick="toggleVoiceInput()" title="Voice input" aria-label="Voice input">
+                            <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+                        </button>
+                        <button id="sendBtn" class="send-btn" type="button" onclick="sendMessage()" aria-label="Send message"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
 
     <!-- FILE INPUT (hidden) -->
     <input type="file" id="hiddenFileInput" multiple accept=".pdf,.docx,.txt,.pptx,.jpg,.png" style="display:none"
         onchange="handleFileSelect(event)">
 
-    <div id="quizModal" class="modal-overlay">
-        <div class="modal-card">
-            <h2 style="color:#00ffcc;">AI Quiz Generator</h2>
-            <div id="quizArea"></div>
-            <button onclick="closeQuiz()">Close</button>
+    <div id="quizModal" class="modal-overlay dashboard-modal subjects-modal">
+        <div class="modal-card subjects-modal-card">
+            <div class="subjects-modal-header">
+                <div>
+                    <p class="subjects-modal-eyebrow">Practice</p>
+                    <h2>AI Quiz Generator</h2>
+                    <p class="subjects-modal-subtitle">Turn the current material into a quick knowledge check.</p>
+                </div>
+                <button class="subjects-modal-close" type="button" onclick="closeQuiz()" aria-label="Close quiz modal">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div id="quizArea" class="subjects-quiz-area"></div>
+            <div class="modal-actions subjects-modal-actions">
+                <button class="btn btn-secondary-soft" type="button" onclick="closeQuiz()">Close</button>
+            </div>
         </div>
     </div>
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <div id="deleteConfirmModal" class="modal-overlay" style="display:none;">
-        <div class="modal-card" style="max-width: 400px; text-align: center;">
-            <h3 style="color:#e74c3c; margin-bottom: 1rem;">Delete this chat?</h3>
-            <p style="color:#b8c5d6; margin-bottom: 2rem;">This action cannot be undone.</p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button onclick="chatHistory.closeDeleteModal()"
-                    style="background: rgba(255,255,255,0.1); color: #e0e6ed; padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer;">
-                    Cancel
+    <div id="deleteConfirmModal" class="modal-overlay dashboard-modal subjects-modal" style="display:none;">
+        <div class="modal-card subjects-modal-card subjects-modal-card--compact">
+            <div class="subjects-modal-header">
+                <div>
+                    <p class="subjects-modal-eyebrow">Chat History</p>
+                    <h3>Delete this chat?</h3>
+                </div>
+                <button class="subjects-modal-close" type="button" onclick="chatHistory.closeDeleteModal()" aria-label="Close delete confirmation">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
-                <button onclick="chatHistory.executeDelete()"
-                    style="background: #e74c3c; color: white; padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                    Delete
-                </button>
+            </div>
+            <p class="subjects-modal-note">This will remove the conversation from your recent chat history and cannot be undone.</p>
+            <div class="modal-actions subjects-modal-actions">
+                <button class="btn btn-secondary-soft" type="button" onclick="chatHistory.closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" type="button" onclick="chatHistory.executeDelete()">Delete</button>
             </div>
         </div>
     </div>
 
     <!-- CHUNK CITATION MODAL -->
-    <div id="chunkModal" class="modal-overlay" style="z-index: 2000;">
-        <div class="modal-card" style="max-width: 800px; width: 95%;">
-            <div
-                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(0,255,204,0.3);padding-bottom:0.5rem;">
-                <h3 id="chunkModalTitle" style="color:#00ffcc;margin:0;">Document Citation</h3>
-                <button onclick="document.getElementById('chunkModal').style.display='none'"
-                    style="background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;">&times;</button>
+    <div id="chunkModal" class="modal-overlay dashboard-modal subjects-modal" style="z-index: 2000;">
+        <div class="modal-card subjects-modal-card subjects-modal-card--wide">
+            <div class="subjects-modal-header">
+                <div>
+                    <p class="subjects-modal-eyebrow">Citation</p>
+                    <h3 id="chunkModalTitle">Document Citation</h3>
+                </div>
+                <button class="subjects-modal-close" type="button" onclick="document.getElementById('chunkModal').style.display='none'" aria-label="Close citation modal">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
             </div>
-            <div id="chunkModalContent" style="max-height:60vh;overflow-y:auto;color:#e0e6ed;line-height:1.6;">
+            <div id="chunkModalContent" class="subjects-chunk-content">
                 <div class="loading">Loading content...</div>
             </div>
-            <div style="margin-top:1rem;text-align:right;">
-                <button onclick="document.getElementById('chunkModal').style.display='none'"
-                    style="background:rgba(255,255,255,0.1);border:1px solid #aaa;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;">
-                    Close
-                </button>
+            <div class="modal-actions subjects-modal-actions">
+                <button class="btn btn-secondary-soft" type="button" onclick="document.getElementById('chunkModal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -849,10 +1070,11 @@
                                     throw new Error('Failed to load chat');
                                 }
                                 const chat = await res.json();
+                                stopAnswerReadAloud();
                                 // Render messages
                                 const feed = document.getElementById('chatFeed');
                                 feed.innerHTML = '';
-                                for (const msg of chat.messages) {
+                                for (const [index, msg] of (chat.messages || []).entries()) {
                                     if (msg.role === 'user') {
                                         feed.innerHTML += `<div class="msg user">${this.escapeHtml(msg.content)}</div>`;
                                     } else {
@@ -860,10 +1082,15 @@
                                             window.ai.formatMessage(msg.content, msg.chunks || []) :
                                             this.escapeHtml(msg.content);
                                         const validationUI = this.createValidationUI(msg.validation_result);
-                                        // Create feedback UI for assistant messages
-                                        const sessionId = `${chatId}_${msg.timestamp}`;
+                                        const sessionId = `${chatId}_${msg.timestamp || index}`;
                                         const feedbackUI = this.createFeedbackUI(sessionId);
-                                        feed.innerHTML += `<div class="msg ai">${formatted}${validationUI}${feedbackUI}</div>`;
+                                        const messageId = buildAssistantMessageId(chatId, msg.timestamp || index);
+                                        feed.innerHTML += renderAssistantMessageBubble({
+                                            messageId,
+                                            answerHtml: formatted,
+                                            validationHtml: validationUI,
+                                            feedbackHtml: feedbackUI
+                                        });
                                     }
                                 }
                                 // Update sidebar highlighting
@@ -878,7 +1105,7 @@
                 this.activeChatId = null;
                 this.sessions = [];
                 this.filteredSessions = [];
-                this.apiBase = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+                this.apiBase = window.config?.apiBase || (window.location.origin + '/api');
             }
 
             // Always read token fresh from localStorage so stale copies aren't used
@@ -954,12 +1181,12 @@
                     <div class="chat-item ${session.chat_id === this.activeChatId ? 'active' : ''}">
                         <div class="chat-content" onclick="chatHistory.switchToChat('${session.chat_id}')">
                             <div class="chat-title">
-                                ${session.document_name ? '📄 ' + this.escapeHtml(session.document_name) : this.escapeHtml(session.title)}
+                                ${session.document_name ? `<i class="fa-regular fa-file-lines" aria-hidden="true"></i>${this.escapeHtml(session.document_name)}` : this.escapeHtml(session.title)}
                             </div>
                             <div class="chat-timestamp">${this.getRelativeTime(session.updated_at)}</div>
                         </div>
                         <button class="delete-chat-btn" onclick="event.stopPropagation(); chatHistory.confirmDeleteChat('${session.chat_id}')" title="Delete chat">
-                            🗑️
+                            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                         </button>
                     </div>
                 `).join('');
@@ -1025,12 +1252,12 @@
                     <div class="chat-item ${session.chat_id === this.activeChatId ? 'active' : ''}">
                         <div class="chat-content" onclick="chatHistory.switchToChat('${session.chat_id}')">
                             <div class="chat-title">
-                                ${session.document_name ? '📄 ' + this.escapeHtml(session.document_name) : this.escapeHtml(session.title)}
+                                ${session.document_name ? `<i class="fa-regular fa-file-lines" aria-hidden="true"></i>${this.escapeHtml(session.document_name)}` : this.escapeHtml(session.title)}
                             </div>
                             <div class="chat-timestamp">${this.getRelativeTime(session.updated_at)}</div>
                         </div>
                         <button class="delete-chat-btn" onclick="event.stopPropagation(); chatHistory.confirmDeleteChat('${session.chat_id}')" title="Delete chat">
-                            🗑️
+                            <i class="fa-regular fa-trash-can" aria-hidden="true"></i>
                         </button>
                     </div>
                 `).join('');
@@ -1051,6 +1278,7 @@
             }
 
             async createNewChat() {
+                stopAnswerReadAloud();
                 this.activeChatId = null;
                 this.showWelcomeScreen();
                 this.renderSessionList(); // Remove active highlighting
@@ -1058,7 +1286,7 @@
 
             showWelcomeScreen() {
                 document.getElementById('chatFeed').innerHTML =
-                    '<h1 style="text-align:center;color:#00ffcc;margin-top:20vh;">What do you want to learn?</h1>';
+                    '<div class="subjects-welcome"><div class="subjects-welcome-icon"><i class="fa-solid fa-comments"></i></div><h3>Start a new chat</h3><p>Upload a document or type your question to begin.</p></div>';
             }
 
             async afterMessageSent(chatId) {
@@ -1093,7 +1321,7 @@
                     : '✗';
                 
                 const docBadge = validation.document_id
-                    ? `<span style="background:rgba(0,255,204,0.1);color:#00ffcc;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(0,255,204,0.2);">📄 DOC SCOPE: ACTIVE</span>`
+                    ? `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid var(--accent-border-soft);">📄 DOC SCOPE: ACTIVE</span>`
                     : '';
                 
                 const evalId = validation._id || validation.id || '';
@@ -1129,7 +1357,7 @@
                                 ${sourceBadge}
                                 <span style="font-weight:700;color:${statusColor};font-size:0.75rem;text-transform:uppercase;">${icon} ${validation.validation_status}</span>
                             </div>
-                            <div style="font-size:0.75rem;color:#888;">
+                            <div style="font-size:0.75rem;color:var(--text-muted);">
                                 <span>Details</span>
                                 <span class="expand-icon">▼</span>
                             </div>
@@ -1214,11 +1442,11 @@
             }
 
             const feed = document.getElementById('chatFeed');
-            if (feed.querySelector('h1')) feed.innerHTML = '';
-            feed.innerHTML += `<div class="msg ai">🗑️ Deleting all documents...</div>`;
+            if (feed.querySelector('.subjects-welcome')) feed.innerHTML = '';
+            feed.innerHTML += `<div class="msg ai"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Deleting all documents...</div>`;
 
             try {
-                const apiBase = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+                const apiBase = window.config?.apiBase || (window.location.origin + '/api');
                 const response = await fetch(`${apiBase}/upload/all`, {
                     method: 'DELETE',
                     headers: {
@@ -1238,6 +1466,261 @@
             }
         }
 
+        let recognition = null;
+        let isVoiceListening = false;
+
+        function updateVoiceButtonState(isListening) {
+            const voiceBtn = document.getElementById('voiceBtn');
+            if (!voiceBtn) return;
+            voiceBtn.classList.toggle('is-listening', Boolean(isListening));
+            voiceBtn.setAttribute('aria-pressed', isListening ? 'true' : 'false');
+            voiceBtn.title = isListening ? 'Stop voice input' : 'Voice input';
+        }
+
+        function appendVoiceTranscript(transcript) {
+            const chatInput = document.getElementById('chatInput');
+            if (!chatInput || !transcript) return;
+
+            const normalized = transcript.trim();
+            if (!normalized) return;
+
+            chatInput.value = chatInput.value
+                ? `${chatInput.value.trimEnd()} ${normalized}`
+                : normalized;
+
+            chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+            chatInput.focus();
+        }
+
+        function initVoiceInput() {
+            const VoiceRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const voiceBtn = document.getElementById('voiceBtn');
+            if (!voiceBtn) return;
+
+            if (!VoiceRecognition) {
+                voiceBtn.disabled = true;
+                voiceBtn.classList.add('is-disabled');
+                voiceBtn.title = 'Voice input is not supported in this browser';
+                return;
+            }
+
+            recognition = new VoiceRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true;
+            recognition.continuous = false;
+
+            let finalTranscript = '';
+
+            recognition.onstart = () => {
+                isVoiceListening = true;
+                finalTranscript = '';
+                updateVoiceButtonState(true);
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    const transcript = result[0]?.transcript || '';
+                    if (result.isFinal) {
+                        finalTranscript += `${transcript} `;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) {
+                    chatInput.placeholder = interimTranscript
+                        ? `Listening… ${interimTranscript.trim()}`
+                        : 'Ask anything about your lesson, assignment, or uploaded material...';
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.warn('Voice input error:', event.error);
+                isVoiceListening = false;
+                updateVoiceButtonState(false);
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) {
+                    chatInput.placeholder = 'Ask anything about your lesson, assignment, or uploaded material...';
+                }
+            };
+
+            recognition.onend = () => {
+                isVoiceListening = false;
+                updateVoiceButtonState(false);
+                appendVoiceTranscript(finalTranscript);
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) {
+                    chatInput.placeholder = 'Ask anything about your lesson, assignment, or uploaded material...';
+                }
+            };
+        }
+
+        function toggleVoiceInput() {
+            if (!recognition) {
+                initVoiceInput();
+            }
+
+            if (!recognition) {
+                alert('Voice input is not supported in this browser.');
+                return;
+            }
+
+            if (isVoiceListening) {
+                recognition.stop();
+                return;
+            }
+
+            try {
+                recognition.start();
+            } catch (error) {
+                console.warn('Voice input could not start:', error);
+            }
+        }
+
+        const answerReadAloud = {
+            supported: typeof window !== 'undefined'
+                && 'speechSynthesis' in window
+                && 'SpeechSynthesisUtterance' in window,
+            activeMessageId: null,
+            utterance: null,
+
+            findMessageElement(messageId) {
+                return Array.from(document.querySelectorAll('.msg.ai[data-message-id]'))
+                    .find((node) => node.dataset.messageId === messageId) || null;
+            },
+
+            syncButtons() {
+                document.querySelectorAll('.answer-audio-btn[data-message-id]').forEach((button) => {
+                    const isActive = this.activeMessageId === button.dataset.messageId;
+                    button.classList.toggle('is-speaking', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                    button.title = button.disabled
+                        ? 'Read aloud not supported'
+                        : isActive
+                            ? 'Stop reading aloud'
+                            : 'Read aloud';
+                });
+            },
+
+            stop() {
+                if (this.supported) {
+                    window.speechSynthesis.cancel();
+                }
+                this.activeMessageId = null;
+                this.utterance = null;
+                this.syncButtons();
+            },
+
+            extractMessageText(messageId) {
+                const messageNode = this.findMessageElement(messageId);
+                const contentNode = messageNode?.querySelector('.ai-message-content');
+                if (!contentNode) return '';
+
+                const clone = contentNode.cloneNode(true);
+                clone.querySelectorAll('.citation, .citation-tooltip, button, .feedback-container, .validation-card, .action-link').forEach((node) => node.remove());
+                clone.querySelectorAll('br').forEach((node) => node.replaceWith('\n'));
+                clone.querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, pre, blockquote, tr').forEach((node) => {
+                    node.append(document.createTextNode('\n'));
+                });
+
+                return (clone.textContent || '')
+                    .replace(/\u00a0/g, ' ')
+                    .replace(/[ \t]+\n/g, '\n')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+            },
+
+            speak(messageId) {
+                if (!this.supported) return;
+
+                const speechText = this.extractMessageText(messageId);
+                if (!speechText) return;
+
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(speechText);
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+
+                utterance.onend = () => {
+                    if (this.activeMessageId === messageId) {
+                        this.activeMessageId = null;
+                        this.utterance = null;
+                        this.syncButtons();
+                    }
+                };
+
+                utterance.onerror = () => {
+                    if (this.activeMessageId === messageId) {
+                        this.activeMessageId = null;
+                        this.utterance = null;
+                        this.syncButtons();
+                    }
+                };
+
+                this.activeMessageId = messageId;
+                this.utterance = utterance;
+                this.syncButtons();
+                window.speechSynthesis.speak(utterance);
+            },
+
+            toggle(messageId) {
+                if (!this.supported) return;
+                if (this.activeMessageId === messageId) {
+                    this.stop();
+                    return;
+                }
+                this.stop();
+                this.speak(messageId);
+            }
+        };
+
+        function isAnswerReadAloudSupported() {
+            return answerReadAloud.supported;
+        }
+
+        function stopAnswerReadAloud() {
+            answerReadAloud.stop();
+        }
+
+        function buildAssistantMessageId(chatId, suffix) {
+            const base = `${chatId || 'assistant'}_${suffix || Date.now()}`;
+            return base.replace(/[^\w-]/g, '_');
+        }
+
+        function createReadAloudButtonMarkup(messageId) {
+            const supported = isAnswerReadAloudSupported();
+            const disabledAttr = supported ? '' : ' disabled aria-disabled="true"';
+            const buttonClass = supported ? 'answer-audio-btn' : 'answer-audio-btn is-disabled';
+            const title = supported ? 'Read aloud' : 'Read aloud not supported';
+            return `<button class="${buttonClass}" type="button" data-message-id="${messageId}" aria-label="${title}" aria-pressed="false" title="${title}" onclick="toggleReadAloud(event, '${messageId}')"${disabledAttr}><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>`;
+        }
+
+        function renderAssistantMessageBubble({ messageId, answerHtml, validationHtml = '', feedbackHtml = '' }) {
+            return `
+                <div class="msg ai" data-message-id="${messageId}">
+                    <div class="ai-message-tools">
+                        ${createReadAloudButtonMarkup(messageId)}
+                    </div>
+                    <div class="ai-message-content">${answerHtml}</div>
+                    ${validationHtml}
+                    ${feedbackHtml}
+                </div>
+            `;
+        }
+
+        function toggleReadAloud(event, messageId) {
+            event?.stopPropagation();
+            answerReadAloud.toggle(messageId);
+        }
+
+        window.addEventListener('beforeunload', stopAnswerReadAloud);
+
         async function sendMessage() {
             const input = document.getElementById('chatInput');
             const sendBtn = document.getElementById('sendBtn');
@@ -1246,7 +1729,7 @@
             if (!text) return;
             if (window.ai?.isProcessing) return;
 
-            if (feed.querySelector('h1')) feed.innerHTML = '';
+            if (feed.querySelector('.subjects-welcome')) feed.innerHTML = '';
 
             // --- USER BUBBLE ---
             const userBubble = document.createElement('div');
@@ -1257,7 +1740,7 @@
             // --- AI BUBBLE (streaming target) ---
             const aiBubble = document.createElement('div');
             aiBubble.className = 'msg ai';
-            aiBubble.innerHTML = '<span class="typing-cursor">▌</span>';
+            aiBubble.innerHTML = '<span class="typing-dots" aria-label="Assistant is typing"><span></span><span></span><span></span></span>';
             feed.appendChild(aiBubble);
 
             feed.scrollTop = feed.scrollHeight;
@@ -1270,11 +1753,13 @@
 
             const currentSession = chatHistory.sessions.find(s => s.chat_id === chatHistory.activeChatId);
             const documentId = currentSession?.document_id || null;
+            const streamingMessageId = buildAssistantMessageId(chatHistory.activeChatId || 'stream', Date.now());
 
             let rawText = '';   // accumulates plain tokens for final formatting
             let metaInfo = null;
             let resolvedChatId = null;  // set from meta, used in validation renderer
             let latestValidation = null;
+            let finalizedAssistantMessageId = null;
 
             function renderValidationCard(validation) {
                 if (!validation) return;
@@ -1282,12 +1767,17 @@
                 const validationHTML = chatHistory.createValidationUI(validation);
                 if (!validationHTML) return;
 
+                const targetBubble = finalizedAssistantMessageId
+                    ? answerReadAloud.findMessageElement(finalizedAssistantMessageId)
+                    : aiBubble;
+                if (!targetBubble) return;
+
                 // Always add the evaluation card (do not remove existing)
-                const feedbackEl = aiBubble.querySelector('.feedback-container');
+                const feedbackEl = targetBubble.querySelector('.feedback-container');
                 if (feedbackEl) {
                     feedbackEl.insertAdjacentHTML('beforebegin', validationHTML);
                 } else {
-                    aiBubble.insertAdjacentHTML('beforeend', validationHTML);
+                    targetBubble.insertAdjacentHTML('beforeend', validationHTML);
                 }
                 feed.scrollTop = feed.scrollHeight;
             }
@@ -1340,7 +1830,9 @@
 
                     onToken(token) {
                         rawText += token;
-                        // Remove cursor, append token, restore cursor
+                        // Replace loading indicator, append token, restore cursor
+                        const dots = aiBubble.querySelector('.typing-dots');
+                        if (dots) dots.remove();
                         const cursor = aiBubble.querySelector('.typing-cursor');
                         if (cursor) cursor.remove();
                         aiBubble.insertAdjacentText('beforeend', token);
@@ -1356,6 +1848,8 @@
 
                     async onDone(fullText, meta) {
                         // Remove typing cursor
+                        const dots = aiBubble.querySelector('.typing-dots');
+                        if (dots) dots.remove();
                         const cursor = aiBubble.querySelector('.typing-cursor');
                         if (cursor) cursor.remove();
 
@@ -1379,7 +1873,13 @@
                                 </div>
                             </div>`;
 
-                        aiBubble.innerHTML = formattedAnswer + validationHTML + feedbackUI;
+                        finalizedAssistantMessageId = streamingMessageId;
+                        aiBubble.outerHTML = renderAssistantMessageBubble({
+                            messageId: streamingMessageId,
+                            answerHtml: formattedAnswer,
+                            validationHtml: validationHTML,
+                            feedbackHtml: feedbackUI
+                        });
 
                         // Refresh sidebar
                         await chatHistory.afterMessageSent(chatId);
@@ -1388,6 +1888,8 @@
                     },
 
                     onError(err) {
+                        const dots = aiBubble.querySelector('.typing-dots');
+                        if (dots) dots.remove();
                         const cursor = aiBubble.querySelector('.typing-cursor');
                         if (cursor) cursor.remove();
                         aiBubble.innerHTML = `❌ ${err.message || 'Failed to contact AI'}`;
@@ -1428,7 +1930,7 @@
             const token = localStorage.getItem('token');
 
             try {
-                const res = await fetch((window.config?.apiBase || 'http://127.0.0.1:8002/api') + '/feedback/', {
+                const res = await fetch((window.config?.apiBase || (window.location.origin + '/api')) + '/feedback/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ source: 'chat', reference_id: sessionId, rating, subject: 'general', comment })
@@ -1453,7 +1955,7 @@
             }
 
             const feed = document.getElementById('chatFeed');
-            if (feed.querySelector('h1')) feed.innerHTML = '';
+            if (feed.querySelector('.subjects-welcome')) feed.innerHTML = '';
 
             let currentChatId = (window.chatHistory && window.chatHistory.activeChatId) || null;
 
@@ -1477,7 +1979,7 @@
                         formData.append('class_id', urlClassId);
                     }
 
-                    const apiBase = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+                    const apiBase = window.config?.apiBase || (window.location.origin + '/api');
                     const response = await fetch(`${apiBase}/upload/`, {
                         method: 'POST',
                         headers: {
@@ -1553,6 +2055,27 @@
 
         // ==================== PAGE INITIALIZATION ====================
         window.addEventListener('DOMContentLoaded', async () => {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const displayName = user.full_name || user.name || user.email || 'User';
+            const initials = displayName.trim().charAt(0).toUpperCase();
+            const role = user.role || 'Student';
+            const navAvatar = document.getElementById('navAvatar');
+            const navUserName = document.getElementById('navUserName');
+            const navUserRole = document.getElementById('navUserRole');
+
+            if (navAvatar) navAvatar.textContent = initials || 'U';
+            if (navUserName) navUserName.textContent = displayName;
+            if (navUserRole) navUserRole.textContent = role;
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                const resizeChatInput = () => {
+                    chatInput.style.height = 'auto';
+                    chatInput.style.height = `${Math.min(chatInput.scrollHeight, 180)}px`;
+                };
+                resizeChatInput();
+                chatInput.addEventListener('input', resizeChatInput);
+            }
+            initVoiceInput();
             console.log('🚀 Initializing chat history...');
             const params = new URLSearchParams(window.location.search);
             const deepLinkedChatId = params.get('chat_id');
@@ -1563,14 +2086,13 @@
     <!-- Markdown parser for beautiful formatting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 
-    <script src="/assets/js/config.js?v=7"></script>
-    <script src="/assets/js/auth.js?v=7"></script>
+    <script src="/assets/js/auth.js?v=9"></script>
     <script src="/assets/js/ai.js?v=7"></script>
 
     <script>
         // --- Notification Logic ---
         const authHeaders = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
-        const API_URL = window.config?.apiBase || 'http://127.0.0.1:8002/api';
+        const API_URL = window.config?.apiBase || (window.location.origin + '/api');
 
         async function updateNotifCount() {
             try {
@@ -1598,3 +2120,10 @@
 
 
 </html>
+
+
+
+
+
+
+

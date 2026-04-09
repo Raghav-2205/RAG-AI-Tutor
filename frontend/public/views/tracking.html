@@ -1,182 +1,345 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Tracking — RAG AI Tutor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-        :root {
-            --bg-primary:   #0a0e27;
-            --bg-secondary: #151932;
-            --bg-card:      #1a1f3a;
-            --accent:       #00ffcc;
-            --text-primary: #ffffff;
-            --text-muted:   #b8c5d6;
-            --border:       rgba(0, 255, 204, 0.2);
-            --radius:       16px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 2rem;
-        }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: var(--accent); margin-bottom: 0.5rem; }
-        .subtitle { color: var(--text-muted); margin-bottom: 2rem; }
-
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin-bottom: 2rem; }
-        
-        .form-group { margin-bottom: 1.5rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-muted); font-size: 0.9rem; }
-        select, input, textarea {
-            width: 100%; padding: 12px; background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border); border-radius: 10px; color: #fff;
-            font-family: inherit; font-size: 1rem;
-        }
-        
-        .btn {
-            background: var(--accent); color: var(--bg-primary);
-            border: none; padding: 12px 24px; border-radius: 10px;
-            font-weight: 700; cursor: pointer; transition: all 0.2s;
-        }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,255,204,0.3); }
-
-        .history-list { margin-top: 2rem; }
-        .history-item {
-            display: flex; align-items: center; justify-content: space-between;
-            background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 12px;
-            margin-bottom: 0.8rem; border: 1px solid rgba(255,255,255,0.05);
-        }
-        .item-info { display: flex; align-items: center; gap: 1rem; }
-        .item-icon { font-size: 1.5rem; background: rgba(0,255,204,0.1); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
-        .item-title { font-weight: 600; font-size: 1.1rem; }
-        .item-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
-
-        nav { margin-bottom: 2rem; }
-        nav a { color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Activity Tracking - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <link rel="stylesheet" href="/assets/css/app-shell.css" />
+  <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
-    <div class="container">
-        <nav><a href="/views/dashboard.html">← Back to Dashboard</a></nav>
-        <h1>🏃 Activity Tracking</h1>
-        <p class="subtitle">Log your daily progress and let AI help you improve.</p>
-
-        <div class="card">
-            <div class="form-group">
-                <label>Category</label>
-                <select id="category">
-                    <option value="study">📚 Study</option>
-                    <option value="workout">🏋️ Workout</option>
-                    <option value="food">🍱 Food</option>
-                    <option value="mind">🧘 Mind</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Title / Description</label>
-                <input type="text" id="title" placeholder="e.g. 5km Run, Chapter 3 Review">
-            </div>
-            <div class="form-group" id="metricsGroup">
-                <!-- Dynamic inputs based on category -->
-            </div>
-            <button class="btn" onclick="saveActivity()">Log Activity</button>
-        </div>
-
-        <h2>History</h2>
-        <div class="history-list" id="historyList">
-            <!-- Loaded by JS -->
-        </div>
+<body class="page-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item active"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+      <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
     </div>
+  </aside>
 
-    <script src="/assets/js/config.js"></script>
-    <script>
-        const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-        const TOKEN = localStorage.getItem('token');
-        const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+  <main class="main">
+    <div class="container tracking-page">
+      <div class="page-header tracking-page-header">
+        <div>
+          <div class="tracking-page-eyebrow"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> Daily momentum</div>
+          <h1><i class="fa-solid fa-person-running" aria-hidden="true"></i> Activity Tracking</h1>
+          <p>Log study, wellness, and productivity habits in a cleaner dashboard-style workspace that stays readable as your history grows.</p>
+        </div>
+        <div class="tracking-header-actions">
+          <a href="/views/planner.html" class="btn btn-secondary"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Open Planner</a>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+      </div>
 
-        const categorySelect = document.getElementById('category');
-        categorySelect.addEventListener('change', updateMetricsFields);
+      <section class="card tracking-hero-card">
+        <div class="tracking-hero-copy">
+          <div class="community-kicker">Personal logging</div>
+          <h2>Capture the habits behind your progress and turn raw activity into a pattern you can actually act on.</h2>
+        </div>
+        <div class="tracking-summary-grid" id="trackingSummary">
+          <div class="tracking-summary-card"><span class="tracking-summary-label">Entries</span><strong id="summaryEntries">0</strong></div>
+          <div class="tracking-summary-card"><span class="tracking-summary-label">Study time</span><strong id="summaryStudy">0m</strong></div>
+          <div class="tracking-summary-card"><span class="tracking-summary-label">Workout time</span><strong id="summaryWorkout">0m</strong></div>
+          <div class="tracking-summary-card"><span class="tracking-summary-label">Calories</span><strong id="summaryCalories">0</strong></div>
+        </div>
+      </section>
 
-        function updateMetricsFields() {
-            const cat = categorySelect.value;
-            const group = document.getElementById('metricsGroup');
-            group.innerHTML = '';
+      <div class="bento-grid">
+        <section class="card col-span-4">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-regular fa-square-plus" aria-hidden="true"></i> Log Activity</h3>
+            <span class="card-badge">Today</span>
+          </div>
+          <div class="tracking-form-grid">
+            <label class="profile-field"><span class="profile-field-label">Date</span><input id="activityDate" class="theme-input" type="date" /></label>
+            <label class="profile-field"><span class="profile-field-label">Category</span>
+              <select id="category" class="theme-input" onchange="updateMetricsFields()">
+                <option value="study">Study</option>
+                <option value="workout">Workout</option>
+                <option value="food">Food</option>
+                <option value="mind">Mind</option>
+              </select>
+            </label>
+            <label class="profile-field"><span class="profile-field-label">Title / Description</span><input type="text" id="title" class="theme-input" placeholder="Chapter review, 5km run, lunch, meditation..." /></label>
+            <div id="metricsGroup" class="tracking-dynamic-fields"></div>
+            <button class="btn btn-primary" onclick="saveActivity()"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Log Activity</button>
+          </div>
+        </section>
 
-            if (cat === 'workout') {
-                group.innerHTML = `
-                    <label>Duration (min)</label>
-                    <input type="number" id="duration" class="metric-input" style="margin-bottom:1rem">
-                    <label>Calories Burned</label>
-                    <input type="number" id="calories" class="metric-input">
-                `;
-            } else if (cat === 'food') {
-                group.innerHTML = `
-                    <label>Total Calories</label>
-                    <input type="number" id="calories" class="metric-input" style="margin-bottom:1rem">
-                    <label>Meal Type</label>
-                    <input type="text" id="meal_type" class="metric-input" placeholder="Breakfast, Lunch, etc.">
-                `;
-            } else {
-                group.innerHTML = `
-                    <label>Duration (min)</label>
-                    <input type="number" id="duration" class="metric-input">
-                `;
-            }
-        }
+        <section class="card col-span-8">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> AI Suggestions</h3>
+            <span class="card-badge" id="suggestionSource">Coach</span>
+          </div>
+          <div class="tracking-suggestion-list" id="suggestionList">
+            <div class="evaluation-empty-state">Loading suggestions...</div>
+          </div>
+        </section>
 
-        async function saveActivity() {
-            const cat = categorySelect.value;
-            const title = document.getElementById('title').value;
-            const metrics = {};
-            document.querySelectorAll('.metric-input').forEach(input => {
-                metrics[input.id] = input.id === 'meal_type' ? input.value : parseInt(input.value) || 0;
-            });
+        <section class="card col-span-12">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-regular fa-clock" aria-hidden="true"></i> Recent Activity</h3>
+            <span class="card-badge" id="historyBadge">Last 10</span>
+          </div>
+          <div class="tracking-history-list" id="historyList">
+            <div class="evaluation-empty-state">Loading activity history...</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
 
-            const data = {
-                date: new Date().toISOString().split('T')[0],
-                category: cat,
-                data: { title, ...metrics, topics: cat === 'study' ? [title] : [] }
-            };
+  <script>
+    const API = window.config?.apiBase || '/api';
+    const TOKEN = window.auth?.token || localStorage.getItem('token');
+    if (!TOKEN) window.location.href = '/views/login.html';
 
-            const res = await fetch(`${API}/planner/activities`, {
-                method: 'POST', headers, body: JSON.stringify(data)
-            });
+    const $ = (id) => document.getElementById(id);
+    const authHeaders = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+    const categoryIcons = {
+      study: 'fa-solid fa-book-open',
+      workout: 'fa-solid fa-dumbbell',
+      food: 'fa-solid fa-bowl-food',
+      mind: 'fa-solid fa-spa'
+    };
+    const categoryTones = {
+      study: 'good',
+      workout: 'warn',
+      food: 'muted',
+      mind: 'good'
+    };
 
-            if (res.ok) {
-                document.getElementById('title').value = '';
-                loadHistory();
-            }
-        }
+    function logoutUser() {
+      if (window.auth?.logout) return window.auth.logout();
+      localStorage.clear();
+      window.location.href = '/views/login.html';
+    }
 
-        async function loadHistory() {
-            const res = await fetch(`${API}/planner/activities`, { headers });
-            const activities = await res.json();
-            const list = document.getElementById('historyList');
-            const icons = { study: '📚', workout: '🏋️', food: '🍱', mind: '🧘' };
-            
-            list.innerHTML = activities.slice(0, 10).map(a => `
-                <div class="history-item">
-                    <div class="item-info">
-                        <div class="item-icon">${icons[a.category]}</div>
-                        <div>
-                            <div class="item-title">${a.data.title || a.category}</div>
-                            <div class="item-meta">${a.date}</div>
-                        </div>
-                    </div>
-                    <div style="text-align:right">
-                        ${a.data.duration_min ? `<span>⏱️ ${a.data.duration_min}m</span>` : ''}
-                        ${a.data.calories || a.data.calories_burned ? `<div style="font-size:0.8rem;color:var(--accent)">🔥 ${a.data.calories || a.data.calories_burned} kcal</div>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
+    function updateUserShell() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const name = user.name || user.email || 'Student';
+      const role = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      $('userName').textContent = name;
+      $('userLevel').textContent = role;
+      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'S';
+    }
 
-        updateMetricsFields();
-        loadHistory();
-    </script>
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizePayload(payload) {
+      if (Array.isArray(payload)) return payload;
+      if (payload && typeof payload === 'object' && Array.isArray(payload.data)) return payload.data;
+      return [];
+    }
+
+    function formatDuration(minutes) {
+      const total = Number(minutes) || 0;
+      if (total >= 60) return `${Math.floor(total / 60)}h ${total % 60}m`;
+      return `${total}m`;
+    }
+
+    function formatDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value || '');
+      return date.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+
+    function setToday() {
+      $('activityDate').value = new Date().toISOString().split('T')[0];
+    }
+
+    function updateMetricsFields() {
+      const cat = $('category').value;
+      const group = $('metricsGroup');
+      if (cat === 'workout') {
+        group.innerHTML = `
+          <label class="profile-field"><span class="profile-field-label">Duration (minutes)</span><input type="number" id="duration_min" class="theme-input metric-input" min="0" /></label>
+          <label class="profile-field"><span class="profile-field-label">Calories burned</span><input type="number" id="calories_burned" class="theme-input metric-input" min="0" /></label>
+        `;
+      } else if (cat === 'food') {
+        group.innerHTML = `
+          <label class="profile-field"><span class="profile-field-label">Total calories</span><input type="number" id="total_calories" class="theme-input metric-input" min="0" /></label>
+          <label class="profile-field"><span class="profile-field-label">Meal type</span><input type="text" id="meal_type" class="theme-input metric-input" placeholder="Breakfast, Lunch, Dinner" /></label>
+        `;
+      } else if (cat === 'mind') {
+        group.innerHTML = `
+          <label class="profile-field"><span class="profile-field-label">Duration (minutes)</span><input type="number" id="duration_min" class="theme-input metric-input" min="0" /></label>
+        `;
+      } else {
+        group.innerHTML = `
+          <label class="profile-field"><span class="profile-field-label">Duration (minutes)</span><input type="number" id="duration_min" class="theme-input metric-input" min="0" /></label>
+        `;
+      }
+    }
+
+    function buildActivityPayload() {
+      const cat = $('category').value;
+      const title = $('title').value.trim();
+      const date = $('activityDate').value || new Date().toISOString().split('T')[0];
+      const data = { title };
+
+      document.querySelectorAll('.metric-input').forEach((input) => {
+        if (input.type === 'number') data[input.id] = Number(input.value) || 0;
+        else data[input.id] = input.value.trim();
+      });
+
+      if (cat === 'study') data.topics = title ? [title] : [];
+      if (cat === 'mind') data.activity = title;
+
+      return { date, category: cat, data };
+    }
+
+    function renderSummary(activities) {
+      const recent = activities.slice(0, 10);
+      const study = recent.filter((item) => item.category === 'study').reduce((sum, item) => sum + (Number(item.data?.duration_min) || 0), 0);
+      const workout = recent.filter((item) => item.category === 'workout').reduce((sum, item) => sum + (Number(item.data?.duration_min) || 0), 0);
+      const calories = recent.reduce((sum, item) => sum + (Number(item.data?.calories_burned) || Number(item.data?.total_calories) || 0), 0);
+      $('summaryEntries').textContent = String(recent.length);
+      $('summaryStudy').textContent = formatDuration(study);
+      $('summaryWorkout').textContent = formatDuration(workout);
+      $('summaryCalories').textContent = String(calories);
+      $('historyBadge').textContent = `Last ${recent.length || 0}`;
+    }
+
+    function renderHistory(activities) {
+      renderSummary(activities);
+      if (!activities.length) {
+        $('historyList').innerHTML = '<div class="evaluation-empty-state">No activity logged yet. Start with your first study or wellness entry.</div>';
+        return;
+      }
+      $('historyList').innerHTML = activities.slice(0, 10).map((activity) => {
+        const cat = String(activity.category || 'study');
+        const data = activity.data || {};
+        const metaBits = [];
+        if (data.duration_min) metaBits.push(`${data.duration_min} min`);
+        if (data.calories_burned) metaBits.push(`${data.calories_burned} kcal burned`);
+        if (data.total_calories) metaBits.push(`${data.total_calories} kcal`);
+        if (data.meal_type) metaBits.push(data.meal_type);
+        return `
+          <article class="tracking-history-card">
+            <div class="tracking-history-main">
+              <div class="tracking-history-icon tone-${categoryTones[cat] || 'muted'}"><i class="${categoryIcons[cat] || 'fa-regular fa-square'}" aria-hidden="true"></i></div>
+              <div>
+                <div class="tracking-history-title">${escapeHtml(data.title || data.activity || cat)}</div>
+                <div class="tracking-history-meta">${escapeHtml(formatDate(activity.date))} · ${escapeHtml(cat.replace(/_/g, ' '))}</div>
+              </div>
+            </div>
+            <div class="tracking-chip-row">
+              ${metaBits.map((bit) => `<span class="community-tag">${escapeHtml(bit)}</span>`).join('')}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderSuggestions(payload) {
+      const source = payload?.source || 'coach';
+      $('suggestionSource').textContent = String(source).toUpperCase();
+      const suggestions = Array.isArray(payload?.suggestions) ? payload.suggestions : [];
+      const recommendations = Array.isArray(payload?.recommendations) ? payload.recommendations : [];
+      const items = [];
+
+      suggestions.forEach((item) => {
+        if (typeof item === 'string') items.push({ title: 'Suggestion', body: item });
+        else if (item?.suggestion) items.push({ title: item.category || 'Suggestion', body: item.suggestion });
+      });
+      recommendations.forEach((item) => {
+        items.push({ title: item.subject || item.title || 'Recommended material', body: item.text || item.detail || item.title || '' });
+      });
+
+      if (!items.length) {
+        $('suggestionList').innerHTML = '<div class="evaluation-empty-state">Log a few activities and your AI coach will start surfacing suggestions here.</div>';
+        return;
+      }
+
+      $('suggestionList').innerHTML = items.slice(0, 6).map((item) => `
+        <div class="tracking-suggestion-card">
+          <div class="tracking-suggestion-title">${escapeHtml(String(item.title).replace(/_/g, ' '))}</div>
+          <div class="tracking-suggestion-copy">${escapeHtml(item.body)}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadSuggestions() {
+      try {
+        const date = $('activityDate').value || new Date().toISOString().split('T')[0];
+        const res = await fetch(`${API}/suggestions/daily/${date}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        if (!res.ok) throw new Error('Unable to load suggestions');
+        renderSuggestions(await res.json());
+      } catch (error) {
+        console.error(error);
+        $('suggestionList').innerHTML = '<div class="evaluation-empty-state">Suggestions are unavailable right now.</div>';
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API}/planner/activities`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+        if (!res.ok) throw new Error('Unable to load activities');
+        renderHistory(normalizePayload(await res.json()));
+      } catch (error) {
+        console.error(error);
+        $('historyList').innerHTML = '<div class="evaluation-empty-state">Activity history could not be loaded.</div>';
+      }
+    }
+
+    async function saveActivity() {
+      const title = $('title').value.trim();
+      if (!title) {
+        window.alert('Please add a short title or description for the activity.');
+        return;
+      }
+      const payload = buildActivityPayload();
+      const res = await fetch(`${API}/planner/activities`, { method: 'POST', headers: authHeaders, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        window.alert('Unable to save the activity right now.');
+        return;
+      }
+      $('title').value = '';
+      updateMetricsFields();
+      $('activityDate').value = payload.date;
+      loadHistory();
+      loadSuggestions();
+    }
+
+    updateUserShell();
+    setToday();
+    updateMetricsFields();
+    loadHistory();
+    loadSuggestions();
+  </script>
 </body>
 </html>
+

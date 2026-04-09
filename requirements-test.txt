@@ -1,0 +1,11 @@
+fastapi
+motor
+pymongo
+pydantic
+pydantic-settings
+python-multipart
+python-jose[cryptography]
+bcrypt
+email-validator
+httpx
+pytest

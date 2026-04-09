@@ -1,29 +1,78 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from bson import ObjectId
 
 from backend.utils.db import get_db
-from backend.api.auth import get_current_user
+from backend.utils.security import get_current_user, normalize_role, require_role
 import backend.services.lms_service as lms_service
+from backend.services.analytics_service import get_teacher_analytics
 
 router = APIRouter()
 
+
+def maybe_envelope(request: Request | None, data):
+    if request and (request.headers.get("x-lms-envelope") == "1" or request.query_params.get("envelope") == "1"):
+        return {"success": True, "data": data, "error": None}
+    return data
+
+
+def _serialize_assignment(assignment: dict) -> dict:
+    max_points = float(assignment.get("max_points") or 0)
+    return {
+        "id": assignment["id"],
+        "assignment_id": assignment["id"],
+        "class_id": assignment.get("class_id"),
+        "title": assignment.get("title"),
+        "description": assignment.get("description"),
+        "type": assignment.get("type"),
+        "due_date": assignment.get("due_date"),
+        "max_points": max_points,
+        "max_marks": max_points,
+        "allow_late": assignment.get("allow_late", False),
+        "unit_id": assignment.get("unit_id"),
+    }
+
+
+def _serialize_submission(submission: dict) -> dict:
+    return {
+        "id": submission["id"],
+        "submission_id": submission["id"],
+        "assignment_id": submission.get("assignment_id"),
+        "class_id": submission.get("class_id"),
+        "student_id": submission.get("student_id"),
+        "status": submission.get("status"),
+        "points_earned": submission.get("points_earned"),
+        "feedback": submission.get("feedback"),
+        "submitted_at": submission.get("submitted_at"),
+        "student_name": submission.get("student_name"),
+        "student_email": submission.get("student_email", ""),
+        "graded": submission.get("status") == "graded",
+        "file_url": submission.get("file_url"),
+        "content": submission.get("content"),
+    }
+
+
+def _serialize_quiz_summary(quiz: dict, attempt_map: Optional[dict] = None) -> dict:
+    attempt = (attempt_map or {}).get(quiz["id"])
+    return {
+        "id": quiz["id"],
+        "quiz_id": quiz["id"],
+        "title": quiz.get("title"),
+        "description": quiz.get("description"),
+        "class_id": quiz.get("class_id"),
+        "due_date": quiz.get("end_time"),
+        "start_time": quiz.get("start_time"),
+        "end_time": quiz.get("end_time"),
+        "time_limit": quiz.get("time_limit"),
+        "is_published": quiz.get("is_published", False),
+        "submitted": bool(attempt),
+        "score": attempt.get("percentage") if attempt else None,
+    }
+
 # ─── Dependency: require role ──────────────────────────────────────────────────
-
-def require_role(*roles: str):
-    def _dep(current_user=Depends(get_current_user)):
-        user_role = current_user.get("role", "student").lower()
-        if user_role not in [r.lower() for r in roles]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access restricted to: {roles}",
-            )
-        return current_user
-    return _dep
-
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +110,7 @@ class SubmitAssignmentIn(BaseModel):
 
 class GradeSubmissionIn(BaseModel):
     submission_id: str
-    points_earned: float
+    points_earned: Optional[float] = None
     feedback: Optional[str] = None
 
     # Also accept alternative field names for legacy compat
@@ -100,10 +149,103 @@ class MarkAttendanceIn(BaseModel):
     records: list[AttendanceRecordIn]
 
 
+def _serialize_quiz_option(option, include_answers: bool = False):
+    if not isinstance(option, dict):
+        return option
+
+    payload = {
+        "label": option.get("label"),
+        "text": option.get("text"),
+    }
+    if include_answers and "is_correct" in option:
+        payload["is_correct"] = bool(option.get("is_correct"))
+    return payload
+
+
+def _serialize_quiz_question(question: dict, include_answers: bool = False) -> dict:
+    payload = {
+        "id": question["id"],
+        "question": question["question"],
+        "options": [
+            _serialize_quiz_option(option, include_answers=include_answers)
+            for option in (question.get("options") or [])
+        ],
+        "type": question.get("type", "mcq"),
+        "points": question.get("points", 1),
+    }
+    if include_answers and question.get("explanation"):
+        payload["explanation"] = question.get("explanation")
+    return payload
+
+
+async def _get_class_or_404(db, class_id: str) -> dict:
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return cls
+
+
+async def _authorize_class_access(db, class_id: str, current_user) -> dict:
+    cls = await _get_class_or_404(db, class_id)
+    user_id = str(current_user["_id"])
+    role = normalize_role(current_user.get("role"))
+
+    if role == "admin":
+        return cls
+    if role == "teacher" and cls.get("teacher_id") == user_id:
+        return cls
+    if user_id in (cls.get("students") or []):
+        return cls
+
+    raise HTTPException(status_code=403, detail="You do not have access to this class")
+
+
+async def _authorize_quiz_access(db, quiz: dict, current_user) -> tuple[dict, bool]:
+    cls = await _authorize_class_access(db, quiz["class_id"], current_user)
+    role = normalize_role(current_user.get("role"))
+    user_id = str(current_user["_id"])
+    include_answers = role == "admin" or (role == "teacher" and cls.get("teacher_id") == user_id)
+    return cls, include_answers
+
+
+async def _authorize_class_staff_access(db, class_id: str, current_user) -> dict:
+    cls = await _get_class_or_404(db, class_id)
+    user_id = str(current_user["_id"])
+    role = normalize_role(current_user.get("role"))
+
+    if role == "admin":
+        return cls
+    if role == "teacher" and cls.get("teacher_id") == user_id:
+        return cls
+
+    raise HTTPException(status_code=403, detail="Only the assigned teacher or an admin can manage this class")
+
+
+async def _build_latest_attempt_map(db, quiz_ids: list[str], student_id: str) -> dict:
+    if not quiz_ids:
+        return {}
+
+    attempts = await db.quiz_attempts.find(
+        {
+            "quiz_id": {"$in": quiz_ids},
+            "student_id": student_id,
+            "is_complete": True,
+        }
+    ).sort("submitted_at", -1).to_list(None)
+
+    latest_attempts = {}
+    for attempt in attempts:
+        quiz_id = attempt.get("quiz_id")
+        if quiz_id and quiz_id not in latest_attempts:
+            latest_attempts[quiz_id] = attempt
+    return latest_attempts
+
+
 # ─── Class Routes ─────────────────────────────────────────────────────────────
 
 @router.post("/classes", summary="Teacher: create a class")
 async def create_class(
+    request: Request,
     body: CreateClassIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
@@ -111,14 +253,25 @@ async def create_class(
     cls = await lms_service.create_class(
         db, str(current_user["_id"]), body.name, body.section, body.description, body.subject
     )
-    return {"id": cls["id"], "name": cls.get("name"), "join_code": cls.get("join_code")}
+    return maybe_envelope(
+        request,
+        {
+            "id": cls["id"],
+            "class_id": cls["id"],
+            "name": cls.get("name"),
+            "join_code": cls.get("join_code"),
+            "section": cls.get("section"),
+            "subject": cls.get("subject"),
+        },
+    )
 
 @router.get("/classes", summary="Get classes (teacher: own | student: enrolled)")
 async def list_classes(
+    request: Request,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    role = current_user.get("role", "student").lower()
+    role = normalize_role(current_user.get("role"))
     user_id = str(current_user["_id"])
     if role in ("teacher", "admin"):
         classes = await lms_service.get_classes_for_teacher(db, user_id)
@@ -126,7 +279,7 @@ async def list_classes(
         classes = await lms_service.get_classes_for_student(db, user_id)
     
     # ensure "class_id" compatibility so old code works transparently
-    return [
+    payload = [
         {
             "id": c.get("id"), "class_id": c.get("id"), "name": c.get("name"), "section": c.get("section"),
             "subject": c.get("subject"), "join_code": c.get("join_code"),
@@ -134,16 +287,21 @@ async def list_classes(
         }
         for c in classes
     ]
+    return maybe_envelope(request, payload)
 
 @router.post("/classes/enroll", summary="Student: join a class via join code")
 async def enroll(
+    request: Request,
     body: EnrollIn,
     db = Depends(get_db),
-    current_user=Depends(require_role("student", "teacher", "admin")),
+    current_user=Depends(require_role("student")),
 ):
     try:
         enrollment = await lms_service.enroll_student(db, body.join_code, str(current_user["_id"]))
-        return {"message": "Enrolled successfully", "class_id": enrollment["class_id"]}
+        return maybe_envelope(
+            request,
+            {"message": "Enrolled successfully", "class_id": enrollment["class_id"]},
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -152,11 +310,13 @@ class EnrollByEmailIn(BaseModel):
 
 @router.post("/classes/{class_id}/enroll-by-email", summary="Teacher: enroll student by email")
 async def enroll_by_email(
+    request: Request,
     class_id: str,
     body: EnrollByEmailIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     from bson import ObjectId
     student = await db.users.find_one({"email": body.student_email.lower()})
     if not student:
@@ -166,9 +326,12 @@ async def enroll_by_email(
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found.")
     if student_id in cls.get("students", []):
-        return {"message": "Student already enrolled.", "student_id": student_id}
+        return maybe_envelope(request, {"message": "Student already enrolled.", "student_id": student_id})
     await db.classes.update_one({"id": class_id}, {"$push": {"students": student_id}})
-    return {"message": "Student enrolled successfully.", "student_id": student_id, "student_name": student.get("name", "")}
+    return maybe_envelope(
+        request,
+        {"message": "Student enrolled successfully.", "student_id": student_id, "student_name": student.get("name", "")},
+    )
 
 from fastapi import UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -187,10 +350,8 @@ async def upload_excel(
 ):
     if not pd:
         raise HTTPException(status_code=500, detail="Pandas is missing. Run: pip install pandas openpyxl")
-        
-    cls = await db.classes.find_one({"id": class_id})
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found.")
+
+    cls = await _authorize_class_staff_access(db, class_id, current_user)
 
     try:
         content = await file.read()
@@ -235,7 +396,8 @@ async def export_class_excel(
 ):
     if not pd:
         raise HTTPException(status_code=500, detail="Pandas is missing.")
-        
+
+    await _authorize_class_staff_access(db, class_id, current_user)
     from backend.services.analytics_service import get_teacher_analytics
     stats = await get_teacher_analytics(db, class_id)
     
@@ -268,8 +430,7 @@ async def get_live_activity(
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
-    cls = await db.classes.find_one({"id": class_id})
-    if not cls: raise HTTPException(status_code=404, detail="Class not found.")
+    cls = await _authorize_class_staff_access(db, class_id, current_user)
     
     student_ids = cls.get("students", [])
     if not student_ids: return {"online": 0, "recent_logs": []}
@@ -300,15 +461,17 @@ async def get_live_activity(
 
 @router.delete("/classes/{class_id}/students", summary="Teacher: remove a student")
 async def remove_student(
+    request: Request,
     class_id: str,
     body: RemoveStudentIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     removed = await lms_service.remove_student(db, class_id, body.student_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Enrollment not found.")
-    return {"message": "Student removed from class."}
+    return maybe_envelope(request, {"message": "Student removed from class."})
 
 class UpdateClassIn(BaseModel):
     name: Optional[str] = None
@@ -318,41 +481,41 @@ class UpdateClassIn(BaseModel):
 
 @router.put("/classes/{class_id}", summary="Teacher: update class details")
 async def update_class(
+    request: Request,
     class_id: str,
     body: UpdateClassIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
-    cls = await db.classes.find_one({"id": class_id, "teacher_id": str(current_user["_id"])})
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found or not yours.")
+    await _authorize_class_staff_access(db, class_id, current_user)
     updates = {k: v for k, v in body.dict().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update.")
     await db.classes.update_one({"id": class_id}, {"$set": updates})
-    return {"message": "Class updated.", "class_id": class_id, **updates}
+    return maybe_envelope(request, {"message": "Class updated.", "class_id": class_id, **updates})
 
 @router.delete("/classes/{class_id}", summary="Teacher: delete (archive) a class")
 async def delete_class(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
-    cls = await db.classes.find_one({"id": class_id, "teacher_id": str(current_user["_id"])})
-    if not cls:
-        raise HTTPException(status_code=404, detail="Class not found or not yours.")
+    await _authorize_class_staff_access(db, class_id, current_user)
     await db.classes.update_one({"id": class_id}, {"$set": {"is_active": False}})
-    return {"message": "Class archived successfully."}
+    return maybe_envelope(request, {"message": "Class archived successfully."})
 
 @router.get("/classes/{class_id}/students", summary="Teacher: list enrolled students with details")
 async def get_students(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     student_ids = await lms_service.get_enrolled_students(db, class_id)
     if not student_ids:
-        return {"class_id": class_id, "students": [], "count": 0}
+        return maybe_envelope(request, {"class_id": class_id, "students": [], "count": 0})
 
     users = await db.users.find(
         {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
@@ -367,57 +530,40 @@ async def get_students(
         }
         for u in users
     ]
-    return {"class_id": class_id, "students": students, "count": len(students)}
+    return maybe_envelope(request, {"class_id": class_id, "students": students, "count": len(students)})
 
 @router.get("/classes/{class_id}/analytics", summary="Teacher: per-class stats")
 async def class_analytics(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     cls = await db.classes.find_one({"id": class_id})
     if not cls:
         raise HTTPException(status_code=404, detail="Class not found.")
 
+    teacher_stats = await get_teacher_analytics(db, class_id)
     student_ids = cls.get("students", [])
-    total_students = len(student_ids)
-
-    # Avg quiz score
-    attempts_cursor = db.quiz_attempts.find({
-        "class_id": class_id,
-        "student_id": {"$in": student_ids}
-    })
-    attempts = await attempts_cursor.to_list(None)
-    avg_score = round(sum(a.get("percentage", 0) for a in attempts) / len(attempts), 1) if attempts else 0
-
-    # Attendance %
     att_cursor = db.attendance_records.find({"class_id": class_id})
     att_records = await att_cursor.to_list(None)
     total_att = len(att_records)
     present_count = sum(1 for r in att_records if r.get("status") == "present")
     att_pct = round(present_count / total_att * 100, 1) if total_att > 0 else 0
 
-    # Active students (asked at least one chat message in last 7 days)
-    from datetime import timedelta
-    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
-    active_set = set()
-    if student_ids:
-        activity_cursor = db.activity_logs.find({
-            "user_id": {"$in": student_ids},
-            "date": {"$gte": cutoff}
-        })
-        active_logs = await activity_cursor.to_list(None)
-        active_set = {log["user_id"] for log in active_logs}
-
-    return {
+    payload = {
         "class_id": class_id,
         "class_name": cls.get("name"),
-        "total_students": total_students,
-        "active_students": len(active_set),
-        "avg_quiz_score": avg_score,
+        "total_students": len(student_ids),
+        "active_students": teacher_stats.get("active_students_count", 0),
+        "avg_quiz_score": teacher_stats.get("avg_score", 0),
+        "avg_score": teacher_stats.get("avg_score", 0),
         "attendance_pct": att_pct,
-        "total_quizzes_taken": len(attempts),
+        "engagement_rate": teacher_stats.get("engagement_rate", 0),
+        "quiz_stats": teacher_stats.get("quiz_stats", []),
     }
+    return maybe_envelope(request, payload)
 
 # ─── Curriculum & Materials ───────────────────────────────────────────────────
 
@@ -427,6 +573,7 @@ async def list_units(
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    await _authorize_class_access(db, class_id, current_user)
     cursor = db.curriculum_units.find({"class_id": class_id}).sort("order_index", 1)
     units = await cursor.to_list(None)
     return [
@@ -441,6 +588,7 @@ async def create_unit(
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     unit = await lms_service.create_unit(db, class_id, body.title, body.description, body.order_index)
     return {"id": unit["id"], "title": unit["title"]}
 
@@ -455,6 +603,7 @@ async def upload_material(
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     mat = await lms_service.add_material(
         db, class_id, str(current_user["_id"]), title, file_url, file_type,
         None, unit_id, description,
@@ -463,11 +612,13 @@ async def upload_material(
 
 @router.get("/classes/{class_id}/attendance/stats", summary="Student: get own attendance % in a class")
 async def get_attendance_stats(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("student")),
 ):
     """Returns overall and per-date attendance for the current student in a class."""
+    await _authorize_class_access(db, class_id, current_user)
     user_id = str(current_user["_id"])
 
     # Fetch all attendance records for this student in this class
@@ -493,70 +644,72 @@ async def get_attendance_stats(
         present = sum(1 for r in records if r.get("status") == "present")
 
     percentage = round(present / total * 100, 1) if total > 0 else None
-    return {
+    return maybe_envelope(request, {
         "class_id": class_id,
         "total_sessions": total,
         "present": present,
         "absent": total - present,
         "overall_percentage": percentage,  # student portal reads this field
         "attendance_percentage": percentage, # fallback alias
-    }
+    })
 
 
 
 @router.get("/classes/{class_id}/materials", summary="List class materials")
 async def list_materials(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    await _authorize_class_access(db, class_id, current_user)
     materials = await lms_service.get_materials(db, class_id)
-    return [
+    payload = [
         {
             "id": m["id"], "title": m.get("title"), "description": m.get("description"),
             "file_url": m.get("file_url"), "file_type": m.get("file_type"),
-            "unit_id": m.get("unit_id"), "created_at": m.get("created_at"),
+            "unit_id": m.get("unit_id"), "created_at": m.get("created_at"), "class_id": m.get("class_id"),
         }
         for m in materials
     ]
+    return maybe_envelope(request, payload)
 
 # ─── Assignments ──────────────────────────────────────────────────────────────
 
 @router.post("/assignments", summary="Teacher: create assignment")
 async def create_assignment(
+    request: Request,
     body: CreateAssignmentIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, body.class_id, current_user)
     assignment = await lms_service.create_assignment(
         db, body.class_id, str(current_user["_id"]),
         body.title, body.description, body.due_date,
         body.max_points, body.allow_late, None, body.unit_id, body.type,
     )
-    return {"id": assignment["id"], "assignment_id": assignment["id"], "title": assignment["title"], "due_date": assignment["due_date"]}
+    return maybe_envelope(request, _serialize_assignment(assignment))
 
 @router.get("/classes/{class_id}/assignments", summary="List class assignments")
 async def list_assignments(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    await _authorize_class_access(db, class_id, current_user)
     assignments = await lms_service.get_assignments(db, class_id)
-    return [
-        {
-            "id": a["id"], "assignment_id": a["id"], "title": a["title"], "type": a.get("type"),
-            "due_date": a.get("due_date"), "max_points": float(a.get("max_points") or 0),
-        }
-        for a in assignments
-    ]
+    return maybe_envelope(request, [_serialize_assignment(a) for a in assignments])
 
 @router.get("/assignments", summary="List assignments across user's classes")
 async def list_assignments_all(
+    request: Request,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     # This matches the legacy endpoint expected by frontend portals
-    role = current_user.get("role", "student").lower()
+    role = normalize_role(current_user.get("role"))
     user_id = str(current_user["_id"])
 
     if role in ("teacher", "admin"):
@@ -572,30 +725,26 @@ async def list_assignments_all(
     cursor = db.assignments.find({"class_id": {"$in": class_ids}})
     assignments = await cursor.to_list(None)
 
-    return [
-        {
-            "id": a["id"], "assignment_id": a["id"], "title": a.get("title"), "type": a.get("type"),
-            "due_date": a.get("due_date"), "max_marks": float(a.get("max_points") or 0),
-        }
-        for a in assignments
-    ]
+    return maybe_envelope(request, [_serialize_assignment(a) for a in assignments])
 
 # Legacy /submissions POST removed — use /assignments/{assignment_id}/submit instead
 
 @router.post("/assignments/{assignment_id}/submit", summary="Student: submit assignment")
 async def submit_assignment(
+    request: Request,
     assignment_id: str,
     body: SubmitAssignmentIn,
     db = Depends(get_db),
-    current_user=Depends(require_role("student", "teacher")), # teacher for testing
+    current_user=Depends(require_role("student")),
 ):
     sub = await lms_service.submit_assignment(
         db, assignment_id, str(current_user["_id"]), body.content, body.file_url
     )
-    return {"id": sub["id"], "submission_id": sub["id"], "status": sub["status"], "submitted_at": sub["submitted_at"]}
+    return maybe_envelope(request, _serialize_submission(sub))
 
 @router.get("/submissions", summary="Teacher: view all submissions across classes")
 async def global_submissions(
+    request: Request,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
@@ -618,27 +767,25 @@ async def global_submissions(
         ).to_list(None)
     user_map = {str(u["_id"]): u for u in users}
 
-    return [
-        {
-            "id": s["id"],
-            "submission_id": s["id"],
-            "assignment_id": s.get("assignment_id"),
-            "student_id": s["student_id"],
-            "status": s.get("status"),
-            "points_earned": s.get("points_earned"),
-            "feedback": s.get("feedback"),
-            "submitted_at": s.get("submitted_at"),
-            "student_name": user_map.get(s["student_id"], {}).get("name") or user_map.get(s["student_id"], {}).get("email") or "Unknown",
-            "student_email": user_map.get(s["student_id"], {}).get("email", ""),
-            "graded": s.get("status") == "graded",
-            "file_url": s.get("file_url"),
-            "content": s.get("content"),
-        }
-        for s in subs
-    ]
+    assignment_map = {a["id"]: a for a in assignments}
+    payload = []
+    for s in subs:
+        assignment = assignment_map.get(s.get("assignment_id"), {})
+        payload.append(
+            _serialize_submission(
+                {
+                    **s,
+                    "class_id": assignment.get("class_id"),
+                    "student_name": user_map.get(s["student_id"], {}).get("name") or user_map.get(s["student_id"], {}).get("email") or "Unknown",
+                    "student_email": user_map.get(s["student_id"], {}).get("email", ""),
+                }
+            )
+        )
+    return maybe_envelope(request, payload)
 
 @router.post("/submissions/grade", summary="Teacher: grade a submission")
 async def grade_submission(
+    request: Request,
     body: GradeSubmissionIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
@@ -648,65 +795,84 @@ async def grade_submission(
         sub = await lms_service.grade_submission(
             db, body.submission_id, str(current_user["_id"]), points, body.feedback
         )
-        return {"id": sub["id"], "submission_id": sub["id"], "status": sub["status"], "points_earned": sub["points_earned"]}
+        return maybe_envelope(request, _serialize_submission(sub))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/students/me/submissions", summary="Student: view own submissions")
 async def my_submissions(
+    request: Request,
     class_id: Optional[str] = None,
     db = Depends(get_db),
-    current_user=Depends(require_role("student", "teacher")),
+    current_user=Depends(require_role("student")),
 ):
     subs = await lms_service.get_student_submissions(db, str(current_user["_id"]), class_id)
-    return [
-        {
-            "id": s["id"], "submission_id": s["id"], "assignment_id": s["assignment_id"],
-            "status": s.get("status"), "points_earned": s.get("points_earned"),
-            "feedback": s.get("feedback"), "submitted_at": s.get("submitted_at"),
-        }
-        for s in subs
-    ]
+    assignment_ids = list({s.get("assignment_id") for s in subs if s.get("assignment_id")})
+    assignments = await db.assignments.find({"id": {"$in": assignment_ids}}).to_list(None) if assignment_ids else []
+    assignment_map = {a["id"]: a for a in assignments}
+    payload = []
+    for s in subs:
+        payload.append(
+            _serialize_submission(
+                {
+                    **s,
+                    "class_id": assignment_map.get(s.get("assignment_id"), {}).get("class_id"),
+                }
+            )
+        )
+    return maybe_envelope(request, payload)
 
 # ─── Quizzes ──────────────────────────────────────────────────────────────────
 
 @router.post("/classes/{class_id}/quizzes", summary="Teacher: create quiz/test")
 async def create_quiz(
+    request: Request,
     class_id: str,
     body: CreateQuizIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
-    questions = [q.dict() for q in body.questions] if body.questions else None
+    await _authorize_class_staff_access(db, class_id, current_user)
+    questions = [q.model_dump() for q in body.questions] if body.questions else None
     quiz = await lms_service.create_quiz(
         db, class_id, str(current_user["_id"]),
         body.title, body.description, body.type,
         body.time_limit, body.max_attempts,
         body.start_time, body.end_time, questions,
     )
-    return {"id": quiz["id"], "title": quiz["title"], "is_published": quiz.get("is_published", False)}
+    return maybe_envelope(request, _serialize_quiz_summary(quiz))
 
 @router.get("/classes/{class_id}/quizzes", summary="List class quizzes")
 async def list_quizzes(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    await _authorize_class_access(db, class_id, current_user)
     cursor = db.lms_quizzes.find({"class_id": class_id})
     quizzes = await cursor.to_list(None)
-    return [
-        {"id": q["id"], "title": q.get("title"), "description": q.get("description"), "time_limit": q.get("time_limit")}
-        for q in quizzes
-    ]
+    role = normalize_role(current_user.get("role"))
+    attempt_map = {}
+    if role not in ("teacher", "admin"):
+        attempt_map = await _build_latest_attempt_map(
+            db,
+            [q["id"] for q in quizzes],
+            str(current_user["_id"]),
+        )
+    return maybe_envelope(request, [_serialize_quiz_summary(q, attempt_map) for q in quizzes])
 
 @router.get("/quizzes", summary="List all quizzes across classes")
 async def global_quizzes(
+    request: Request,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    role = current_user.get("role", "student").lower()
+    role = normalize_role(current_user.get("role"))
     user_id = str(current_user["_id"])
-    if role in ("teacher", "admin"):
+    if role == "admin":
+        c_cursor = db.classes.find({})
+    elif role == "teacher":
         c_cursor = db.classes.find({"teacher_id": user_id})
     else:
         c_cursor = db.classes.find({"students": user_id})
@@ -715,13 +881,14 @@ async def global_quizzes(
     class_ids = [c["id"] for c in classes]
     q_cursor = db.lms_quizzes.find({"class_id": {"$in": class_ids}})
     quizzes = await q_cursor.to_list(None)
-    return [
-        {"id": q["id"], "title": q.get("title"), "class_id": q["class_id"], "due_date": q.get("end_time")}
-        for q in quizzes
-    ]
+    attempt_map = {}
+    if role not in ("teacher", "admin"):
+        attempt_map = await _build_latest_attempt_map(db, [q["id"] for q in quizzes], user_id)
+    return maybe_envelope(request, [_serialize_quiz_summary(q, attempt_map) for q in quizzes])
 
 @router.get("/quizzes/{quiz_id}", summary="Get quiz details and questions")
 async def get_quiz(
+    request: Request,
     quiz_id: str,
     db = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -730,11 +897,15 @@ async def get_quiz(
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     
+    _, include_answers = await _authorize_quiz_access(db, quiz, current_user)
+
     q_cursor = db.quiz_questions.find({"quiz_id": quiz_id}).sort("order_index", 1)
     questions = await q_cursor.to_list(None)
     
-    return {
+    return maybe_envelope(request, {
+        "id": quiz["id"],
         "quiz_id": quiz["id"],
+        "class_id": quiz.get("class_id"),
         "title": quiz.get("title"),
         "description": quiz.get("description"),
         "time_limit": quiz.get("time_limit"),
@@ -743,34 +914,39 @@ async def get_quiz(
         "start_time": quiz.get("start_time"),
         "end_time": quiz.get("end_time"),
         "questions": [
-            {
-                "id": q["id"],
-                "question": q["question"],
-                "options": q.get("options", []),
-                "type": q.get("type", "mcq"),
-                "points": q.get("points", 1)
-            }
+            _serialize_quiz_question(q, include_answers=include_answers)
             for q in questions
         ]
-    }
+    })
 
 @router.post("/quizzes/{quiz_id}/attempt", summary="Student: submit quiz attempt")
 async def attempt_quiz(
+    request: Request,
     quiz_id: str,
     body: SubmitQuizIn,
     db = Depends(get_db),
-    current_user=Depends(require_role("student", "teacher")),
+    current_user=Depends(require_role("student")),
 ):
     try:
+        quiz = await db.lms_quizzes.find_one({"id": quiz_id})
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        await _authorize_quiz_access(db, quiz, current_user)
         attempt = await lms_service.submit_quiz_attempt(
             db, quiz_id, str(current_user["_id"]), body.answers
         )
-        return {
+        return maybe_envelope(request, {
             "id": attempt.get("id"),
+            "quiz_id": quiz_id,
+            "class_id": attempt.get("class_id"),
+            "submitted": True,
             "score": attempt.get("score"),
             "max_score": attempt.get("max_score"),
             "percentage": attempt.get("percentage"),
-        }
+            "correct_count": attempt.get("correct_count"),
+            "question_results": attempt.get("question_results", []),
+        })
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -778,6 +954,7 @@ async def attempt_quiz(
 
 @router.get("/quizzes/{quiz_id}/analytics", summary="Teacher: quiz attempt analytics")
 async def quiz_analytics(
+    request: Request,
     quiz_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
@@ -785,13 +962,14 @@ async def quiz_analytics(
     quiz = await db.lms_quizzes.find_one({"id": quiz_id})
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _authorize_class_staff_access(db, quiz["class_id"], current_user)
 
     # Get all complete attempts
     attempts_cursor = db.quiz_attempts.find({"quiz_id": quiz_id, "is_complete": True})
     attempts = await attempts_cursor.to_list(None)
 
     if not attempts:
-        return {"quiz_id": quiz_id, "title": quiz.get("title"), "attempt_count": 0, "avg_score": 0, "results": []}
+        return maybe_envelope(request, {"quiz_id": quiz_id, "title": quiz.get("title"), "attempt_count": 0, "avg_score": 0, "results": []})
 
     # Resolve student names
     student_ids = list({a["student_id"] for a in attempts if a.get("student_id")})
@@ -819,24 +997,25 @@ async def quiz_analytics(
         reverse=True,
     )
 
-    return {
+    return maybe_envelope(request, {
         "quiz_id": quiz_id,
         "title": quiz.get("title"),
         "attempt_count": len(attempts),
         "avg_score": avg_score,
         "results": results,
-    }
+    })
 
 
 # ─── Per-Student Engagement in a Class ────────────────────────────────────────
 
 @router.get("/classes/{class_id}/students/engagement", summary="Teacher: per-student engagement scores")
 async def class_student_engagement(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
-    from backend.services.analytics_service import get_teacher_analytics
+    await _authorize_class_staff_access(db, class_id, current_user)
     stats = await get_teacher_analytics(db, class_id)
     cls = await db.classes.find_one({"id": class_id})
     if not cls:
@@ -851,12 +1030,27 @@ async def class_student_engagement(
         ).to_list(None)
     user_map = {str(u["_id"]): {"name": u.get("name", ""), "email": u.get("email", "")} for u in users}
 
-    # Build engagement table from analytics stats
-    top = {s["student_id"]: s["score"] for s in stats.get("top_performing_students", [])}
-    low = {s["student_id"]: s["score"] for s in stats.get("low_performing_students", [])}
-    score_map = {**low, **top}
+    quiz_ids = [q["id"] for q in await db.lms_quizzes.find({"class_id": class_id}).to_list(None)]
+    attempts = await db.quiz_attempts.find({"quiz_id": {"$in": quiz_ids}, "is_complete": True}).to_list(None) if quiz_ids else []
+    attempt_by_student = {}
+    for attempt in attempts:
+        sid = attempt.get("student_id")
+        if not sid:
+            continue
+        attempt_by_student.setdefault(sid, []).append(float(attempt.get("percentage") or 0))
 
-    return {
+    attendance_rows = await db.attendance_records.find({"class_id": class_id}).to_list(None)
+    attendance_by_student = {}
+    for row in attendance_rows:
+        sid = row.get("student_id")
+        if not sid:
+            continue
+        attendance_by_student.setdefault(sid, {"present": 0, "total": 0})
+        attendance_by_student[sid]["total"] += 1
+        if row.get("status") == "present":
+            attendance_by_student[sid]["present"] += 1
+
+    payload = {
         "class_id": class_id,
         "engagement_rate": stats.get("engagement_rate", 0),
         "students": [
@@ -864,41 +1058,50 @@ async def class_student_engagement(
                 "student_id": sid,
                 "name": user_map.get(sid, {}).get("name") or user_map.get(sid, {}).get("email") or "Unknown",
                 "email": user_map.get(sid, {}).get("email", ""),
-                "avg_score": score_map.get(sid, None),
+                "avg_score": round(sum(attempt_by_student.get(sid, [])) / len(attempt_by_student[sid]), 1) if attempt_by_student.get(sid) else None,
+                "avg_quiz_score": round(sum(attempt_by_student.get(sid, [])) / len(attempt_by_student[sid]), 1) if attempt_by_student.get(sid) else None,
+                "quizzes_taken": len(attempt_by_student.get(sid, [])),
+                "attendance_pct": round((attendance_by_student[sid]["present"] / attendance_by_student[sid]["total"]) * 100, 1) if attendance_by_student.get(sid, {}).get("total") else None,
             }
             for sid in student_ids
         ],
     }
+    return maybe_envelope(request, payload)
 
 
 # ─── Attendance ──────────────────────────────────────────────────────────────
 
 @router.post("/classes/{class_id}/attendance", summary="Teacher: mark bulk attendance")
 async def take_attendance(
+    request: Request,
     class_id: str,
     body: MarkAttendanceIn,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     records = [r.dict() for r in body.records]
     await lms_service.mark_attendance(db, class_id, body.date, records)
-    return {"message": "Attendance marked successfully."}
+    return maybe_envelope(request, {"message": "Attendance marked successfully."})
 
 @router.get("/students/me/attendance", summary="Student: view own attendance")
 async def my_attendance(
+    request: Request,
     class_id: Optional[str] = None,
     db = Depends(get_db),
-    current_user=Depends(require_role("student", "teacher")),
+    current_user=Depends(require_role("student")),
 ):
     results = await lms_service.get_student_attendance(db, str(current_user["_id"]), class_id)
-    return results
+    return maybe_envelope(request, results)
 
-@router.get("/classes/{class_id}/attendance/stats", summary="Teacher: view class stats")
+@router.get("/classes/{class_id}/attendance/summary", summary="Teacher: view class stats")
 async def class_attendance_stats(
+    request: Request,
     class_id: str,
     db = Depends(get_db),
     current_user=Depends(require_role("teacher", "admin")),
 ):
+    await _authorize_class_staff_access(db, class_id, current_user)
     stats = await lms_service.get_class_attendance_stats(db, class_id)
-    return stats
+    return maybe_envelope(request, stats)
 

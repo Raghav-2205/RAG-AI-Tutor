@@ -1,0 +1,29 @@
+name: Integration Contracts
+
+on:
+  push:
+    branches:
+      - main
+      - LMS-V2
+  pull_request:
+
+jobs:
+  integration-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: Run stable integration contract suite
+        run: python -m pytest test/test_integration_api_flows.py test/test_static_page_smoke.py -q -p no:cacheprovider

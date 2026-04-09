@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.utils.db import get_db
 from backend.api.auth import get_current_user
-from backend.vector_db import get_vector_db, get_or_create_collection
+from backend.vector_db import get_vector_db
 import logging
 
 router = APIRouter()
@@ -20,51 +20,35 @@ async def get_chunk_details(
     """
     try:
         client = get_vector_db()
-        # We need to search across collections or know which one.
-        # For now, we search the system collection ("general") and the user's collection.
-        # This is a bit inefficient if we don't know the collection.
-        # However, we can try the system collection first, then user.
-        
-        # Try System Collection
-        system_collection = get_or_create_collection(client, "global", "general")
-        result = system_collection.get(ids=[chunk_id])
-        
-        if result and result['ids'] and len(result['ids']) > 0:
-            return {
-                "id": result['ids'][0],
-                "text": result['documents'][0],
-                "metadata": result['metadatas'][0]
-            }
-            
-        # Try User Collection
         user_id = str(current_user["_id"])
-        # We need to know the subject usually. 
-        # But if we don't know it, we might have to iterate? 
-        # Ideally, the citation should contain collection info or subject.
-        # For this implementation, let's assume we pass subject as a query param or iterate?
-        # Actually, let's just check the most likely ones or iterate if feasible.
-        
-        # Optimization: The chunk_id is UUID.
-        
-        # If we can't find it easily without subject, we might need to store a mapping in MongoDB?
-        # Or, we can just search the user's active subjects. 
-        # For now, let's try a default subject "general" for user too.
-        
-        user_collection = get_or_create_collection(client, user_id, "general")
-        result = user_collection.get(ids=[chunk_id])
-        
-        if result and result['ids'] and len(result['ids']) > 0:
-            return {
-                "id": result['ids'][0],
-                "text": result['documents'][0],
-                "metadata": result['metadatas'][0]
-            }
-            
-        # If user has other subjects, we might miss it. 
-        # Future improvement: Store source collection in citation metadata.
-        
+        collections = client.list_collections()
+
+        candidate_names = ["user_global_general"]
+        candidate_names.extend(
+            col.get("name")
+            for col in collections
+            if col.get("name", "").startswith(f"user_{user_id}_")
+        )
+
+        seen = set()
+        for name in candidate_names:
+            if not name or name in seen:
+                continue
+            seen.add(name)
+
+            collection = client.get_or_create_collection(name)
+            result = collection.get(ids=[chunk_id])
+            if result and result["ids"] and len(result["ids"]) > 0:
+                return {
+                    "id": result["ids"][0],
+                    "text": result["documents"][0],
+                    "metadata": result["metadatas"][0]
+                }
+
         raise HTTPException(status_code=404, detail="Chunk not found")
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching chunk {chunk_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))

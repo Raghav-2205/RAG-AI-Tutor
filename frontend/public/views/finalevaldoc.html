@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Detailed Evaluation - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <link rel="stylesheet" href="/assets/css/app-shell.css" />
+  <script src="/assets/js/theme-controls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body class="page-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+      <a href="/views/finalevaluation.html" class="nav-item active"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="container evaldoc-page">
+      <div class="page-header evaldoc-page-header">
+        <div>
+          <div class="evaluation-page-eyebrow"><i class="fa-solid fa-file-waveform" aria-hidden="true"></i> Detailed answer report</div>
+          <h1><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Evaluation Detail</h1>
+          <p>Inspect the exact answer, supporting evidence, and the metrics that determined its evaluation result.</p>
+        </div>
+        <div class="evaldoc-header-actions">
+          <a href="/views/finalevaluation.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Dashboard</a>
+          <a href="/views/subjects.html" class="btn btn-secondary" id="viewChatBtn"><i class="fa-regular fa-comments" aria-hidden="true"></i> View Chat</a>
+          <button class="btn btn-secondary" type="button" onclick="exportReportJson()"><i class="fa-regular fa-file-code" aria-hidden="true"></i> Download JSON</button>
+          <button class="btn btn-primary" type="button" onclick="exportReportPdf()"><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+      </div>
+
+      <section class="card evaldoc-hero-card">
+        <div class="evaldoc-hero-top">
+          <div>
+            <div class="evaluation-kicker">Traceable report</div>
+            <h2 id="heroTitle">Loading evaluation detail...</h2>
+          </div>
+          <span class="card-badge evaluation-badge" id="mainStatusBadge">Loading</span>
+        </div>
+        <div class="evaldoc-chip-row">
+          <span class="evaluation-chip" id="evalIdBadge">Eval --</span>
+          <span class="evaluation-chip" id="docBadge">Document scope: All</span>
+          <span class="evaluation-chip" id="subjectBadge">Subject</span>
+          <span class="evaluation-chip" id="timestampBadge">Timestamp</span>
+        </div>
+      </section>
+
+      <section class="evaldoc-summary-grid">
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Final RAG Score</div>
+          <div class="evaldoc-summary-value" id="summaryRag">--</div>
+          <div class="evaldoc-summary-copy">Overall weighted quality outcome.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Faithfulness</div>
+          <div class="evaldoc-summary-value" id="summaryFaithfulness">--</div>
+          <div class="evaldoc-summary-copy">How well the answer stays grounded in retrieved context.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Retrieval Confidence</div>
+          <div class="evaldoc-summary-value" id="summaryRetrieval">--</div>
+          <div class="evaldoc-summary-copy">Confidence inferred from the retrieval layer.</div>
+        </article>
+        <article class="evaldoc-summary-card">
+          <div class="evaldoc-summary-label">Chunk Coverage</div>
+          <div class="evaldoc-summary-value" id="summaryCoverage">--</div>
+          <div class="evaldoc-summary-copy">How much of the answer was actually covered by retrieved chunks.</div>
+        </article>
+      </section>
+
+      <div class="bento-grid evaldoc-grid">
+        <section class="card col-span-8">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-regular fa-message" aria-hidden="true"></i> Query &amp; Answer</h3>
+            <span class="card-badge">Context</span>
+          </div>
+          <div class="evaldoc-qa-stack">
+            <div class="evaldoc-qa-block">
+              <div class="evaldoc-qa-label">User question</div>
+              <div class="evaldoc-qa-text" id="questionText">Loading...</div>
+            </div>
+            <div class="evaldoc-qa-block">
+              <div class="evaldoc-qa-label">Generated answer</div>
+              <div class="evaldoc-qa-text answer" id="answerText">Loading...</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card col-span-4">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Report Meta</h3>
+            <span class="card-badge">Scope</span>
+          </div>
+          <div class="evaldoc-meta-list" id="metaList">
+            <div class="evaldoc-meta-item"><span>Evaluation ID</span><strong>--</strong></div>
+            <div class="evaldoc-meta-item"><span>Document</span><strong>All documents</strong></div>
+            <div class="evaldoc-meta-item"><span>Subject</span><strong>General</strong></div>
+            <div class="evaldoc-meta-item"><span>Chat session</span><strong>Unavailable</strong></div>
+          </div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Generation Metrics</h3>
+            <span class="card-badge">Scores</span>
+          </div>
+          <div class="evaldoc-metric-stack" id="metricsContainer"></div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-compass-drafting" aria-hidden="true"></i> Quality Profile</h3>
+            <span class="card-badge">Radar</span>
+          </div>
+          <div class="evaldoc-radar-wrap"><canvas id="qualityRadar"></canvas></div>
+          <p class="evaldoc-radar-note">A quick visual snapshot of grounding, relevance, semantic alignment, and retrieval quality.</p>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Retrieval Analysis</h3>
+            <span class="card-badge">Evidence</span>
+          </div>
+          <div class="evaldoc-metric-stack">
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Retrieval confidence</span><strong id="val-confidence">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-confidence" style="width:0%"></div></div>
+            </div>
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Chunk coverage</span><strong id="val-coverage">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-coverage" style="width:0%"></div></div>
+            </div>
+            <div class="evaldoc-progress-row">
+              <div class="evaldoc-progress-copy"><span>Citation alignment</span><strong id="val-citation">--</strong></div>
+              <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" id="bar-citation" style="width:0%"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card col-span-6">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Faithfulness &amp; Grounding</h3>
+            <span class="card-badge">Grounding</span>
+          </div>
+          <div id="faithfulnessContent" class="evaldoc-faithfulness">
+            <div class="evaluation-empty-state compact">Checking grounding...</div>
+          </div>
+        </section>
+
+        <section class="card col-span-12">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Source Document Traceability</h3>
+            <span class="card-badge">Chunks</span>
+          </div>
+          <div class="evaldoc-chunk-grid" id="chunksContainer">
+            <div class="evaluation-empty-state compact">No chunks retrieved.</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = `${window.config?.apiBase || '/api'}/evaluation/final`;
+    const token = window.auth?.token || localStorage.getItem('token');
+    if (!token) window.location.href = '/views/login.html';
+
+    let currentReport = null;
+    let currentRawReport = null;
+    let radarChart = null;
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+    const safeNum = (value, fallback = 0) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const hasFinite = (value) => Number.isFinite(Number(value));
+    const normalizeScore = (value) => {
+      const n = safeNum(value, 0);
+      if (n > 1 && n <= 100) return clamp(n / 100);
+      return clamp(n);
+    };
+
+    function logoutUser() {
+      if (window.auth?.logout) return window.auth.logout();
+      localStorage.clear();
+      window.location.href = '/views/login.html';
+    }
+
+    function updateUserShell() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const name = user.name || user.email || 'Student';
+      const role = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      $('userName').textContent = name;
+      $('userLevel').textContent = role;
+      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'S';
+    }
+
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizeArray(value) {
+      if (Array.isArray(value)) return value.filter((item) => item != null && item !== '');
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return normalizeArray(parsed);
+          } catch (error) {
+            return [trimmed];
+          }
+        }
+        return trimmed.split(/\n+/).map((item) => item.trim()).filter(Boolean);
+      }
+      if (value && typeof value === 'object') return Object.values(value).filter(Boolean);
+      return [];
+    }
+
+    function normalizeChunkTexts(raw) {
+      const candidates = Array.isArray(raw.retrieved_chunks_text) ? raw.retrieved_chunks_text
+        : normalizeArray(raw.retrieved_chunks_text).length ? normalizeArray(raw.retrieved_chunks_text)
+        : Array.isArray(raw.retrieved_chunks) ? raw.retrieved_chunks
+        : Array.isArray(raw.chunks) ? raw.chunks
+        : [];
+      return candidates.map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.text || item.content || item.chunk_text || '';
+        return '';
+      }).filter(Boolean);
+    }
+
+    function normalizeChunkIds(raw, count) {
+      const candidates = Array.isArray(raw.retrieved_chunk_ids) ? raw.retrieved_chunk_ids
+        : normalizeArray(raw.retrieved_chunk_ids).length ? normalizeArray(raw.retrieved_chunk_ids)
+        : Array.isArray(raw.retrieved_chunks) ? raw.retrieved_chunks.map((item) => item?.id || item?.chunk_id || item?.source || item?.document_name || '')
+        : Array.isArray(raw.chunks) ? raw.chunks.map((item) => item?.id || item?.chunk_id || item?.source || item?.document_name || '')
+        : [];
+      return Array.from({ length: Math.max(count, candidates.length) }, (_, index) => String(candidates[index] || `Chunk ${index + 1}`));
+    }
+
+    function normalizeCoverage(raw, chunkTexts) {
+      const usage = raw.chunk_usage || raw.chunkUsage || {};
+      const direct = [
+        usage.covered_ratio,
+        usage.coverage_ratio,
+        usage.coverage,
+        usage.coveredRatio
+      ].map((item) => Number(item)).find((item) => Number.isFinite(item));
+      if (Number.isFinite(direct)) return normalizeScore(direct);
+
+      const usedCount = Array.isArray(usage.used_chunk_indices) ? usage.used_chunk_indices.length
+        : Array.isArray(usage.used_chunks) ? usage.used_chunks.length
+        : Number(usage.used);
+      const retrievedCount = Number(usage.retrieved) || Number(usage.total) || chunkTexts.length;
+      if (Number.isFinite(usedCount) && Number.isFinite(retrievedCount) && retrievedCount > 0) return clamp(usedCount / retrievedCount);
+      return 0;
+    }
+
+    function normalizeUsedIndices(raw) {
+      const usage = raw.chunk_usage || raw.chunkUsage || {};
+      if (Array.isArray(usage.used_chunk_indices)) return usage.used_chunk_indices.map((item) => Number(item)).filter((item) => Number.isInteger(item));
+      return [];
+    }
+
+    function normalizeEvaluationResult(raw, fallbackId) {
+      const chunkTexts = normalizeChunkTexts(raw);
+      const chunkIds = normalizeChunkIds(raw, chunkTexts.length);
+      const unsupported = normalizeArray(raw.unsupported_sentences || raw.unsupported || raw.grounding_issues);
+      const coverage = normalizeCoverage(raw, chunkTexts);
+      const evaluationSource = String(raw.evaluation_source || (raw.user_id === 'benchmark_runner' ? 'benchmark' : 'live')).toLowerCase();
+      const benchmarkMetricsAvailable = Boolean(raw.benchmark_metrics_available || evaluationSource === 'benchmark');
+      return {
+        raw,
+        id: String(raw._id || raw.id || fallbackId || 'N/A'),
+        question: raw.question || '',
+        answer: raw.answer || '',
+        subject: raw.subject || 'general',
+        chatId: raw.chat_id || null,
+        documentId: raw.document_id || null,
+        documentName: raw.document_name || raw.document || null,
+        validationStatus: raw.validation_status || 'UNKNOWN',
+        evaluationSource,
+        benchmarkMetricsAvailable,
+        reason: raw.reason || '',
+        timestamp: raw.timestamp || null,
+        faithfulness: normalizeScore(raw.faithfulness_score),
+        relevance: normalizeScore(raw.answer_relevance),
+        bert: normalizeScore(raw.bert_score),
+        citation: normalizeScore(raw.citation_alignment_score || raw.citation_alignment),
+        rag: normalizeScore(raw.final_rag_score),
+        retrievalConfidence: normalizeScore(raw.retrieval_confidence || raw.retrieval?.confidence),
+        recall: benchmarkMetricsAvailable && hasFinite(raw.recall_at_5) ? normalizeScore(raw.recall_at_5) : null,
+        precision: benchmarkMetricsAvailable && hasFinite(raw.precision_at_5) ? normalizeScore(raw.precision_at_5) : null,
+        mrr: benchmarkMetricsAvailable && hasFinite(raw.mrr) ? normalizeScore(raw.mrr) : null,
+        hallucination: normalizeScore(raw.hallucination_rate),
+        coverage,
+        unsupported,
+        chunkTexts,
+        chunkIds,
+        usedIndices: normalizeUsedIndices(raw)
+      };
+    }
+
+    function getThemeMetricColor(tone) {
+      const styles = getComputedStyle(document.documentElement);
+      if (tone === 'good') return styles.getPropertyValue('--accent').trim() || '#19c37d';
+      if (tone === 'warn') return styles.getPropertyValue('--warning').trim() || '#f59e0b';
+      return styles.getPropertyValue('--danger').trim() || '#ef4444';
+    }
+
+    function getScoreTone(value, inverse = false) {
+      if (inverse) return value <= 0.15 ? 'good' : value <= 0.3 ? 'warn' : 'bad';
+      return value >= 0.85 ? 'good' : value >= 0.6 ? 'warn' : 'bad';
+    }
+
+    function renderRadarChart(report) {
+      const canvas = $('qualityRadar');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const styles = getComputedStyle(document.documentElement);
+      const accent = styles.getPropertyValue('--accent').trim() || '#19c37d';
+      const border = styles.getPropertyValue('--border').trim() || 'rgba(125,125,125,0.2)';
+      const textMuted = styles.getPropertyValue('--text-muted').trim() || '#6b7280';
+      const bgPrimary = styles.getPropertyValue('--bg-primary').trim() || '#ffffff';
+
+      const data = [report.faithfulness, report.relevance, report.bert, report.citation, report.rag, report.retrievalConfidence];
+      if (radarChart) radarChart.destroy();
+      radarChart = new Chart(canvas, {
+        type: 'radar',
+        data: {
+          labels: ['Faithfulness', 'Relevance', 'BERTScore', 'Citation', 'RAG Score', 'Retrieval'],
+          datasets: [{
+            label: 'Quality profile',
+            data,
+            borderColor: accent,
+            backgroundColor: accent,
+            pointBackgroundColor: accent,
+            pointBorderColor: bgPrimary,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            r: {
+              min: 0,
+              max: 1,
+              ticks: { stepSize: 0.2, color: textMuted, backdropColor: 'transparent' },
+              grid: { color: border },
+              angleLines: { color: border },
+              pointLabels: { color: textMuted, font: { size: 11, family: 'Space Grotesk' } }
+            }
+          }
+        }
+      });
+    }
+
+    function getCandidatePhrases(sentences) {
+      const phrases = [];
+      sentences.forEach((sentence) => {
+        const cleaned = String(sentence || '').trim();
+        if (!cleaned) return;
+        if (cleaned.length > 12) phrases.push(cleaned);
+        const words = cleaned.split(/\s+/).filter((word) => word.length > 3);
+        if (words.length >= 5) phrases.push(words.slice(0, 5).join(' '));
+        if (words.length >= 9) phrases.push(words.slice(2, 7).join(' '));
+      });
+      return [...new Set(phrases)].filter((phrase) => phrase.length >= 12).sort((a, b) => b.length - a.length);
+    }
+
+    function buildHighlightRanges(text, phrases) {
+      const lower = String(text || '').toLowerCase();
+      const ranges = [];
+      phrases.forEach((phrase) => {
+        const idx = lower.indexOf(phrase.toLowerCase());
+        if (idx !== -1) ranges.push({ start: idx, end: idx + phrase.length });
+      });
+      ranges.sort((a, b) => a.start - b.start);
+      const merged = [];
+      ranges.forEach((range) => {
+        const last = merged[merged.length - 1];
+        if (!last || range.start > last.end) merged.push({ ...range });
+        else last.end = Math.max(last.end, range.end);
+      });
+      return merged;
+    }
+
+    function highlightChunkText(text, unsupportedSentences) {
+      const raw = String(text || '');
+      const ranges = buildHighlightRanges(raw, getCandidatePhrases(unsupportedSentences));
+      if (!ranges.length) return { html: escapeHtml(raw), semantic: false };
+      let html = '';
+      let cursor = 0;
+      ranges.forEach((range) => {
+        html += escapeHtml(raw.slice(cursor, range.start));
+        html += `<span class="evaldoc-chunk-highlight">${escapeHtml(raw.slice(range.start, range.end))}</span>`;
+        cursor = range.end;
+      });
+      html += escapeHtml(raw.slice(cursor));
+      return { html, semantic: true };
+    }
+
+    function setChatContextLink(chatId = null) {
+      const btn = $('viewChatBtn');
+      btn.href = chatId ? `/views/subjects.html?chat_id=${encodeURIComponent(chatId)}` : '/views/subjects.html';
+      btn.title = chatId ? `Open chat session ${chatId}` : 'Open chat workspace';
+    }
+
+    function exportReportJson() {
+      if (!currentRawReport) return;
+      const blob = new Blob([JSON.stringify(currentRawReport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `evaluation-${currentReport?.id || 'report'}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportReportPdf() {
+      window.print();
+    }
+
+    function renderMetricRow(label, value, inverse = false, emptyText = '--') {
+      if (!Number.isFinite(value)) {
+        return `
+          <div class="evaldoc-progress-row compact">
+            <div class="evaldoc-progress-copy"><span>${label}</span><strong>${emptyText}</strong></div>
+            <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" style="width:0%"></div></div>
+          </div>
+        `;
+      }
+      const tone = getScoreTone(value, inverse);
+      const color = getThemeMetricColor(tone);
+      return `
+        <div class="evaldoc-progress-row compact">
+          <div class="evaldoc-progress-copy"><span>${label}</span><strong>${value.toFixed(2)}</strong></div>
+          <div class="evaldoc-progress-bar"><div class="evaldoc-progress-fill" style="width:${(value * 100).toFixed(0)}%; background:${color};"></div></div>
+        </div>
+      `;
+    }
+
+    function renderFaithfulness(report) {
+      const container = $('faithfulnessContent');
+      if (report.faithfulness === 1 && !report.unsupported.length) {
+        container.innerHTML = '<div class="evaluation-note good"><span class="evaluation-note-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div>Answer is fully grounded in the provided context.</div></div>';
+        return;
+      }
+      const notes = report.unsupported.length
+        ? `<div class="evaldoc-grounding-list">${report.unsupported.map((item) => `<div class="evaluation-note warn"><span class="evaluation-note-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span><div>${escapeHtml(item)}</div></div>`).join('')}</div>`
+        : '<div class="evaluation-empty-state compact">No unsupported claims were explicitly flagged.</div>';
+      container.innerHTML = `
+        <div class="evaldoc-faithfulness-score">Faithfulness score <strong>${report.faithfulness.toFixed(2)}</strong></div>
+        ${report.reason ? `<p class="evaldoc-faithfulness-reason">${escapeHtml(report.reason)}</p>` : ''}
+        ${notes}
+      `;
+    }
+
+    function renderChunks(report) {
+      const container = $('chunksContainer');
+      if (!report.chunkTexts.length) {
+        container.innerHTML = '<div class="evaluation-empty-state compact">No chunks retrieved for this answer.</div>';
+        return;
+      }
+      container.innerHTML = report.chunkTexts.map((chunkText, index) => {
+        const highlighted = highlightChunkText(chunkText, report.unsupported);
+        const classes = ['evaldoc-chunk-card'];
+        if (report.usedIndices.includes(index)) classes.push('used');
+        if (highlighted.semantic) classes.push('semantic');
+        return `
+          <article class="${classes.join(' ')}">
+            <div class="evaldoc-chunk-head">
+              <span>Chunk ${index + 1}</span>
+              <span>${escapeHtml(report.chunkIds[index] || `Chunk ${index + 1}`)}</span>
+            </div>
+            <div class="evaldoc-chunk-text">${highlighted.html}</div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderMeta(report) {
+      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'WARNING' ? 'warn' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
+      $('mainStatusBadge').textContent = report.validationStatus.replace(/_/g, ' ');
+      $('mainStatusBadge').className = `card-badge evaluation-badge tone-${statusTone}`;
+      $('heroTitle').textContent = report.documentName || report.question || 'Evaluation detail';
+      $('evalIdBadge').textContent = `Eval ${report.id}`;
+      $('docBadge').textContent = report.documentName ? `Document: ${report.documentName}` : 'Document scope: All';
+      $('subjectBadge').textContent = `Subject: ${String(report.subject || 'general').replace(/_/g, ' ')}`;
+      $('timestampBadge').textContent = report.timestamp && !Number.isNaN(new Date(report.timestamp).getTime())
+        ? new Date(report.timestamp).toLocaleString([], { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Timestamp unavailable';
+      $('metaList').innerHTML = `
+        <div class="evaldoc-meta-item"><span>Evaluation ID</span><strong>${escapeHtml(report.id)}</strong></div>
+        <div class="evaldoc-meta-item"><span>Document</span><strong>${escapeHtml(report.documentName || 'All documents')}</strong></div>
+        <div class="evaldoc-meta-item"><span>Subject</span><strong>${escapeHtml(String(report.subject || 'general').replace(/_/g, ' '))}</strong></div>
+        <div class="evaldoc-meta-item"><span>Source</span><strong>${escapeHtml(report.evaluationSource.replace(/_/g, ' '))}</strong></div>
+        <div class="evaldoc-meta-item"><span>Chat session</span><strong>${escapeHtml(report.chatId || 'Unavailable')}</strong></div>
+      `;
+    }
+
+    function renderDashboard(rawData, fallbackId) {
+      const report = normalizeEvaluationResult(rawData, fallbackId);
+      currentRawReport = rawData;
+      currentReport = report;
+
+      renderMeta(report);
+      $('questionText').textContent = report.question || 'No question saved for this validation.';
+      $('answerText').textContent = report.answer || 'No answer saved for this validation.';
+      $('summaryRag').textContent = report.rag.toFixed(2);
+      $('summaryFaithfulness').textContent = report.faithfulness.toFixed(2);
+      $('summaryRetrieval').textContent = report.retrievalConfidence.toFixed(2);
+      $('summaryCoverage').textContent = `${(report.coverage * 100).toFixed(0)}%`;
+
+      $('metricsContainer').innerHTML = [
+        renderMetricRow('Faithfulness', report.faithfulness),
+        renderMetricRow('Answer Relevance', report.relevance),
+        renderMetricRow('BERTScore', report.bert),
+        renderMetricRow('Citation Alignment', report.citation),
+        renderMetricRow('Recall@5', report.recall, false, 'Benchmark only'),
+        renderMetricRow('Precision@5', report.precision, false, 'Benchmark only'),
+        renderMetricRow('MRR', report.mrr, false, 'Benchmark only'),
+        renderMetricRow('Hallucination Rate', report.hallucination, true),
+        renderMetricRow('Final RAG Score', report.rag)
+      ].join('');
+
+      $('val-confidence').textContent = report.retrievalConfidence.toFixed(2);
+      $('bar-confidence').style.width = `${(report.retrievalConfidence * 100).toFixed(0)}%`;
+      $('bar-confidence').style.background = getThemeMetricColor(getScoreTone(report.retrievalConfidence));
+
+      $('val-coverage').textContent = `${(report.coverage * 100).toFixed(0)}%`;
+      $('bar-coverage').style.width = `${(report.coverage * 100).toFixed(0)}%`;
+      $('bar-coverage').style.background = getThemeMetricColor(getScoreTone(report.coverage));
+
+      $('val-citation').textContent = report.citation.toFixed(2);
+      $('bar-citation').style.width = `${(report.citation * 100).toFixed(0)}%`;
+      $('bar-citation').style.background = getThemeMetricColor(getScoreTone(report.citation));
+
+      renderFaithfulness(report);
+      renderChunks(report);
+      renderRadarChart(report);
+    }
+
+    async function init() {
+      updateUserShell();
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const chatId = params.get('chat_id');
+      setChatContextLink(chatId);
+
+      if (!id) {
+        $('questionText').innerHTML = '<span class="evaldoc-error-text">No evaluation ID provided.</span>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/results/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) {
+          window.location.href = '/views/login.html';
+          return;
+        }
+        if (!res.ok) throw new Error('Failed to load evaluation result');
+        const data = await res.json();
+        setChatContextLink(data.chat_id || chatId);
+        renderDashboard(data, id);
+      } catch (error) {
+        console.error(error);
+        $('questionText').innerHTML = `<span class="evaldoc-error-text">Error loading data: ${escapeHtml(error.message)}</span>`;
+        $('answerText').textContent = 'The report could not be rendered.';
+      }
+    }
+
+    document.addEventListener('lms:themechange', () => {
+      if (currentReport) renderRadarChart(currentReport);
+    });
+
+    init();
+  </script>
+</body>
+</html>
+

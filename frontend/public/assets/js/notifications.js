@@ -7,12 +7,12 @@ async function loadNotificationBadge(badgeId) {
     try {
         const token = localStorage.getItem('token');
         if (!token) return;
-        const res = await fetch('/api/lms/notifications?unread=true', {
+        const res = await fetch('/api/notifications/', {
             headers: { Authorization: 'Bearer ' + token }
         });
         if (!res.ok) return;
         const data = await res.json();
-        const count = Array.isArray(data) ? data.filter(n => !n.read).length : 0;
+        const count = Array.isArray(data) ? data.filter(n => !n.is_read).length : 0;
         const el = document.getElementById(badgeId);
         if (el) {
             el.textContent = count;

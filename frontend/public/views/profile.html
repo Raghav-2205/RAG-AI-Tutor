@@ -1,503 +1,223 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Profile & Settings — RAG AI Tutor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <script src="/assets/js/config.js?v=7"></script>
-    <script src="/assets/js/auth.js?v=7"></script>
-    <style>
-        :root {
-            --bg-primary:   #0a0e27;
-            --bg-secondary: #151932;
-            --bg-card:      #1a1f3a;
-            --bg-card2:     #0d112d;
-            --accent:       #00ffcc;
-            --accent-glow:  #00d4ff;
-            --text-primary: #ffffff;
-            --text-muted:   #b8c5d6;
-            --danger:       #ff4444;
-            --warning:      #f59e0b;
-            --success:      #00ffcc;
-            --border:       rgba(0, 255, 204, 0.2);
-            --border-dim:   rgba(0, 255, 204, 0.08);
-            --radius:       14px;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-        }
-
-        /* ── Sidebar ── */
-        .sidebar {
-            width: 240px; min-height: 100vh;
-            background: rgba(13, 17, 45, 0.95);
-            border-right: 1px solid var(--border);
-            display: flex; flex-direction: column;
-            padding: 24px 0; flex-shrink: 0;
-            position: sticky; top: 0; height: 100vh;
-            backdrop-filter: blur(10px);
-        }
-        .sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 0 20px 24px; border-bottom: 1px solid var(--border-dim); }
-        .sidebar-logo .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent-glow)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-        .sidebar-logo span { font-weight: 700; font-size: 15px; color: var(--accent); letter-spacing: -0.3px; }
-        .nav-section { padding: 20px 12px 8px; }
-        .nav-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 0 8px; margin-bottom: 8px; }
-        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 25px; color: var(--text-muted); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; transition: all 0.3s ease; margin-bottom: 2px; border: 1px solid transparent; }
-        .nav-item:hover { background: rgba(0,255,204,0.08); color: var(--accent); border-color: var(--border-dim); }
-        .nav-item.active { background: rgba(0,255,204,0.12); color: var(--accent); border-color: var(--border); box-shadow: 0 0 12px rgba(0,255,204,0.1); }
-        .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-        .sidebar-footer { margin-top: auto; padding: 16px 20px; }
-        .user-info { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border-radius: 12px; padding: 10px 12px; border: 1px solid var(--border-dim); }
-        .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-glow)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; color: var(--bg-primary); }
-        .user-name { font-size: 13px; font-weight: 600; }
-        .user-level { font-size: 11px; color: var(--text-muted); }
-
-        /* ── Main ── */
-        .main { flex: 1; overflow-y: auto; padding: 32px; max-width: 860px; }
-        .page-header { margin-bottom: 28px; }
-        .page-header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--accent), var(--accent-glow)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .page-header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
-
-        /* ── Card ── */
-        .card { background: rgba(26,31,58,0.98); border: 1px solid var(--border-dim); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; backdrop-filter: blur(10px); transition: border-color 0.3s; }
-        .card:hover { border-color: var(--border); }
-        .card-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
-        .card-title span { color: var(--accent); }
-
-        /* ── Profile Avatar ── */
-        .profile-hero { display: flex; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-dim); margin-bottom: 20px; }
-        .profile-avatar-lg { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-glow)); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; color: var(--bg-primary); box-shadow: 0 0 24px rgba(0,255,204,0.3); flex-shrink: 0; }
-        .profile-info h2 { font-size: 20px; font-weight: 700; }
-        .profile-info p { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
-        .level-badge { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; background: rgba(0,255,204,0.12); color: var(--accent); border: 1px solid var(--border); }
-
-        /* ── Form ── */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .form-group { display: flex; flex-direction: column; gap: 6px; }
-        .form-group.full { grid-column: 1 / -1; }
-        .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-input, .form-select {
-            padding: 10px 14px; border-radius: 10px;
-            border: 1px solid var(--border-dim);
-            background: rgba(10,14,39,0.8);
-            color: var(--text-primary);
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-        .form-input:focus, .form-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,255,204,0.1); }
-        .form-input:disabled { opacity: 0.5; cursor: not-allowed; }
-        .form-select option { background: var(--bg-card); }
-
-        /* ── Toggle ── */
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-dim); }
-        .toggle-row:last-child { border-bottom: none; }
-        .toggle-info .toggle-title { font-size: 14px; font-weight: 500; }
-        .toggle-info .toggle-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-        .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-        .toggle input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.1); border-radius: 24px; transition: 0.3s; border: 1px solid var(--border-dim); }
-        .toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 2px; bottom: 2px; background: white; border-radius: 50%; transition: 0.3s; }
-        .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
-        .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: var(--bg-primary); }
-
-        /* ── Buttons ── */
-        .btn { padding: 10px 22px; border-radius: 25px; border: none; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600; transition: all 0.3s ease; }
-        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-glow)); color: var(--bg-primary); box-shadow: 0 4px 16px rgba(0,255,204,0.3); }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,255,204,0.4); }
-        .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
-        .btn-danger:hover { background: rgba(255,68,68,0.1); transform: translateY(-1px); }
-        .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-        .btn-ghost:hover { border-color: var(--border); color: var(--text-primary); }
-        .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-
-        /* ── Data Usage ── */
-        .usage-bar-bg { height: 8px; background: rgba(0,255,204,0.08); border-radius: 4px; overflow: hidden; margin-top: 8px; }
-        .usage-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-glow)); transition: width 0.8s ease; }
-        .usage-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 6px; }
-
-        /* ── Danger Zone ── */
-        .danger-card { background: rgba(255,68,68,0.05); border-color: rgba(255,68,68,0.2); }
-        .danger-card:hover { border-color: rgba(255,68,68,0.4); }
-        .danger-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,68,68,0.1); }
-        .danger-item:last-child { border-bottom: none; }
-        .danger-title { font-size: 14px; font-weight: 500; }
-        .danger-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-        /* ── Toast notification ── */
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border); background: rgba(26,31,58,0.98); backdrop-filter: blur(10px); font-size: 14px; font-weight: 500; transform: translateY(60px); opacity: 0; transition: all 0.35s ease; z-index: 1000; display: flex; align-items: center; gap: 8px; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast.success { border-color: var(--accent); color: var(--accent); }
-        .toast.error   { border-color: var(--danger); color: var(--danger); }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.2); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,204,0.4); }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Profile & Settings - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css" />
+  <link rel="stylesheet" href="/assets/css/app-shell.css" />
+  <script src="/assets/js/theme-controls.js"></script>
 </head>
-<body>
-
-<!-- ═══════ SIDEBAR ═══════ -->
-<aside class="sidebar">
-    <div class="sidebar-logo">
-        <div class="logo-icon">🎓</div>
-        <span>RAG AI Tutor</span>
-    </div>
+<body class="page-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
     <nav class="nav-section">
-        <div class="nav-label">Learn</div>
-        <a href="/views/dashboard.html" class="nav-item">
-            <span class="nav-icon">📊</span> Dashboard
-        </a>
-        <a href="/views/subjects.html" class="nav-item">
-            <span class="nav-icon">💬</span> AI Tutor Chat
-        </a>
-        <a href="/views/quiz.html" class="nav-item">
-            <span class="nav-icon">🧠</span> Quiz
-        </a>
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
     </nav>
     <nav class="nav-section">
-        <div class="nav-label">Analytics</div>
-        <a href="/views/evaluation.html" class="nav-item">
-            <span class="nav-icon">📈</span> Evaluation
-        </a>
-        <a href="/views/progress.html" class="nav-item">
-            <span class="nav-icon">📋</span> Progress Report
-        </a>
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+      <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
     </nav>
     <nav class="nav-section">
-        <div class="nav-label">Account</div>
-        <a href="/views/profile.html" class="nav-item active">
-            <span class="nav-icon">👤</span> Profile & Settings
-        </a>
+      <div class="nav-label">Account</div>
+      <a href="/views/profile.html" class="nav-item active"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
     </nav>
     <div class="sidebar-footer">
-        <div class="user-info">
-            <div class="avatar" id="userAvatar">?</div>
-            <div>
-                <div class="user-name" id="userName">Loading...</div>
-                <div class="user-level" id="userLevel">Student</div>
-            </div>
-        </div>
-        <div style="margin-top:10px;">
-            <a href="#" onclick="window.auth.logout()" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
-                <span class="nav-icon">🚪</span> Logout
-            </a>
-        </div>
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
     </div>
-</aside>
-
-<!-- ═══════ MAIN ═══════ -->
-<main class="main">
-    <div class="page-header">
-        <h1>👤 Profile & Settings</h1>
-        <p>Manage your account, preferences, and learning configuration.</p>
-    </div>
-
-    <!-- Profile Card -->
-    <div class="card">
-        <div class="profile-hero">
-            <div class="profile-avatar-lg" id="avatarLg">?</div>
-            <div class="profile-info">
+  </aside>
+  <main class="main">
+    <div class="container profile-page">
+      <div class="page-header profile-page-header">
+        <div>
+          <div class="profile-page-eyebrow"><i class="fa-regular fa-user" aria-hidden="true"></i> Account workspace</div>
+          <h1><i class="fa-regular fa-id-badge" aria-hidden="true"></i> Profile &amp; Settings</h1>
+          <p>Manage your identity, study preferences, security, and stored learning data inside the same dashboard shell.</p>
+        </div>
+        <div class="profile-header-actions">
+          <a href="/views/dashboard.html" class="btn btn-secondary profile-header-link"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard</a>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div class="bento-grid profile-grid">
+        <section class="card col-span-8 profile-hero-card">
+          <div class="profile-hero-surface">
+            <div class="profile-hero-main">
+              <div class="profile-avatar-lg" id="avatarLg">?</div>
+              <div class="profile-identity-copy">
+                <div class="profile-kicker">Learner Profile</div>
                 <h2 id="profileName">Loading...</h2>
-                <p id="profileEmail">—</p>
-                <span class="level-badge" id="profileLevel">Student</span>
+                <p id="profileEmail">-</p>
+                <div class="profile-badge-row">
+                  <span class="profile-chip" id="profileRoleChip">Student</span>
+                  <span class="profile-chip profile-chip-soft" id="profileLevelChip">Undergraduate</span>
+                  <span class="profile-chip profile-chip-soft" id="profileSubjectChip">General</span>
+                </div>
+              </div>
             </div>
-        </div>
-
-        <div class="card-title"><span>✏️</span> Edit Profile</div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label class="form-label">Full Name</label>
-                <input id="inputName" class="form-input" type="text" placeholder="Your name" />
+            <div class="profile-stat-strip">
+              <div class="profile-stat-block"><div class="profile-stat-label">Profile completeness</div><div class="profile-stat-value" id="profileCompleteness">0%</div></div>
+              <div class="profile-stat-block"><div class="profile-stat-label">Preferences enabled</div><div class="profile-stat-value" id="preferenceCount">0</div></div>
+              <div class="profile-stat-block"><div class="profile-stat-label">Documents stored</div><div class="profile-stat-value" id="usageDocCountHero">0</div></div>
             </div>
-            <div class="form-group">
-                <label class="form-label">Email</label>
-                <input id="inputEmail" class="form-input" type="email" placeholder="email@example.com" disabled />
-            </div>
-            <div class="form-group">
-                <label class="form-label">Education Level</label>
-                <select id="inputLevel" class="form-select">
-                    <option value="high_school">High School</option>
-                    <option value="undergraduate">Undergraduate</option>
-                    <option value="postgraduate">Postgraduate</option>
-                    <option value="professional">Professional</option>
-                    <option value="researcher">Researcher</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Primary Subject Area</label>
-                <select id="inputSubject" class="form-select">
-                    <option value="general">General</option>
-                    <option value="computer_science">Computer Science</option>
-                    <option value="mathematics">Mathematics</option>
-                    <option value="physics">Physics</option>
-                    <option value="biology">Biology</option>
-                    <option value="chemistry">Chemistry</option>
-                    <option value="history">History</option>
-                    <option value="literature">Literature</option>
-                    <option value="engineering">Engineering</option>
-                    <option value="economics">Economics</option>
-                </select>
-            </div>
-        </div>
-        <div class="btn-row">
-            <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
-        </div>
+          </div>
+        </section>
+        <section class="card col-span-4">
+          <div class="card-header"><h3 class="card-title"><i class="fa-regular fa-circle-check" aria-hidden="true"></i> Account Snapshot</h3><span class="card-badge">Live</span></div>
+          <div class="profile-summary-list">
+            <div class="profile-summary-item"><div class="profile-summary-icon"><i class="fa-regular fa-envelope" aria-hidden="true"></i></div><div class="profile-summary-copy"><div class="profile-summary-label">Email</div><div class="profile-summary-value" id="summaryEmail">-</div></div></div>
+            <div class="profile-summary-item"><div class="profile-summary-icon"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i></div><div class="profile-summary-copy"><div class="profile-summary-label">Learning level</div><div class="profile-summary-value" id="summaryLevel">-</div></div></div>
+            <div class="profile-summary-item"><div class="profile-summary-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></div><div class="profile-summary-copy"><div class="profile-summary-label">Primary subject</div><div class="profile-summary-value" id="summarySubject">-</div></div></div>
+            <div class="profile-summary-item"><div class="profile-summary-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></div><div class="profile-summary-copy"><div class="profile-summary-label">Storage usage</div><div class="profile-summary-value" id="summaryStorage">Calculating...</div></div></div>
+          </div>
+        </section>
+        <section class="card col-span-8">
+          <div class="card-header"><h3 class="card-title"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Edit Profile</h3><span class="card-badge">Identity</span></div>
+          <div class="profile-section-intro"><p>Keep your study profile current so recommendations, prompts, and class experiences stay relevant.</p></div>
+          <div class="profile-field-grid">
+            <label class="profile-field"><span class="profile-field-label">Full Name</span><input id="inputName" class="theme-input" type="text" placeholder="Your name" /></label>
+            <label class="profile-field"><span class="profile-field-label">Email</span><input id="inputEmail" class="theme-input" type="email" placeholder="email@example.com" disabled /></label>
+            <label class="profile-field"><span class="profile-field-label">Education Level</span><select id="inputLevel" class="theme-input"><option value="high_school">High School</option><option value="undergraduate">Undergraduate</option><option value="postgraduate">Postgraduate</option><option value="professional">Professional</option><option value="researcher">Researcher</option></select></label>
+            <label class="profile-field"><span class="profile-field-label">Primary Subject Area</span><select id="inputSubject" class="theme-input"><option value="general">General</option><option value="computer_science">Computer Science</option><option value="mathematics">Mathematics</option><option value="physics">Physics</option><option value="biology">Biology</option><option value="chemistry">Chemistry</option><option value="history">History</option><option value="literature">Literature</option><option value="engineering">Engineering</option><option value="economics">Economics</option></select></label>
+          </div>
+          <div class="profile-actions-row"><button class="btn btn-primary" onclick="saveProfile()"><i class="fa-regular fa-floppy-disk" aria-hidden="true"></i> Save Changes</button></div>
+        </section>
+        <section class="card col-span-4">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Learning Preferences</h3><span class="card-badge">Behavior</span></div>
+          <div class="profile-preference-list">
+            <div class="profile-toggle-row"><div class="profile-toggle-copy"><div class="profile-toggle-title">Strict Validation Mode</div><div class="profile-toggle-desc">Reject low-faithfulness answers.</div></div><label class="profile-switch"><input type="checkbox" id="toggleStrict" /><span class="profile-switch-slider"></span></label></div>
+            <div class="profile-toggle-row"><div class="profile-toggle-copy"><div class="profile-toggle-title">Show Source Citations</div><div class="profile-toggle-desc">Always display supporting sources.</div></div><label class="profile-switch"><input type="checkbox" id="toggleCitations" /><span class="profile-switch-slider"></span></label></div>
+            <div class="profile-toggle-row"><div class="profile-toggle-copy"><div class="profile-toggle-title">Stream Responses</div><div class="profile-toggle-desc">Render answers as they generate.</div></div><label class="profile-switch"><input type="checkbox" id="toggleStream" /><span class="profile-switch-slider"></span></label></div>
+            <div class="profile-toggle-row"><div class="profile-toggle-copy"><div class="profile-toggle-title">Quiz Auto-Submit</div><div class="profile-toggle-desc">Submit automatically when time ends.</div></div><label class="profile-switch"><input type="checkbox" id="toggleAutoSubmit" /><span class="profile-switch-slider"></span></label></div>
+          </div>
+          <div class="profile-actions-row"><button class="btn btn-primary" onclick="savePreferences()"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Save Preferences</button></div>
+        </section>
+        <section class="card col-span-6">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-shield-heart" aria-hidden="true"></i> Security</h3><span class="card-badge">Password</span></div>
+          <div class="profile-section-intro"><p>Use a strong password and update it regularly to keep your account protected.</p></div>
+          <div class="profile-field-grid profile-field-grid-single">
+            <label class="profile-field"><span class="profile-field-label">Current Password</span><input id="inputCurrentPw" class="theme-input" type="password" placeholder="Current password" /></label>
+            <label class="profile-field"><span class="profile-field-label">New Password</span><input id="inputNewPw" class="theme-input" type="password" placeholder="New password" /></label>
+            <label class="profile-field"><span class="profile-field-label">Confirm New Password</span><input id="inputConfirmPw" class="theme-input" type="password" placeholder="Confirm password" /></label>
+          </div>
+          <div class="profile-actions-row"><button class="btn btn-secondary" onclick="changePassword()"><i class="fa-solid fa-key" aria-hidden="true"></i> Update Password</button></div>
+        </section>
+        <section class="card col-span-6">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-database" aria-hidden="true"></i> Storage &amp; Data</h3><span class="card-badge">Usage</span></div>
+          <div class="profile-storage-panel">
+            <div class="profile-storage-head"><div><div class="profile-storage-title">Indexed Documents</div><div class="profile-storage-copy">Monitor how much of your document capacity is currently in use.</div></div><div class="profile-storage-count" id="usageDocCount">-</div></div>
+            <div class="profile-usage-bar"><div class="profile-usage-bar-fill" id="usageBar" style="width:0%"></div></div>
+            <div class="profile-usage-meta"><span id="usageLeft">Calculating...</span><span>20 MB max per file</span></div>
+            <div class="profile-link-row"><a href="/views/subjects.html" class="btn btn-secondary"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Manage Documents</a><a href="/views/dashboard.html" class="btn btn-secondary"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> View Dashboard</a></div>
+          </div>
+        </section>
+        <section class="card col-span-12 profile-danger-card">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Danger Zone</h3><span class="card-badge">Irreversible</span></div>
+          <div class="profile-danger-list">
+            <div class="profile-danger-item"><div class="profile-danger-copy"><div class="profile-danger-title">Clear Chat History</div><div class="profile-danger-desc">Delete all chat sessions and remove previous conversation history permanently.</div></div><button class="btn btn-danger" onclick="confirmAction('clearChats','Delete all chat history? This cannot be undone.')">Clear Chats</button></div>
+            <div class="profile-danger-item"><div class="profile-danger-copy"><div class="profile-danger-title">Delete All Documents</div><div class="profile-danger-desc">Remove uploaded files and related indexes from your account storage.</div></div><button class="btn btn-danger" onclick="confirmAction('clearDocs','Delete all documents? This cannot be undone.')">Delete Documents</button></div>
+          </div>
+        </section>
+      </div>
     </div>
-
-    <!-- Notifications & Learning Preferences -->
-    <div class="card">
-        <div class="card-title"><span>⚙️</span> Learning Preferences</div>
-        <div class="toggle-row">
-            <div class="toggle-info">
-                <div class="toggle-title">Strict Validation Mode</div>
-                <div class="toggle-desc">Reject AI answers with low faithfulness scores</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggleStrict" />
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="toggle-row">
-            <div class="toggle-info">
-                <div class="toggle-title">Show Source Citations</div>
-                <div class="toggle-desc">Display source filename and page in every answer</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggleCitations" checked />
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="toggle-row">
-            <div class="toggle-info">
-                <div class="toggle-title">Stream Responses</div>
-                <div class="toggle-desc">Show tokens as they are generated (token-by-token)</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggleStream" checked />
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="toggle-row">
-            <div class="toggle-info">
-                <div class="toggle-title">Quiz Auto-Submit</div>
-                <div class="toggle-desc">Auto-submit quiz when timer runs out</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggleAutoSubmit" />
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="btn-row">
-            <button class="btn btn-primary" onclick="savePreferences()">💾 Save Preferences</button>
-        </div>
-    </div>
-
-    <!-- Change Password -->
-    <div class="card">
-        <div class="card-title"><span>🔒</span> Change Password</div>
-        <div class="form-grid">
-            <div class="form-group full">
-                <label class="form-label">Current Password</label>
-                <input id="inputCurrentPw" class="form-input" type="password" placeholder="••••••••" />
-            </div>
-            <div class="form-group">
-                <label class="form-label">New Password</label>
-                <input id="inputNewPw" class="form-input" type="password" placeholder="••••••••" />
-            </div>
-            <div class="form-group">
-                <label class="form-label">Confirm New Password</label>
-                <input id="inputConfirmPw" class="form-input" type="password" placeholder="••••••••" />
-            </div>
-        </div>
-        <div class="btn-row">
-            <button class="btn btn-ghost" onclick="changePassword()">🔑 Update Password</button>
-        </div>
-    </div>
-
-    <!-- Storage Usage -->
-    <div class="card">
-        <div class="card-title"><span>🗄️</span> Storage & Data</div>
-        <div style="margin-bottom:16px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
-                <span>Documents Indexed</span>
-                <span id="usageDocCount" style="color:var(--accent);font-weight:600;">—</span>
-            </div>
-            <div class="usage-bar-bg">
-                <div class="usage-bar-fill" id="usageBar" style="width:0%"></div>
-            </div>
-            <div class="usage-label">
-                <span id="usageLeft">Calculating...</span>
-                <span>20 MB max per file</span>
-            </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <a href="/views/subjects.html" class="btn btn-ghost" style="text-decoration:none;font-size:13px;">📄 Manage Documents</a>
-            <a href="/views/dashboard.html" class="btn btn-ghost" style="text-decoration:none;font-size:13px;">📊 View Dashboard</a>
-        </div>
-    </div>
-
-    <!-- Danger Zone -->
-    <div class="card danger-card">
-        <div class="card-title" style="color:var(--danger);"><span>⚠️</span> Danger Zone</div>
-        <div class="danger-item">
-            <div>
-                <div class="danger-title">Clear Chat History</div>
-                <div class="danger-desc">Delete all your chat sessions permanently</div>
-            </div>
-            <button class="btn btn-danger" onclick="confirmAction('clearChats', 'Delete all chat history? This cannot be undone.')">Clear Chats</button>
-        </div>
-        <div class="danger-item">
-            <div>
-                <div class="danger-title">Delete All Documents</div>
-                <div class="danger-desc">Remove all uploaded documents and their indexes</div>
-            </div>
-            <button class="btn btn-danger" onclick="confirmAction('clearDocs', 'Delete all documents? This cannot be undone.')">Delete Docs</button>
-        </div>
-    </div>
-</main>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<script>
-    const API = window.config?.apiBase || 'http://127.0.0.1:8002/api';
-
-    if (!window.auth?.token) window.location.href = '/views/login.html';
-
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const name = user.name || 'Student';
-    const email = user.email || '';
-    const level = user.level || 'undergraduate';
-
-    // Populate
-    document.getElementById('userName').textContent = name;
-    document.getElementById('userLevel').textContent = level.charAt(0).toUpperCase() + level.slice(1);
-    document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
-    document.getElementById('avatarLg').textContent = name.charAt(0).toUpperCase();
-    document.getElementById('profileName').textContent = name;
-    document.getElementById('profileEmail').textContent = email;
-    document.getElementById('profileLevel').textContent = level.replace('_', ' ');
-    document.getElementById('inputName').value = name;
-    document.getElementById('inputEmail').value = email;
-    document.getElementById('inputLevel').value = level;
-
-    // Load preferences from localStorage
-    const prefs = JSON.parse(localStorage.getItem('rag_prefs') || '{}');
-    document.getElementById('toggleStrict').checked   = prefs.strict_validation ?? false;
-    document.getElementById('toggleCitations').checked = prefs.show_citations ?? true;
-    document.getElementById('toggleStream').checked   = prefs.stream_responses ?? true;
-    document.getElementById('toggleAutoSubmit').checked = prefs.quiz_auto_submit ?? false;
-
-    // Load doc count for storage section
+  </main>
+  <div class="profile-toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const API = window.config?.apiBase || '/api';
+    const token = window.auth?.token || localStorage.getItem('token');
+    if (!token) window.location.href = '/views/login.html';
+    const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    let user = JSON.parse(localStorage.getItem('user') || '{}');
+    const $ = (id) => document.getElementById(id);
+    const fmt = (v) => String(v || '').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+    const initial = (v) => (String(v || 'U').trim().charAt(0) || 'U').toUpperCase();
+    function logoutUser() { if (window.auth?.logout) return window.auth.logout(); localStorage.clear(); window.location.href = '/views/login.html'; }
+    function showToast(message, type = 'success') { const t = $('toast'); t.textContent = message; t.className = `profile-toast show ${type}`; clearTimeout(showToast.timer); showToast.timer = setTimeout(() => t.className = 'profile-toast', 3200); }
+    function updateIdentityUI() {
+      const name = user.name || 'Student';
+      const email = user.email || 'No email connected';
+      const role = fmt(user.role || 'student');
+      const level = fmt(user.level || 'undergraduate');
+      const subject = fmt(user.primary_subject || 'general');
+      const fields = [user.name, user.email, user.level, user.primary_subject];
+      $('userName').textContent = name; $('userLevel').textContent = role; $('userAvatar').textContent = initial(name);
+      $('avatarLg').textContent = initial(name); $('profileName').textContent = name; $('profileEmail').textContent = email;
+      $('profileRoleChip').textContent = role; $('profileLevelChip').textContent = level; $('profileSubjectChip').textContent = subject;
+      $('summaryEmail').textContent = email; $('summaryLevel').textContent = level; $('summarySubject').textContent = subject;
+      $('profileCompleteness').textContent = `${Math.round((fields.filter(Boolean).length / fields.length) * 100)}%`;
+      $('inputName').value = user.name || ''; $('inputEmail').value = user.email || ''; $('inputLevel').value = user.level || 'undergraduate'; $('inputSubject').value = user.primary_subject || 'general';
+    }
+    function updatePreferenceUI() {
+      const prefs = JSON.parse(localStorage.getItem('rag_prefs') || '{}');
+      $('toggleStrict').checked = prefs.strict_validation ?? false;
+      $('toggleCitations').checked = prefs.show_citations ?? true;
+      $('toggleStream').checked = prefs.stream_responses ?? true;
+      $('toggleAutoSubmit').checked = prefs.quiz_auto_submit ?? false;
+      $('preferenceCount').textContent = String([prefs.strict_validation ?? false, prefs.show_citations ?? true, prefs.stream_responses ?? true, prefs.quiz_auto_submit ?? false].filter(Boolean).length);
+    }
     async function loadUsage() {
-        const res = await fetch(`${API}/upload/`, { headers: { 'Authorization': `Bearer ${window.auth.token}` } });
+      try {
+        const res = await fetch(`${API}/upload/`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) return;
-        const docs = await res.json();
-        const count = docs.length;
+        const payload = await res.json();
+        const docs = Array.isArray(payload) ? payload : (payload.documents || payload.data || []);
+        const count = Array.isArray(docs) ? docs.length : 0;
         const pct = Math.min(Math.round((count / 20) * 100), 100);
-        document.getElementById('usageDocCount').textContent = `${count} document${count !== 1 ? 's' : ''}`;
-        document.getElementById('usageBar').style.width = `${pct}%`;
-        document.getElementById('usageLeft').textContent = `${count} of 20 document slots used`;
+        $('usageDocCount').textContent = `${count} document${count === 1 ? '' : 's'}`; $('usageDocCountHero').textContent = String(count);
+        $('usageBar').style.width = `${pct}%`; $('usageLeft').textContent = `${count} of 20 document slots used`; $('summaryStorage').textContent = `${pct}% capacity used`;
+      } catch (e) { console.error(e); }
     }
-    loadUsage();
-
-    // ── Toast ──
-    function showToast(msg, type='success') {
-        const t = document.getElementById('toast');
-        t.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
-        t.className = `toast ${type} show`;
-        setTimeout(() => { t.className = 'toast'; }, 3000);
-    }
-
-    // ── Save Profile ──
     function saveProfile() {
-        const newName  = document.getElementById('inputName').value.trim();
-        const newLevel = document.getElementById('inputLevel').value;
-        const newSubject = document.getElementById('inputSubject').value;
-        if (!newName) return showToast('Name cannot be empty', 'error');
-
-        const updated = { ...user, name: newName, level: newLevel, primary_subject: newSubject };
-        localStorage.setItem('user', JSON.stringify(updated));
-
-        // Update UI immediately
-        document.getElementById('userName').textContent = newName;
-        document.getElementById('profileName').textContent = newName;
-        document.getElementById('profileLevel').textContent = newLevel.replace('_', ' ');
-        document.getElementById('userAvatar').textContent = newName.charAt(0).toUpperCase();
-        document.getElementById('avatarLg').textContent = newName.charAt(0).toUpperCase();
-
-        showToast('Profile saved!');
+      const name = $('inputName').value.trim(); const level = $('inputLevel').value; const subject = $('inputSubject').value;
+      if (!name) return showToast('Name cannot be empty.', 'error');
+      user = { ...user, name, level, primary_subject: subject }; localStorage.setItem('user', JSON.stringify(user)); updateIdentityUI(); showToast('Profile saved.');
     }
-
-    // ── Save Preferences ──
     function savePreferences() {
-        const prefs = {
-            strict_validation: document.getElementById('toggleStrict').checked,
-            show_citations:    document.getElementById('toggleCitations').checked,
-            stream_responses:  document.getElementById('toggleStream').checked,
-            quiz_auto_submit:  document.getElementById('toggleAutoSubmit').checked,
-        };
-        localStorage.setItem('rag_prefs', JSON.stringify(prefs));
-        showToast('Preferences saved!');
+      const prefs = { strict_validation: $('toggleStrict').checked, show_citations: $('toggleCitations').checked, stream_responses: $('toggleStream').checked, quiz_auto_submit: $('toggleAutoSubmit').checked };
+      localStorage.setItem('rag_prefs', JSON.stringify(prefs)); updatePreferenceUI(); showToast('Preferences saved.');
     }
-
-    // ── Change Password ──
     async function changePassword() {
-        const curr    = document.getElementById('inputCurrentPw').value;
-        const newPw   = document.getElementById('inputNewPw').value;
-        const confirm = document.getElementById('inputConfirmPw').value;
-        if (!curr || !newPw) return showToast('Fill in all password fields', 'error');
-        if (newPw !== confirm) return showToast('New passwords do not match', 'error');
-        if (newPw.length < 6) return showToast('Password must be at least 6 characters', 'error');
-
-        try {
-            const res = await fetch(`${API}/auth/change-password`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${window.auth.token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ current_password: curr, new_password: newPw })
-            });
-            if (res.ok) {
-                showToast('Password updated!');
-                document.getElementById('inputCurrentPw').value = '';
-                document.getElementById('inputNewPw').value = '';
-                document.getElementById('inputConfirmPw').value = '';
-            } else {
-                const err = await res.json();
-                showToast(err.detail || 'Failed to update password', 'error');
-            }
-        } catch { showToast('Network error', 'error'); }
+      const current_password = $('inputCurrentPw').value, new_password = $('inputNewPw').value, confirm = $('inputConfirmPw').value;
+      if (!current_password || !new_password || !confirm) return showToast('Fill in all password fields.', 'error');
+      if (new_password !== confirm) return showToast('New passwords do not match.', 'error');
+      if (new_password.length < 6) return showToast('Password must be at least 6 characters.', 'error');
+      try {
+        const res = await fetch(`${API}/auth/change-password`, { method: 'POST', headers: authHeaders, body: JSON.stringify({ current_password, new_password }) });
+        if (!res.ok) { const err = await res.json().catch(() => ({})); return showToast(err.detail || 'Failed to update password.', 'error'); }
+        $('inputCurrentPw').value = ''; $('inputNewPw').value = ''; $('inputConfirmPw').value = ''; showToast('Password updated.');
+      } catch (e) { console.error(e); showToast('Network error while updating password.', 'error'); }
     }
-
-    // ── Danger Actions ──
     async function confirmAction(action, message) {
-        if (!confirm(message)) return;
-        try {
-            if (action === 'clearChats') {
-                const res = await fetch(`${API}/chat/sessions/all`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${window.auth.token}` }
-                });
-                if (res.ok) showToast('Chat history cleared');
-                else showToast('Failed to clear chats', 'error');
-            } else if (action === 'clearDocs') {
-                const res = await fetch(`${API}/upload/all`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${window.auth.token}` }
-                });
-                if (res.ok) { showToast('Documents deleted'); loadUsage(); }
-                else showToast('Failed to delete docs', 'error');
-            }
-        } catch { showToast('Network error', 'error'); }
+      if (!window.confirm(message)) return;
+      try {
+        if (action === 'clearChats') {
+          const res = await fetch(`${API}/chat/sessions/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          return res.ok ? showToast('Chat history cleared.') : showToast('Failed to clear chats.', 'error');
+        }
+        if (action === 'clearDocs') {
+          const res = await fetch(`${API}/upload/all`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) return showToast('Failed to delete documents.', 'error');
+          await loadUsage(); showToast('Documents deleted.');
+        }
+      } catch (e) { console.error(e); showToast('Network error.', 'error'); }
     }
-</script>
+    updateIdentityUI(); updatePreferenceUI(); loadUsage();
+  </script>
 </body>
 </html>
+
