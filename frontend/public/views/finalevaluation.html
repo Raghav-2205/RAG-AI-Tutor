@@ -16,6 +16,7 @@
 <body class="page-layout">
   <aside class="sidebar">
     <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <div class="sidebar-scroll">
     <nav class="nav-section">
       <div class="nav-label">Learn</div>
       <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
@@ -36,6 +37,7 @@
       <div class="nav-label">Account</div>
       <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
     </nav>
+    </div>
     <div class="sidebar-footer">
       <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
       <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
@@ -254,6 +256,20 @@
       return 'bad';
     }
 
+    function isGenerationErrorLog(log) {
+      const sourceMode = String(log?.answer_source_mode || '').trim().toLowerCase();
+      if (sourceMode === 'error') return true;
+      if (normalizeStatus(log?.validation_status) !== 'ERROR') return false;
+      const answer = String(log?.answer || '').trim().toLowerCase();
+      const reason = String(log?.reason || '').trim().toLowerCase();
+      return answer.startsWith('llm async request failed')
+        || answer.startsWith('llm request failed')
+        || answer.startsWith('llm api error')
+        || answer.startsWith('error: no gemini api key')
+        || reason.includes('answer generation failed')
+        || reason.includes('llm ');
+    }
+
     async function authFetch(url, options = {}) {
       const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
       const res = await fetch(url, { ...options, headers });
@@ -349,18 +365,19 @@
     }
 
     function updateMetricTrends(logs) {
+      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log) && !['ERROR', 'INSUFFICIENT_CONTEXT'].includes(normalizeStatus(log.validation_status)));
       const benchmarkLogs = logs.filter((log) => getEvaluationSource(log) === 'benchmark');
-      renderTrend('trendFaithfulness', computeMetricTrend(logs, (log) => log.faithfulness_score));
-      renderTrend('trendHallucination', computeMetricTrend(logs, (log) => log.hallucination_rate), true);
-      renderTrend('trendBert', computeMetricTrend(logs, (log) => log.bert_score));
+      renderTrend('trendFaithfulness', computeMetricTrend(qualityLogs, (log) => log.faithfulness_score));
+      renderTrend('trendHallucination', computeMetricTrend(qualityLogs, (log) => log.hallucination_rate), true);
+      renderTrend('trendBert', computeMetricTrend(qualityLogs, (log) => log.bert_score));
       if (benchmarkLogs.length) renderTrend('trendRecall', computeMetricTrend(benchmarkLogs, (log) => log.recall_at_5));
       else {
         $('trendRecall').className = 'evaluation-metric-trend flat';
         $('trendRecall').textContent = 'Benchmark not run';
       }
-      renderTrend('trendCitation', computeMetricTrend(logs, (log) => log.citation_alignment_score));
-      renderTrend('trendRelevance', computeMetricTrend(logs, (log) => log.answer_relevance));
-      renderTrend('trendRag', computeMetricTrend(logs, (log) => log.final_rag_score));
+      renderTrend('trendCitation', computeMetricTrend(qualityLogs, (log) => log.citation_alignment_score));
+      renderTrend('trendRelevance', computeMetricTrend(qualityLogs, (log) => log.answer_relevance));
+      renderTrend('trendRag', computeMetricTrend(qualityLogs, (log) => log.final_rag_score));
       renderTrend('trendTotal', computeCountTrend(logs), false, true);
     }
 
@@ -406,6 +423,7 @@
       ];
       if (safeNum(data.error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Errors ${safeNum(data.error_count)}</span>`);
       if (safeNum(data.insufficient_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Insufficient ${safeNum(data.insufficient_count)}</span>`);
+      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Generation ${safeNum(data.generation_error_count)}</span>`);
       $('statusBreakdown').innerHTML = parts.join('');
     }
 
@@ -434,7 +452,9 @@
           : '--';
         const source = sourceBadge(getEvaluationSource(log));
         const question = escapeHtml(log.question || 'Untitled question');
+        const generationError = isGenerationErrorLog(log);
         const scoreCell = (value, threshold, inverse = false) => {
+          if (generationError) return '<span class="evaluation-score muted">--</span>';
           const n = safeNum(value);
           return `<span class="evaluation-score ${scoreClass(n, threshold, inverse)}">${n.toFixed(2)}</span>`;
         };

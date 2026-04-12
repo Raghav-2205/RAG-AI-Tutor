@@ -2,6 +2,8 @@
 import re
 from rank_bm25 import BM25Okapi
 from typing import List, Dict, Any
+from collections import Counter
+from backend.config import settings
 from backend.core.embedding_service import embedding_service
 from backend.vector_db import query_user_collection, get_all_chunks
 
@@ -9,15 +11,21 @@ from sentence_transformers import CrossEncoder
 
 class HybridSearchEngine:
     def __init__(self):
-        self.bm25_weight = 0.5
-        self.dense_weight = 0.5
+        self.bm25_weight = settings.bm25_weight
+        self.dense_weight = settings.dense_weight
         self.system_id = "global"  # Matches scripts/index_data_folder.py GLOBAL_USER_ID
         self.cross_encoder = None
         self.use_reranker = None
+        self.stopwords = {
+            "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+            "how", "in", "is", "it", "of", "on", "or", "that", "the", "to",
+            "what", "when", "where", "which", "who", "why", "with",
+        }
 
     @staticmethod
     def _tokenize(text: str) -> List[str]:
-        return re.findall(r"[a-z0-9_]+", str(text).lower())
+        tokens = re.findall(r"[a-z0-9_]+", str(text).lower())
+        return [token for token in tokens if len(token) > 1]
 
     @staticmethod
     def _hit_key(hit: Dict[str, Any]) -> str:
@@ -28,6 +36,24 @@ class HybridSearchEngine:
             or hit.get("text")
             or ""
         )
+
+    @staticmethod
+    def _dense_similarity(distance: Any) -> float:
+        try:
+            numeric = float(distance)
+        except (TypeError, ValueError):
+            return 0.0
+
+        if numeric < 0:
+            return 0.0
+        if numeric <= 1.0:
+            return max(0.0, 1.0 - numeric)
+        return 1.0 / (1.0 + numeric)
+
+    def _query_keywords(self, query: str) -> List[str]:
+        tokens = self._tokenize(query)
+        keywords = [token for token in tokens if token not in self.stopwords]
+        return keywords or tokens
 
     def _ensure_reranker(self):
         if self.use_reranker is not None:
@@ -137,14 +163,21 @@ class HybridSearchEngine:
         
         corpus = [d["text"] for d in documents]
         tokenized_corpus = [self._tokenize(doc) for doc in corpus]
-        tokenized_query = self._tokenize(query)
+        tokenized_query = self._query_keywords(query)
         
         bm25 = BM25Okapi(tokenized_corpus)
         scores = bm25.get_scores(tokenized_query)
         
         results = []
+        positive_scores = [score for score in scores if score > 0]
+        min_score = 0.0
+        if positive_scores:
+            ranked_scores = sorted(positive_scores, reverse=True)
+            pivot_index = min(len(ranked_scores) - 1, max(top_k * 2, 3) - 1)
+            min_score = max(0.05, ranked_scores[pivot_index] * 0.15)
+
         for i, score in enumerate(scores):
-            if score > 0.1: # Only keep somewhat relevant matches
+            if score >= min_score:
                 results.append({
                     "id": documents[i].get("id"),
                     "text": documents[i]["text"],
@@ -159,6 +192,7 @@ class HybridSearchEngine:
         k = 60
         scores = {}
         chunk_map = {}
+        source_counter = Counter()
 
         # Process BM25
         for rank, hit in enumerate(bm25_hits):
@@ -167,6 +201,7 @@ class HybridSearchEngine:
                 continue
             chunk_map[key] = hit
             scores[key] = scores.get(key, 0) + (self.bm25_weight / (k + rank + 1))
+            source_counter[str((hit.get("metadata") or {}).get("source") or "")] += 1
 
         # Process Dense
         for rank, hit in enumerate(dense_hits):
@@ -175,6 +210,7 @@ class HybridSearchEngine:
                 continue
             chunk_map[key] = hit
             scores[key] = scores.get(key, 0) + (self.dense_weight / (k + rank + 1))
+            source_counter[str((hit.get("metadata") or {}).get("source") or "")] += 1
 
         sorted_keys = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
@@ -182,6 +218,8 @@ class HybridSearchEngine:
         for key in sorted_keys[:top_k]:
             hit = chunk_map[key]
             hit["score"] = scores[key]
+            source_name = str((hit.get("metadata") or {}).get("source") or "")
+            hit["source_frequency"] = source_counter.get(source_name, 0)
             fused_results.append(hit)
             
         return fused_results

@@ -27,6 +27,13 @@ from backend.core.llm_interface import llm_client
 
 logger = logging.getLogger(__name__)
 
+JUDGE_FAILURE_PREFIXES = (
+    "llm async request failed",
+    "llm request failed",
+    "llm api error",
+    "error: no gemini api key",
+)
+
 # ──────────────────────────────────────────────
 #  Singleton embedding model (reused across calls)
 # ──────────────────────────────────────────────
@@ -187,7 +194,17 @@ async def calculate_faithfulness(answer: str, context: str) -> Dict[str, Any]:
         return {
             "faithfulness_score": 0.0,
             "reasoning": "No context provided for faithfulness check.",
-            "unsupported_sentences": []
+            "unsupported_sentences": [],
+            "judge_available": True,
+        }
+
+    answer_text = str(answer or "").strip().lower()
+    if any(answer_text.startswith(prefix) for prefix in JUDGE_FAILURE_PREFIXES):
+        return {
+            "faithfulness_score": 0.0,
+            "reasoning": "Answer generation failed before faithfulness judgment could be computed.",
+            "unsupported_sentences": [],
+            "judge_available": False,
         }
 
     prompt = f"""You are a strict fact-checking judge.
@@ -227,14 +244,16 @@ JSON ONLY. NO MARKDOWN."""
         return {
             "faithfulness_score": float(data.get("score", 0.0)),
             "reasoning": data.get("reasoning", "No reasoning provided"),
-            "unsupported_sentences": data.get("unsupported_sentences", [])
+            "unsupported_sentences": data.get("unsupported_sentences", []),
+            "judge_available": True,
         }
     except Exception as e:
         logger.error(f"Faithfulness check failed: {e}")
         return {
             "faithfulness_score": 0.5,
             "reasoning": f"Evaluation error: {str(e)}",
-            "unsupported_sentences": []
+            "unsupported_sentences": [],
+            "judge_available": False,
         }
 
 
@@ -375,6 +394,10 @@ async def calculate_answer_relevance(question: str, answer: str) -> float:
     LLM-as-Judge: How well does the answer address the question?
     Returns a score from 0.0 to 1.0.
     """
+    answer_text = str(answer or "").strip().lower()
+    if any(answer_text.startswith(prefix) for prefix in JUDGE_FAILURE_PREFIXES):
+        return 0.0
+
     prompt = f"""You are a strict relevance judge.
 Rate how well the ANSWER addresses the QUESTION.
 

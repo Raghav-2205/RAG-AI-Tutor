@@ -26,6 +26,12 @@ THRESHOLDS = {
     "answer_relevance": 0.8,
     "final_rag_score": 0.7,
 }
+GENERATION_FAILURE_PREFIXES = (
+    "llm async request failed",
+    "llm request failed",
+    "llm api error",
+    "error: no gemini api key",
+)
 
 
 def _coerce_float(value: Any) -> float | None:
@@ -41,6 +47,31 @@ def _infer_source(record: Dict[str, Any]) -> str:
     if str(record.get("user_id") or "") == "benchmark_runner":
         return "benchmark"
     return "live"
+
+
+def _is_generation_error(record: Dict[str, Any]) -> bool:
+    source_mode = str(record.get("answer_source_mode") or "").strip().lower()
+    if source_mode == "error":
+        return True
+    if str(record.get("validation_status") or "").upper() != "ERROR":
+        return False
+    answer_text = str(record.get("answer") or "").strip().lower()
+    if any(answer_text.startswith(prefix) for prefix in GENERATION_FAILURE_PREFIXES):
+        return True
+    reason = str(record.get("reason") or "").strip().lower()
+    return "answer generation failed" in reason or "llm " in reason
+
+
+def _quality_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    valid_rows = []
+    for row in rows:
+        if _is_generation_error(row):
+            continue
+        status = str(row.get("validation_status") or "").upper()
+        if status in {"ERROR", "INSUFFICIENT_CONTEXT"}:
+            continue
+        valid_rows.append(row)
+    return valid_rows
 
 
 def _average(rows: List[Dict[str, Any]], field: str) -> float | None:
@@ -91,19 +122,23 @@ async def generate_report(db, period: str = "all") -> Dict[str, Any]:
         normalized_rows.append(normalized)
         if source == "benchmark":
             benchmark_rows.append(normalized)
+    quality_rows = _quality_rows(normalized_rows)
+    generation_error_rows = [row for row in normalized_rows if _is_generation_error(row)]
 
     metrics = {
         "total": len(normalized_rows),
-        "avg_faithfulness": _average(normalized_rows, "faithfulness_score"),
-        "avg_hallucination": _average(normalized_rows, "hallucination_rate"),
-        "avg_bert_score": _average(normalized_rows, "bert_score"),
-        "avg_cosine_similarity": _average(normalized_rows, "cosine_similarity"),
-        "avg_citation_alignment": _average(normalized_rows, "citation_alignment_score"),
-        "avg_answer_relevance": _average(normalized_rows, "answer_relevance"),
+        "answer_quality_count": len(quality_rows),
+        "generation_error_count": len(generation_error_rows),
+        "avg_faithfulness": _average(quality_rows, "faithfulness_score"),
+        "avg_hallucination": _average(quality_rows, "hallucination_rate"),
+        "avg_bert_score": _average(quality_rows, "bert_score"),
+        "avg_cosine_similarity": _average(quality_rows, "cosine_similarity"),
+        "avg_citation_alignment": _average(quality_rows, "citation_alignment_score"),
+        "avg_answer_relevance": _average(quality_rows, "answer_relevance"),
         "avg_recall_at_5": _average(benchmark_rows, "recall_at_5"),
         "avg_precision_at_5": _average(benchmark_rows, "precision_at_5"),
         "avg_mrr": _average(benchmark_rows, "mrr"),
-        "avg_final_rag_score": _average(normalized_rows, "effective_final_rag_score"),
+        "avg_final_rag_score": _average(quality_rows, "effective_final_rag_score"),
         "verified": sum(1 for row in normalized_rows if str(row.get("validation_status") or "").upper() == "VERIFIED"),
         "warnings": sum(1 for row in normalized_rows if str(row.get("validation_status") or "").upper() == "WARNING"),
         "rejected": sum(1 for row in normalized_rows if str(row.get("validation_status") or "").upper() == "REJECTED"),
@@ -123,6 +158,19 @@ async def generate_report(db, period: str = "all") -> Dict[str, Any]:
     avg_citation = metrics.get("avg_citation_alignment")
     avg_relevance = metrics.get("avg_answer_relevance")
     avg_final = metrics.get("avg_final_rag_score")
+    generation_error_count = int(metrics.get("generation_error_count") or 0)
+    answer_quality_count = int(metrics.get("answer_quality_count") or 0)
+
+    if answer_quality_count == 0 and generation_error_count > 0:
+        issues.append({
+            "metric": "Generation Availability",
+            "value": generation_error_count,
+            "threshold": 0,
+            "severity": "HIGH"
+        })
+        recommendations.append(
+            "Restore LLM/API connectivity before using answer-quality metrics as a judgment of RAG quality."
+        )
 
     # Recall@5 issues → Retrieval problems
     if metrics.get("benchmark_available") and avg_recall is not None and avg_recall < THRESHOLDS["recall_at_5"]:
@@ -198,12 +246,18 @@ async def generate_report(db, period: str = "all") -> Dict[str, Any]:
         recommendations.append(
             "Run the benchmark suite to populate retrieval metrics such as Recall@5, Precision@5, and MRR."
         )
+    if generation_error_count > 0:
+        recommendations.append(
+            "Treat generation outages separately from retrieval quality. Current retrieval metrics may still be valid even when the answer text is an LLM error."
+        )
 
     # Overall status
     critical_count = sum(1 for i in issues if i["severity"] == "CRITICAL")
     high_count = sum(1 for i in issues if i["severity"] == "HIGH")
 
-    if critical_count > 0:
+    if answer_quality_count == 0 and generation_error_count > 0:
+        overall_status = "DEGRADED"
+    elif critical_count > 0:
         overall_status = "FAILING"
     elif high_count > 0:
         overall_status = "DEGRADED"

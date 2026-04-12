@@ -21,7 +21,7 @@
 <body>
 
     <!-- ═══════ SIDEBAR ═══════ -->
-    <aside class="sidebar">
+    <aside class="sidebar dashboard-sidebar">
         <div class="sidebar-logo">
             <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
             <span>RAG AI Tutor</span>
@@ -387,7 +387,7 @@
                 </div>
                 <div style="text-align:center; padding: 20px 0;">
                     <div id="attendancePct" style="font-size: 40px; font-weight: 700; color: var(--accent);">0%</div>
-                    <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Average Attendance</div>
+                    <div id="attendanceLabel" style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Average Attendance</div>
                 </div>
             </div>
 
@@ -578,10 +578,23 @@
         const TOKEN = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 
+        async function parseJsonSafe(res) {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) return res.json();
+            const text = await res.text();
+            return text ? { detail: text } : null;
+        }
+
+        function unwrapPayload(payload) {
+            if (payload && typeof payload === 'object' && 'data' in payload && payload.data != null) return payload.data;
+            return payload;
+        }
+
         function showModal(id) { document.getElementById(id).style.display = 'flex'; }
         function hideModal(id) { document.getElementById(id).style.display = 'none'; }
 
         const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const DASH_ROLE = (user.role || 'student').toLowerCase();
         const name = user.name || 'Student';
         const level = user.level || 'undergraduate';
 
@@ -595,8 +608,7 @@
         document.getElementById('greetingText').textContent = `${greeting}, ${name}! Here's your learning progress at a glance.`;
 
         // Show banner for teachers/admins who land on dashboard
-        const _dashRole = (user.role || 'student').toLowerCase();
-        if (_dashRole === 'teacher' || _dashRole === 'admin') {
+        if (DASH_ROLE === 'teacher' || DASH_ROLE === 'admin') {
             const banner = document.getElementById('teacherBanner');
             if (banner) { banner.style.display = 'flex'; }
         }
@@ -804,12 +816,17 @@
         }
 
         async function loadSuggestions() {
-            const res = await fetch(`${API}/suggestions/unread`, { headers });
-            const suggestions = await res.json();
             const list = document.getElementById('aiSuggestionList');
+            try {
+                const res = await fetch(`${API}/suggestions/unread`, { headers });
+                const payload = await parseJsonSafe(res);
+                if (!res.ok) {
+                    throw new Error(unwrapPayload(payload)?.detail || payload?.detail || `HTTP ${res.status}`);
+                }
+                const suggestions = Array.isArray(unwrapPayload(payload)) ? unwrapPayload(payload) : [];
 
-            if (suggestions && suggestions.length > 0) {
-                list.innerHTML = suggestions.map(s => `
+                if (suggestions.length > 0) {
+                    list.innerHTML = suggestions.map(s => `
                 <div class="list-item accent-list-item">
                     <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--accent); margin-bottom:5px">${s.category}</div>
                     <div style="font-size:14px; line-height:1.4">${s.suggestion}</div>
@@ -818,8 +835,12 @@
                     </div>
                 </div>
             `).join('');
-            } else {
-                list.innerHTML = '<div class="empty-state"><p>No new insights. Keep up the good work!</p></div>';
+                } else {
+                    list.innerHTML = '<div class="empty-state"><p>No new insights. Keep up the good work!</p></div>';
+                }
+            } catch (error) {
+                console.error('Suggestions failed to load:', error);
+                list.innerHTML = '<div class="empty-state"><p>Insights are unavailable right now. Try refreshing in a moment.</p></div>';
             }
         }
 
@@ -1117,18 +1138,37 @@
 
         // Attendance
         async function loadAttendance() {
+            const pctEl = document.getElementById('attendancePct');
+            const labelEl = document.getElementById('attendanceLabel');
+            if (DASH_ROLE !== 'student') {
+                pctEl.textContent = '—';
+                labelEl.textContent = 'Available for student accounts';
+                return;
+            }
             try {
                 const res = await fetch(`${API_BASE}/lms/students/me/attendance`, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
-                const data = await res.json();
-                if (data && data.length > 0) {
+                const payload = await parseJsonSafe(res);
+                if (!res.ok) {
+                    throw new Error(unwrapPayload(payload)?.detail || payload?.detail || `HTTP ${res.status}`);
+                }
+                const data = Array.isArray(unwrapPayload(payload)) ? unwrapPayload(payload) : [];
+                if (data.length > 0) {
                     const present = data.filter(a => a.status === 'present').length;
                     const total = data.length;
                     const pct = Math.round((present / total) * 100);
-                    document.getElementById('attendancePct').textContent = `${pct}%`;
+                    pctEl.textContent = `${pct}%`;
+                    labelEl.textContent = 'Average Attendance';
+                } else {
+                    pctEl.textContent = '—';
+                    labelEl.textContent = 'No attendance records yet';
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('Attendance failed to load:', e);
+                pctEl.textContent = '—';
+                labelEl.textContent = 'Attendance unavailable right now';
+            }
         }
 
         // Notifications

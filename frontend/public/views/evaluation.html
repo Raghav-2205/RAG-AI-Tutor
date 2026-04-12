@@ -16,6 +16,7 @@
 <body class="page-layout">
   <aside class="sidebar">
     <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <div class="sidebar-scroll">
     <nav class="nav-section">
       <div class="nav-label">Learn</div>
       <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
@@ -36,6 +37,7 @@
       <div class="nav-label">Account</div>
       <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
     </nav>
+    </div>
     <div class="sidebar-footer">
       <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
       <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
@@ -182,7 +184,8 @@
   </main>
 
   <script>
-    const API_BASE = `${window.config?.apiBase || '/api'}/evaluation`;
+    const API_BASE = `${window.config?.apiBase || '/api'}/evaluation/final`;
+    const ACTION_BASE = `${window.config?.apiBase || '/api'}/evaluation`;
     const token = window.auth?.token || localStorage.getItem('token');
     if (!token) window.location.href = '/views/login.html';
 
@@ -195,6 +198,7 @@
       const n = Number(value);
       return Number.isFinite(n) ? n : fallback;
     };
+    const hasFinite = (value) => Number.isFinite(Number(value));
 
     function logoutUser() {
       if (window.auth?.logout) return window.auth.logout();
@@ -224,6 +228,48 @@
       return escapeHtml(value).replace(/`/g, '&#96;');
     }
 
+    function getEvaluationSource(log) {
+      const explicit = String(log?.evaluation_source || '').trim().toLowerCase();
+      if (explicit === 'benchmark' || explicit === 'synced_history' || explicit === 'live') return explicit;
+      return String(log?.user_id || '') === 'benchmark_runner' ? 'benchmark' : 'live';
+    }
+
+    function sourceBadge(source) {
+      if (source === 'benchmark') return '<span class="evaluation-source bench">Benchmark</span>';
+      if (source === 'synced_history') return '<span class="evaluation-source user">Synced History</span>';
+      return '<span class="evaluation-source user">Live</span>';
+    }
+
+    function normalizeSeverity(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function normalizeStatus(value) {
+      return String(value || 'UNKNOWN').trim().toUpperCase();
+    }
+
+    function getStatusTone(status) {
+      const normalized = normalizeStatus(status);
+      if (normalized === 'VERIFIED') return 'good';
+      if (normalized === 'WARNING' || normalized === 'INSUFFICIENT_CONTEXT') return 'warn';
+      if (normalized === 'NO_DATA' || normalized === 'UNKNOWN') return 'muted';
+      return 'bad';
+    }
+
+    function isGenerationErrorLog(log) {
+      const sourceMode = String(log?.answer_source_mode || '').trim().toLowerCase();
+      if (sourceMode === 'error') return true;
+      if (normalizeStatus(log?.validation_status) !== 'ERROR') return false;
+      const answer = String(log?.answer || '').trim().toLowerCase();
+      const reason = String(log?.reason || '').trim().toLowerCase();
+      return answer.startsWith('llm async request failed')
+        || answer.startsWith('llm request failed')
+        || answer.startsWith('llm api error')
+        || answer.startsWith('error: no gemini api key')
+        || reason.includes('answer generation failed')
+        || reason.includes('llm ');
+    }
+
     async function authFetch(url, options = {}) {
       const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
       const res = await fetch(url, { ...options, headers });
@@ -246,6 +292,12 @@
       if (!el) return;
       el.classList.remove('good', 'warn', 'bad');
       el.classList.add(scoreClass(v, threshold, inverse));
+    }
+
+    function resetCardTone(id) {
+      const el = $(id);
+      if (!el) return;
+      el.classList.remove('good', 'warn', 'bad', 'muted');
     }
 
     function averageBy(items, selector) {
@@ -313,13 +365,19 @@
     }
 
     function updateMetricTrends(logs) {
-      renderTrend('trendFaithfulness', computeMetricTrend(logs, (log) => log.faithfulness_score));
-      renderTrend('trendHallucination', computeMetricTrend(logs, (log) => log.hallucination_rate), true);
-      renderTrend('trendBert', computeMetricTrend(logs, (log) => log.bert_score));
-      renderTrend('trendRecall', computeMetricTrend(logs, (log) => log.recall_at_5));
-      renderTrend('trendCitation', computeMetricTrend(logs, (log) => log.citation_alignment_score));
-      renderTrend('trendRelevance', computeMetricTrend(logs, (log) => log.answer_relevance));
-      renderTrend('trendRag', computeMetricTrend(logs, (log) => log.final_rag_score));
+      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log) && !['ERROR', 'INSUFFICIENT_CONTEXT'].includes(normalizeStatus(log.validation_status)));
+      const benchmarkLogs = logs.filter((log) => getEvaluationSource(log) === 'benchmark');
+      renderTrend('trendFaithfulness', computeMetricTrend(qualityLogs, (log) => log.faithfulness_score));
+      renderTrend('trendHallucination', computeMetricTrend(qualityLogs, (log) => log.hallucination_rate), true);
+      renderTrend('trendBert', computeMetricTrend(qualityLogs, (log) => log.bert_score));
+      if (benchmarkLogs.length) renderTrend('trendRecall', computeMetricTrend(benchmarkLogs, (log) => log.recall_at_5));
+      else {
+        $('trendRecall').className = 'evaluation-metric-trend flat';
+        $('trendRecall').textContent = 'Benchmark not run';
+      }
+      renderTrend('trendCitation', computeMetricTrend(qualityLogs, (log) => log.citation_alignment_score));
+      renderTrend('trendRelevance', computeMetricTrend(qualityLogs, (log) => log.answer_relevance));
+      renderTrend('trendRag', computeMetricTrend(qualityLogs, (log) => log.final_rag_score));
       renderTrend('trendTotal', computeCountTrend(logs), false, true);
     }
 
@@ -358,18 +416,22 @@
     }
 
     function renderStatusBreakdown(data) {
-      $('statusBreakdown').innerHTML = [
+      const parts = [
         `<span class="evaluation-status-pill tone-good">Verified ${safeNum(data.verified_count)}</span>`,
         `<span class="evaluation-status-pill tone-warn">Warning ${safeNum(data.warning_count)}</span>`,
         `<span class="evaluation-status-pill tone-bad">Rejected ${safeNum(data.rejected_count)}</span>`
-      ].join('');
+      ];
+      if (safeNum(data.error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Error ${safeNum(data.error_count)}</span>`);
+      if (safeNum(data.insufficient_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Insufficient ${safeNum(data.insufficient_count)}</span>`);
+      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Generation ${safeNum(data.generation_error_count)}</span>`);
+      $('statusBreakdown').innerHTML = parts.join('');
     }
 
     function navigateToDoc(log) {
       if (!log || !log._id) return;
       const evalId = encodeURIComponent(log._id);
       const chatParam = log.chat_id ? `&chat_id=${encodeURIComponent(log.chat_id)}` : '';
-      window.location.href = `/views/evaldoc.html?id=${evalId}${chatParam}`;
+      window.location.href = `/views/finalevaldoc.html?id=${evalId}${chatParam}`;
     }
 
     function renderLogs() {
@@ -388,13 +450,15 @@
         const time = log.timestamp && !Number.isNaN(new Date(log.timestamp).getTime())
           ? new Date(log.timestamp).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
           : '--';
-        const isBench = log.user_id === 'benchmark_runner';
-        const source = isBench ? '<span class="evaluation-source bench">Benchmark</span>' : '<span class="evaluation-source user">User</span>';
+        const source = sourceBadge(getEvaluationSource(log));
         const question = escapeHtml(log.question || 'Untitled question');
+        const generationError = isGenerationErrorLog(log);
         const scoreCell = (value, threshold, inverse = false) => {
+          if (generationError) return '<span class="evaluation-score muted">--</span>';
           const n = safeNum(value);
           return `<span class="evaluation-score ${scoreClass(n, threshold, inverse)}">${n.toFixed(2)}</span>`;
         };
+        const statusTone = getStatusTone(log.validation_status);
         return `
           <tr class="evaluation-log-row" tabindex="0" role="link" data-id="${escapeAttr(log._id)}">
             <td class="evaluation-log-time">${time}</td>
@@ -406,7 +470,7 @@
             <td>${scoreCell(log.citation_alignment_score, 0.8)}</td>
             <td>${scoreCell(log.answer_relevance, 0.8)}</td>
             <td>${scoreCell(log.final_rag_score, 0.7)}</td>
-            <td><span class="evaluation-status-pill tone-${scoreClass(safeNum(log.final_rag_score), 0.7) === 'good' ? 'good' : log.validation_status === 'WARNING' ? 'warn' : log.validation_status === 'VERIFIED' ? 'good' : 'bad'}">${escapeHtml(log.validation_status || 'UNKNOWN')}</span></td>
+            <td><span class="evaluation-status-pill tone-${statusTone}">${escapeHtml(normalizeStatus(log.validation_status))}</span></td>
           </tr>
         `;
       }).join('');
@@ -431,31 +495,36 @@
         const res = await authFetch(`${API_BASE}/metrics`);
         if (!res || !res.ok) return;
         const data = await res.json();
-        const faith = safeNum(data.avg_faithfulness);
-        const halluc = safeNum(data.avg_hallucination);
-        const bert = safeNum(data.avg_bert_score);
-        const recall = safeNum(data.avg_recall_at_5);
-        const cite = safeNum(data.avg_citation_alignment);
-        const relev = safeNum(data.avg_answer_relevance);
-        const rag = safeNum(data.avg_final_rag_score);
+        const faith = hasFinite(data.avg_faithfulness) ? Number(data.avg_faithfulness) : null;
+        const halluc = hasFinite(data.avg_hallucination) ? Number(data.avg_hallucination) : null;
+        const bert = hasFinite(data.avg_bert_score) ? Number(data.avg_bert_score) : null;
+        const recall = hasFinite(data.avg_recall_at_5) ? Number(data.avg_recall_at_5) : null;
+        const cite = hasFinite(data.avg_citation_alignment) ? Number(data.avg_citation_alignment) : null;
+        const relev = hasFinite(data.avg_answer_relevance) ? Number(data.avg_answer_relevance) : null;
+        const rag = hasFinite(data.avg_final_rag_score) ? Number(data.avg_final_rag_score) : null;
 
-        $('avgFaithfulness').textContent = faith.toFixed(2);
-        $('avgHallucination').textContent = halluc.toFixed(2);
-        $('avgBertScore').textContent = bert.toFixed(2);
-        $('avgRecall').textContent = recall.toFixed(2);
-        $('avgCitation').textContent = cite.toFixed(2);
-        $('avgRelevance').textContent = relev.toFixed(2);
-        $('avgRagScore').textContent = rag.toFixed(2);
+        $('avgFaithfulness').textContent = faith == null ? '--' : faith.toFixed(2);
+        $('avgHallucination').textContent = halluc == null ? '--' : halluc.toFixed(2);
+        $('avgBertScore').textContent = bert == null ? '--' : bert.toFixed(2);
+        $('avgRecall').textContent = recall == null ? '--' : recall.toFixed(2);
+        $('avgCitation').textContent = cite == null ? '--' : cite.toFixed(2);
+        $('avgRelevance').textContent = relev == null ? '--' : relev.toFixed(2);
+        $('avgRagScore').textContent = rag == null ? '--' : rag.toFixed(2);
         $('totalValidations').textContent = String(data.total_validations || 0);
 
         renderStatusBreakdown(data);
-        setCardTone('card-faithfulness', faith, 0.9);
-        setCardTone('card-hallucination', halluc, 0.15, true);
-        setCardTone('card-bertscore', bert, 0.85);
-        setCardTone('card-recall', recall, 0.7);
-        setCardTone('card-citation', cite, 0.8);
-        setCardTone('card-relevance', relev, 0.8);
-        setCardTone('card-ragscore', rag, 0.7);
+        if (faith == null) resetCardTone('card-faithfulness'); else setCardTone('card-faithfulness', faith, 0.9);
+        if (halluc == null) resetCardTone('card-hallucination'); else setCardTone('card-hallucination', halluc, 0.15, true);
+        if (bert == null) resetCardTone('card-bertscore'); else setCardTone('card-bertscore', bert, 0.85);
+        if (recall == null || !data.benchmark_available) {
+          resetCardTone('card-recall');
+          $('trendRecall').textContent = 'Benchmark not run';
+        } else {
+          setCardTone('card-recall', recall, 0.7);
+        }
+        if (cite == null) resetCardTone('card-citation'); else setCardTone('card-citation', cite, 0.8);
+        if (relev == null) resetCardTone('card-relevance'); else setCardTone('card-relevance', relev, 0.8);
+        if (rag == null) resetCardTone('card-ragscore'); else setCardTone('card-ragscore', rag, 0.7);
       } catch (error) {
         console.error('Metrics error:', error);
       }
@@ -489,7 +558,8 @@
         const report = await res.json();
         const status = report.overall_status || 'NO_DATA';
         $('debugStatus').textContent = status.replace(/_/g, ' ');
-        $('debugStatus').className = `card-badge evaluation-badge tone-${status === 'HEALTHY' ? 'good' : status === 'NO_DATA' ? 'muted' : 'warn'}`;
+        const debugTone = status === 'STRONG' ? 'good' : status === 'STABLE' ? 'warn' : status === 'NO_DATA' ? 'muted' : 'bad';
+        $('debugStatus').className = `card-badge evaluation-badge tone-${debugTone}`;
 
         if (status === 'NO_DATA') {
           $('debugContent').innerHTML = '<div class="evaluation-empty-state">No evaluation data yet. Send chat messages or run a benchmark first.</div>';
@@ -499,7 +569,7 @@
         const issues = Array.isArray(report.issues) ? report.issues : [];
         const recs = Array.isArray(report.recommendations) ? report.recommendations : [];
         const issueCards = issues.map((issue) => `
-          <div class="evaluation-insight ${issue.severity === 'high' ? 'bad' : 'warn'}">
+          <div class="evaluation-insight ${normalizeSeverity(issue.severity) === 'HIGH' ? 'bad' : normalizeSeverity(issue.severity) === 'MEDIUM' ? 'warn' : 'good'}">
             <div class="evaluation-insight-label">${escapeHtml(issue.metric || 'Issue')}</div>
             <div class="evaluation-insight-value">${escapeHtml(String(issue.value ?? '--'))}</div>
             <div class="evaluation-insight-copy">Threshold ${escapeHtml(String(issue.threshold ?? '--'))}</div>
@@ -511,7 +581,7 @@
 
         $('debugContent').innerHTML = `
           <div class="evaluation-report-grid">
-            <div class="evaluation-insight ${status === 'HEALTHY' ? 'good' : 'warn'}">
+            <div class="evaluation-insight ${debugTone === 'good' ? 'good' : debugTone === 'warn' ? 'warn' : 'bad'}">
               <div class="evaluation-insight-label">Overall status</div>
               <div class="evaluation-insight-value">${escapeHtml(status.replace(/_/g, ' '))}</div>
               <div class="evaluation-insight-copy">${issues.length} issues, ${recs.length} recommendations</div>
@@ -541,7 +611,7 @@
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Running';
       btn.disabled = true;
       try {
-        const res = await authFetch(`${API_BASE}/run_benchmark`, { method: 'POST' });
+        const res = await authFetch(`${ACTION_BASE}/run_benchmark`, { method: 'POST' });
         if (!res || !res.ok) throw new Error('Failed to start benchmark');
         window.alert('Benchmark started. Fresh results should appear shortly.');
         setTimeout(refreshAll, 5000);
@@ -559,7 +629,7 @@
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Syncing';
       btn.disabled = true;
       try {
-        const res = await authFetch(`${API_BASE}/sync_history`, { method: 'POST' });
+        const res = await authFetch(`${ACTION_BASE}/sync_history`, { method: 'POST' });
         if (!res || !res.ok) throw new Error('Failed to sync history');
         window.alert('History sync started in the background.');
         setTimeout(refreshAll, 5000);
@@ -574,7 +644,7 @@
     async function clearData() {
       if (!window.confirm('This will delete all evaluation data. Continue?')) return;
       try {
-        const res = await authFetch(`${API_BASE}/clear`, { method: 'DELETE' });
+        const res = await authFetch(`${ACTION_BASE}/clear`, { method: 'DELETE' });
         if (!res || !res.ok) throw new Error('Failed to clear evaluation data');
         const data = await res.json();
         window.alert(`Cleared ${safeNum(data.validations_deleted)} validations and ${safeNum(data.benchmarks_deleted)} benchmarks.`);

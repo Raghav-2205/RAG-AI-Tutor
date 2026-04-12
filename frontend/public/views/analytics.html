@@ -18,6 +18,7 @@
 <body class="page-layout">
   <aside class="sidebar">
     <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
+    <div class="sidebar-scroll">
     <nav class="nav-section">
       <div class="nav-label">Learn</div>
       <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
@@ -38,6 +39,7 @@
       <div class="nav-label">Account</div>
       <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
     </nav>
+    </div>
     <div class="sidebar-footer">
       <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
       <div style="margin-top:10px;"><a href="#" onclick="logoutUser(); return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></span>Logout</a></div>
@@ -154,6 +156,7 @@
     if (!TOKEN) window.location.href = '/views/login.html';
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const role = String(user.role || 'student').toLowerCase();
     const userId = user.id || user._id || '';
     const authHeaders = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
     const $ = (id) => document.getElementById(id);
@@ -342,7 +345,11 @@
       `).join('');
     }
 
-    function renderAttendance(records) {
+    function renderAttendance(records, message = '') {
+      if (message) {
+        $('attendanceStats').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
       const rows = normalizeArray(records);
       if (!rows.length) {
         $('attendanceStats').innerHTML = '<div class="evaluation-empty-state">No attendance records yet.</div>';
@@ -429,7 +436,9 @@
           fetch(`${API}/analytics/student`, { headers: authHeaders }),
           fetch(`${API}/gamification/my-stats`, { headers: authHeaders }),
           fetch(`${API}/gamification/leaderboard?limit=10`, { headers: authHeaders }),
-          fetch(`${API}/lms/students/me/attendance`, { headers: { Authorization: `Bearer ${TOKEN}` } })
+          role === 'student'
+            ? fetch(`${API}/lms/students/me/attendance`, { headers: { Authorization: `Bearer ${TOKEN}` } })
+            : Promise.resolve(null)
         ]);
 
         const analyticsPayload = analyticsRes.ok ? normalizeObject(await analyticsRes.json()) : {};
@@ -447,13 +456,23 @@
         if (leaderboardRes.ok) renderLeaderboard(await leaderboardRes.json());
         else renderLeaderboard([]);
 
-        if (attendanceRes.ok) renderAttendance(await attendanceRes.json());
-        else renderAttendance([]);
+        if (role !== 'student') {
+          renderAttendance([], 'Attendance overview is available on student accounts.');
+        } else if (attendanceRes?.ok) {
+          renderAttendance(await attendanceRes.json());
+        } else {
+          renderAttendance([]);
+        }
       } catch (error) {
         console.error(error);
         $('weakSubjects').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
         $('aiSuggestions').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
         $('aiRecommendations').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
+        if (role !== 'student') {
+          renderAttendance([], 'Attendance overview is available on student accounts.');
+        } else {
+          renderAttendance([]);
+        }
       }
     }
 

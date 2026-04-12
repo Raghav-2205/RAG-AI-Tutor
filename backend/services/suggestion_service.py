@@ -5,6 +5,8 @@ import json
 from datetime import date, timedelta, datetime
 from typing import Optional, List, Dict, Any
 
+from bson import ObjectId
+
 from backend.core.search_engine import search_engine
 from backend.services.analytics_service import get_student_analytics
 
@@ -12,6 +14,20 @@ logger = logging.getLogger(__name__)
 
 def _make_id():
     return str(uuid.uuid4())
+
+
+def _serialize_suggestion_doc(doc: dict) -> dict:
+    payload = {
+        "id": doc.get("id") or (str(doc.get("_id")) if doc.get("_id") else ""),
+        "category": doc.get("category", "general"),
+        "suggestion": doc.get("suggestion", ""),
+        "is_read": bool(doc.get("is_read", False)),
+        "generated_at": doc.get("generated_at"),
+    }
+    generated_at = payload.get("generated_at")
+    if isinstance(generated_at, datetime):
+        payload["generated_at"] = generated_at.isoformat()
+    return payload
 
 # ─── Context Builder ──────────────────────────────────────────────────────────
 
@@ -255,12 +271,16 @@ async def get_user_suggestions(
         query["is_read"] = False
         
     cursor = db.ai_suggestions.find(query).sort("generated_at", -1).limit(limit)
-    return await cursor.to_list(None)
+    docs = await cursor.to_list(None)
+    return [_serialize_suggestion_doc(doc) for doc in docs]
 
 
 async def mark_suggestion_read(db, suggestion_id: str, user_id: str) -> bool:
+    criteria = [{"id": suggestion_id}]
+    if ObjectId.is_valid(suggestion_id):
+        criteria.append({"_id": ObjectId(suggestion_id)})
     res = await db.ai_suggestions.update_one(
-        {"id": suggestion_id, "user_id": user_id},
+        {"user_id": user_id, "$or": criteria},
         {"$set": {"is_read": True}}
     )
     return res.modified_count > 0

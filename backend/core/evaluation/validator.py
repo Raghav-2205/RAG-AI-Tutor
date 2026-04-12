@@ -33,6 +33,13 @@ from backend.core.evaluation.metrics import (
 
 logger = logging.getLogger(__name__)
 
+GENERATION_FAILURE_PREFIXES = (
+    "llm async request failed",
+    "llm request failed",
+    "llm api error",
+    "error: no gemini api key",
+)
+
 
 class ValidationEngine:
     def __init__(self, db):
@@ -48,7 +55,8 @@ class ValidationEngine:
         document_id: str = None,  # NEW
         chat_id: str = None,
         graph_context: str = "",   # NEW: Support for GraphRAG validation
-        evaluation_source: str = "live"
+        evaluation_source: str = "live",
+        answer_source_mode: str = "knowledge_base",
     ) -> ValidationResult:
 
         """
@@ -64,6 +72,7 @@ class ValidationEngine:
                 subject=subject,
                 user_id=user_id,
                 evaluation_source=evaluation_source,
+                answer_source_mode=answer_source_mode,
                 chat_id=chat_id,
                 document_id=document_id, # NEW
                 validation_status="INSUFFICIENT_CONTEXT",
@@ -97,6 +106,7 @@ class ValidationEngine:
             )
 
             faith_score = faith_result.get("faithfulness_score", 0.0)
+            judge_available = bool(faith_result.get("judge_available", True))
             unsupported = faith_result.get("unsupported_sentences", [])
             hallucination_rate = round(1.0 - faith_score, 4)
 
@@ -119,8 +129,37 @@ class ValidationEngine:
 
             # ── D. Lightweight Metrics (Sync) ──
             retrieval_conf = calculate_retrieval_confidence(retrieved_chunks, has_graph_context=bool(graph_context))
-
             chunk_usage_stats = calculate_chunk_coverage(answer, retrieved_chunks)
+            covered_ratio = float(chunk_usage_stats.get("covered_ratio", 0.0) or 0.0)
+
+            answer_text = str(answer or "").strip().lower()
+            generation_failed = any(answer_text.startswith(prefix) for prefix in GENERATION_FAILURE_PREFIXES)
+            effective_source_mode = "error" if generation_failed else answer_source_mode
+
+            if generation_failed:
+                faith_score = 0.0
+                hallucination_rate = 1.0
+                answer_relevance = 0.0
+                unsupported = []
+            elif not judge_available:
+                heuristic_faith = min(
+                    0.92,
+                    max(
+                        0.55,
+                        round(
+                            (citation_score * 0.4) +
+                            (answer_relevance * 0.35) +
+                            (covered_ratio * 0.25),
+                            4,
+                        ),
+                    ),
+                )
+                logger.warning(
+                    "Faithfulness judge unavailable; using heuristic fallback "
+                    f"(cite={citation_score:.2f}, relevance={answer_relevance:.2f}, coverage={covered_ratio:.2f}) -> {heuristic_faith:.2f}"
+                )
+                faith_score = heuristic_faith
+                hallucination_rate = round(1.0 - faith_score, 4)
 
             # ── D. Final RAG Score ──
             # Live validation has no gold labels, so retrieval metrics should not
@@ -137,9 +176,15 @@ class ValidationEngine:
             status = "VERIFIED"
             reason = "Answer is grounded and accurate."
 
-            if faith_score < 0.85:
+            if generation_failed:
+                status = "ERROR"
+                reason = "Answer generation failed before validation could complete."
+            elif faith_score < 0.7:
                 status = "REJECTED"
                 reason = f"Low faithfulness ({faith_score:.2f}). Potential hallucination detected."
+            elif not judge_available and faith_score < 0.85:
+                status = "WARNING"
+                reason = f"Faithfulness judge fallback used ({faith_score:.2f}). Review answer manually if needed."
             elif hallucination_rate > 0.2:
                 status = "WARNING"
                 reason = f"Elevated hallucination risk ({hallucination_rate:.2f})."
@@ -154,6 +199,7 @@ class ValidationEngine:
                 subject=subject,
                 user_id=user_id,
                 evaluation_source=evaluation_source,
+                answer_source_mode=effective_source_mode,
                 chat_id=chat_id,
                 # Retrieval metrics (populated during benchmark only)
                 recall_at_5=0.0,
@@ -199,6 +245,7 @@ class ValidationEngine:
                 subject=subject,
                 user_id=user_id,
                 evaluation_source=evaluation_source,
+                answer_source_mode=answer_source_mode,
                 chat_id=chat_id,
                 validation_status="ERROR",
                 reason=f"Validation error: {str(e)}"
@@ -213,7 +260,8 @@ class ValidationEngine:
         retrieved_chunks: List[Dict],
         gold_chunk_ids: List[str],
         user_id: str = "benchmark_runner",
-        subject: str = "general"
+        subject: str = "general",
+        answer_source_mode: str = "knowledge_base",
     ) -> ValidationResult:
         """
         Extended validation for benchmark mode — includes retrieval metrics
@@ -228,7 +276,8 @@ class ValidationEngine:
             retrieved_chunks=retrieved_chunks,
             user_id=user_id,
             subject=subject,
-            evaluation_source="benchmark"
+            evaluation_source="benchmark",
+            answer_source_mode=answer_source_mode,
         )
 
         # Add retrieval metrics

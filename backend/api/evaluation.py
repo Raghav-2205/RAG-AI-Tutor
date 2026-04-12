@@ -32,6 +32,12 @@ FINAL_ANSWER_FIELDS = (
     "final_rag_score",
     "retrieval_confidence",
 )
+GENERATION_FAILURE_PREFIXES = (
+    "llm async request failed",
+    "llm request failed",
+    "llm api error",
+    "error: no gemini api key",
+)
 
 
 def _final_time_filter(period: str) -> Dict[str, Any]:
@@ -73,6 +79,11 @@ def _normalize_final_record(record: Dict[str, Any]) -> Dict[str, Any]:
     normalized = dict(record)
     normalized["_id"] = str(normalized.get("_id"))
     normalized["evaluation_source"] = _infer_evaluation_source(normalized)
+    normalized["answer_source_mode"] = str(
+        normalized.get("answer_source_mode")
+        or normalized.get("source_mode")
+        or ("knowledge_base" if normalized["evaluation_source"] == "benchmark" else "unknown")
+    ).strip().lower()
     benchmark_metrics_available = normalized["evaluation_source"] == "benchmark"
     recall_value = _coerce_float(normalized.get("recall_at_5")) if benchmark_metrics_available else None
     normalized["benchmark_metrics_available"] = benchmark_metrics_available
@@ -84,6 +95,32 @@ def _normalize_final_record(record: Dict[str, Any]) -> Dict[str, Any]:
         answer_relevance=_coerce_float(normalized.get("answer_relevance")),
     )
     return normalized
+
+
+def _is_generation_error(record: Dict[str, Any]) -> bool:
+    source_mode = str(record.get("answer_source_mode") or "").strip().lower()
+    if source_mode == "error":
+        return True
+    status = str(record.get("validation_status") or "").strip().upper()
+    if status != "ERROR":
+        return False
+    answer_text = str(record.get("answer") or "").strip().lower()
+    if any(answer_text.startswith(prefix) for prefix in GENERATION_FAILURE_PREFIXES):
+        return True
+    reason = str(record.get("reason") or "").strip().lower()
+    return "answer generation failed" in reason or "llm " in reason
+
+
+def _quality_rows(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    filtered: List[Dict[str, Any]] = []
+    for record in records:
+        if _is_generation_error(record):
+            continue
+        status = str(record.get("validation_status") or "").strip().upper()
+        if status in {"ERROR", "INSUFFICIENT_CONTEXT"}:
+            continue
+        filtered.append(record)
+    return filtered
 
 
 def _build_status_counts(records: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -113,21 +150,30 @@ def _build_final_metrics_payload(records: List[Dict[str, Any]]) -> Dict[str, Any
     benchmark_rows = [record for record in records if record.get("evaluation_source") == "benchmark"]
     live_rows = [record for record in records if record.get("evaluation_source") == "live"]
     synced_rows = [record for record in records if record.get("evaluation_source") == "synced_history"]
+    quality_rows = _quality_rows(records)
+    generation_error_rows = [record for record in records if _is_generation_error(record)]
+    fallback_rows = [
+        record for record in records
+        if str(record.get("answer_source_mode") or "").lower() in {"gemini_fallback", "error"}
+    ]
 
     payload = {
         "total_validations": len(records),
         "benchmark_count": len(benchmark_rows),
         "live_count": len(live_rows),
         "synced_history_count": len(synced_rows),
+        "answer_quality_count": len(quality_rows),
+        "generation_error_count": len(generation_error_rows),
+        "fallback_answer_count": len(fallback_rows),
         "benchmark_available": bool(benchmark_rows),
-        "avg_faithfulness": _average(records, "faithfulness_score"),
-        "avg_hallucination": _average(records, "hallucination_rate"),
-        "avg_bert_score": _average(records, "bert_score"),
-        "avg_cosine_similarity": _average(records, "cosine_similarity"),
-        "avg_citation_alignment": _average(records, "citation_alignment_score"),
-        "avg_answer_relevance": _average(records, "answer_relevance"),
-        "avg_final_rag_score": _average(records, "final_rag_score"),
-        "avg_retrieval_confidence": _average(records, "retrieval_confidence"),
+        "avg_faithfulness": _average(quality_rows, "faithfulness_score"),
+        "avg_hallucination": _average(quality_rows, "hallucination_rate"),
+        "avg_bert_score": _average(quality_rows, "bert_score"),
+        "avg_cosine_similarity": _average(quality_rows, "cosine_similarity"),
+        "avg_citation_alignment": _average(quality_rows, "citation_alignment_score"),
+        "avg_answer_relevance": _average(quality_rows, "answer_relevance"),
+        "avg_final_rag_score": _average(quality_rows, "final_rag_score"),
+        "avg_retrieval_confidence": _average(quality_rows, "retrieval_confidence"),
         "avg_recall_at_5": _average(benchmark_rows, "recall_at_5"),
         "avg_precision_at_5": _average(benchmark_rows, "precision_at_5"),
         "avg_mrr": _average(benchmark_rows, "mrr"),
@@ -190,7 +236,18 @@ def _build_final_report(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     relevance = metrics.get("avg_answer_relevance")
     rag = metrics.get("avg_final_rag_score")
     recall = metrics.get("avg_recall_at_5")
+    fallback_count = int(metrics.get("fallback_answer_count") or 0)
+    generation_error_count = int(metrics.get("generation_error_count") or 0)
+    quality_count = int(metrics.get("answer_quality_count") or 0)
 
+    if quality_count == 0 and generation_error_count > 0:
+        add_issue(
+            "Generation Availability",
+            generation_error_count,
+            "0 generation errors",
+            "HIGH",
+            "Retriever evidence is available, but answer generation is failing. Restore LLM/API connectivity before judging answer quality.",
+        )
     if faith is not None and faith < 0.7:
         add_issue("Faithfulness", faith, ">= 0.70", "HIGH", "Tighten grounding prompts and review unsupported sentences in low-scoring rows.")
     if halluc is not None and halluc > 0.3:
@@ -209,13 +266,20 @@ def _build_final_report(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     else:
         recommendations.append("Run benchmark evaluation to populate retrieval metrics such as Recall@5, Precision@5, and MRR.")
 
+    if fallback_count > 0:
+        recommendations.append("Review Gemini fallback answers separately from grounded RAG answers so retrieval quality is not blamed for no-context responses.")
+    if generation_error_count > 0:
+        recommendations.append("Generation outages are being tracked separately from true RAG-quality failures. Re-run benchmark after LLM connectivity is restored.")
+
     if not issues:
         overall_status = "STRONG" if (rag or 0) >= 0.7 else "STABLE"
         if not recommendations:
             recommendations.append("Continue monitoring fresh benchmark and live evaluation runs to track quality trends.")
     else:
         severities = {issue["severity"] for issue in issues}
-        if "HIGH" in severities:
+        if quality_count == 0 and generation_error_count > 0:
+            overall_status = "DEGRADED"
+        elif "HIGH" in severities:
             overall_status = "NEEDS_IMPROVEMENT"
         else:
             overall_status = "STABLE"
@@ -240,54 +304,10 @@ async def get_evaluation_metrics(
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Aggregated evaluation metrics for the dashboard."""
+    """Canonical aggregated evaluation metrics for the dashboard."""
     try:
-        match_query = {}
-        if period == "24h":
-            match_query["timestamp"] = {"$gte": datetime.utcnow() - timedelta(hours=24)}
-        elif period == "7d":
-            match_query["timestamp"] = {"$gte": datetime.utcnow() - timedelta(days=7)}
-
-        pipeline = [
-            {"$match": match_query},
-            {"$group": {
-                "_id": None,
-                "avg_faithfulness": {"$avg": "$faithfulness_score"},
-                "avg_hallucination": {"$avg": "$hallucination_rate"},
-                "avg_bert_score": {"$avg": "$bert_score"},
-                "avg_cosine_similarity": {"$avg": "$cosine_similarity"},
-                "avg_citation_alignment": {"$avg": "$citation_alignment_score"},
-                "avg_answer_relevance": {"$avg": "$answer_relevance"},
-                "avg_recall_at_5": {"$avg": "$recall_at_5"},
-                "avg_precision_at_5": {"$avg": "$precision_at_5"},
-                "avg_mrr": {"$avg": "$mrr"},
-                "avg_final_rag_score": {"$avg": "$final_rag_score"},
-                "total_validations": {"$sum": 1},
-                "verified_count": {"$sum": {"$cond": [{"$eq": ["$validation_status", "VERIFIED"]}, 1, 0]}},
-                "rejected_count": {"$sum": {"$cond": [{"$eq": ["$validation_status", "REJECTED"]}, 1, 0]}},
-                "warning_count": {"$sum": {"$cond": [{"$eq": ["$validation_status", "WARNING"]}, 1, 0]}},
-                "error_count": {"$sum": {"$cond": [{"$eq": ["$validation_status", "ERROR"]}, 1, 0]}},
-                "insufficient_count": {"$sum": {"$cond": [{"$eq": ["$validation_status", "INSUFFICIENT_CONTEXT"]}, 1, 0]}},
-            }}
-        ]
-
-        results = await db.rag_answer_validations.aggregate(pipeline).to_list(length=1)
-
-        if not results:
-            return {
-                "avg_faithfulness": 0, "avg_hallucination": 0,
-                "avg_bert_score": 0, "avg_cosine_similarity": 0,
-                "avg_citation_alignment": 0, "avg_answer_relevance": 0,
-                "avg_recall_at_5": 0, "avg_final_rag_score": 0,
-                "total_validations": 0, "verified_count": 0,
-                "rejected_count": 0, "warning_count": 0,
-            }
-
-        data = results[0]
-        if "_id" in data:
-            del data["_id"]
-        return data
-
+        rows = await _load_final_rows(db, current_user, period=period)
+        return _build_final_metrics_payload(rows)
     except Exception as e:
         import logging
         logging.error(f"Error fetching metrics: {e}")
@@ -300,7 +320,7 @@ async def get_validation_result(
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Get a single validation result by ID."""
+    """Get a single source-aware validation result by ID."""
     try:
         if not ObjectId.is_valid(result_id):
              raise HTTPException(status_code=400, detail="Invalid ID format")
@@ -310,8 +330,12 @@ async def get_validation_result(
         
         if not result:
             raise HTTPException(status_code=404, detail="Validation result not found")
-            
-        return ValidationResult(**result)
+
+        normalized = _normalize_final_record(result)
+        if not _is_admin_user(current_user) and str(normalized.get("user_id") or "") != str(current_user["_id"]):
+            raise HTTPException(status_code=403, detail="Not authorized to view this evaluation result")
+
+        return ValidationResult(**normalized)
     except HTTPException:
         raise
     except Exception as e:
@@ -324,25 +348,14 @@ async def get_validation_result(
 async def get_validation_logs(
     limit: int = Query(50, ge=1, le=200),
     skip: int = Query(0, ge=0),
+    period: str = Query("all", description="Filter period: all, 24h, 7d"),
     db=Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Recent validation logs with all metric fields."""
+    """Recent source-aware validation logs."""
     try:
-        cursor = db.rag_answer_validations.find().sort("timestamp", -1).skip(skip).limit(limit)
-        raw_logs = await cursor.to_list(length=limit)
-
-        validated_logs = []
-        for log in raw_logs:
-            try:
-                validated_logs.append(ValidationResult(**log))
-            except Exception as e:
-                import logging
-                logging.warning(f"Skipping malformed log {log.get('_id')}: {e}")
-                continue
-
-        return validated_logs
-
+        rows = await _load_final_rows(db, current_user, period=period, limit=limit, skip=skip)
+        return [ValidationResult(**row) for row in rows]
     except Exception as e:
         import logging
         logging.error(f"Error fetching logs: {e}")
@@ -682,11 +695,9 @@ async def get_evaluation_report(
     """
     Auto-debug report with root cause analysis and tuning recommendations.
     """
-    from backend.core.evaluation.report_generator import generate_report
-
     try:
-        report = await generate_report(db, period=period)
-        return report
+        rows = await _load_final_rows(db, current_user, period=period)
+        return _build_final_report(rows)
     except Exception as e:
         import logging
         logging.error(f"Report generation failed: {e}")
@@ -700,8 +711,15 @@ async def clear_evaluation_data(
 ):
     """Clear all evaluation data for a fresh start."""
     try:
-        r1 = await db.rag_answer_validations.delete_many({})
-        r2 = await db.benchmark_runs.delete_many({})
+        if _is_admin_user(current_user):
+            validation_query = {}
+            benchmark_query = {}
+        else:
+            validation_query = {"user_id": str(current_user["_id"])}
+            benchmark_query = {"user_id": str(current_user["_id"])}
+
+        r1 = await db.rag_answer_validations.delete_many(validation_query)
+        r2 = await db.benchmark_runs.delete_many(benchmark_query)
         return {
             "message": "All evaluation data cleared",
             "validations_deleted": r1.deleted_count,

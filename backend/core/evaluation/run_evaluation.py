@@ -12,6 +12,7 @@ import asyncio
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
+from backend.preprocessing import analyze_chunk_set
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ async def run_benchmark(db) -> Dict[str, Any]:
     results = []
     user_id = "benchmark_runner"
     benchmark_chunks = get_all_chunks("global", "general")
+    benchmark_chunk_diagnostics = analyze_chunk_set([chunk.get("text", "") for chunk in benchmark_chunks])
 
     for i, sample in enumerate(samples):
         question = sample["question"]
@@ -90,11 +92,12 @@ async def run_benchmark(db) -> Dict[str, Any]:
                 subject=subject,
                 history=[],
                 feedback_context="",
-                strict_mode=False
+                strict_mode=True
             )
 
             answer = rag_result.get("answer", "")
             chunks = rag_result.get("chunks", [])
+            source_mode = rag_result.get("source_mode", "knowledge_base")
 
             # Step 2: Validate with gold labels
             gold_ids = _resolve_gold_chunk_ids(sample, benchmark_chunks)
@@ -105,7 +108,8 @@ async def run_benchmark(db) -> Dict[str, Any]:
                 retrieved_chunks=chunks,
                 gold_chunk_ids=gold_ids,
                 user_id=user_id,
-                subject=subject
+                subject=subject,
+                answer_source_mode=source_mode,
             )
 
             results.append({
@@ -113,6 +117,7 @@ async def run_benchmark(db) -> Dict[str, Any]:
                 "answer": answer[:200],
                 "gold_answer": gold_answer[:200],
                 "num_chunks": len(chunks),
+                "source_mode": source_mode,
                 "faithfulness_score": validation.faithfulness_score,
                 "hallucination_rate": validation.hallucination_rate,
                 "bert_score": validation.bert_score,
@@ -169,6 +174,8 @@ async def run_benchmark(db) -> Dict[str, Any]:
         "verified_count": sum(1 for r in completed if r.get("validation_status") == "VERIFIED"),
         "warning_count": sum(1 for r in completed if r.get("validation_status") == "WARNING"),
         "rejected_count": sum(1 for r in completed if r.get("validation_status") == "REJECTED"),
+        "fallback_count": sum(1 for r in completed if r.get("source_mode") == "gemini_fallback"),
+        "chunk_diagnostics": benchmark_chunk_diagnostics,
         "timestamp": datetime.utcnow().isoformat(),
         "results": results
     }

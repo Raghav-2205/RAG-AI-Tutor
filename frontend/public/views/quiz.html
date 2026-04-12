@@ -1,605 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz - RAG AI Tutor</title>
-    <link rel="stylesheet" href="/assets/css/theme.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-    <script>
-        // Apply saved theme immediately to prevent FOUC
-        (function () {
-            var t = localStorage.getItem('lms_theme') || 'light';
-            if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-        })();
-    </script>
-    <script src="/assets/js/auth.js?v=9"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/assets/js/theme-init.js"></script>
+  <title>Quiz - RAG AI Tutor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="/assets/js/config.js?v=11"></script>
+  <script src="/assets/js/auth.js?v=9"></script>
+  <link rel="stylesheet" href="/assets/css/theme.css">
+  <link rel="stylesheet" href="/assets/css/app-shell.css">
+  <script src="/assets/js/theme-controls.js"></script>
 </head>
-
-
-<body>
-    <div class="page-layout">
-        <aside class="sidebar">
-            <div class="sidebar-logo">
-                <div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div>
-                <span>RAG AI Tutor</span>
-            </div>
-            <nav class="nav-section">
-                <div class="nav-label">Learn</div>
-                <a href="/views/dashboard.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
-                    Dashboard
-                </a>
-                <a href="/views/lms.html?allow_student=1&amp;page=classes" class="nav-item ">
-                    <span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span> My
-                    Classes
-                </a>
-                <a href="/views/subjects.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span> AI
-                    Tutor Chat
-                </a>
-                <a href="/views/planner.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>
-                    Planner
-                </a>
-                <a href="/views/tracking.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running"
-                            aria-hidden="true"></i></span> Activity Tracking
-                </a>
-                <a href="/views/community.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
-                    Community
-                </a>
-            </nav>
-            <nav class="nav-section">
-                <div class="nav-label">Analytics</div>
-                <a href="/views/analytics.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
-                    Analytics
-                </a>
-                <a href="/views/evaluation.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check"
-                            aria-hidden="true"></i></span> Evaluation
-                </a>
-                <a href="/views/progress.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>
-                    Progress Report
-                </a>
-                <a href="/views/calendar.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days"
-                            aria-hidden="true"></i></span> Unified Calendar
-                </a>
-            </nav>
-            <nav class="nav-section">
-                <div class="nav-label">Account</div>
-                <a href="/views/profile.html" class="nav-item ">
-                    <span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>
-                    Profile &amp; Settings
-                </a>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="avatar" id="userAvatar">?</div>
-                    <div>
-                        <div class="user-name" id="userName">Loading...</div>
-                        <div class="user-level" id="userLevel">Student</div>
-                    </div>
-                </div>
-                <div style="margin-top:10px;">
-                    <a href="#"
-                        onclick="window.auth ? window.auth.logout() : (localStorage.clear(), window.location.href='/views/login.html')"
-                        class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;">
-                        <span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket"
-                                aria-hidden="true"></i></span> Logout
-                    </a>
-                </div>
-                <div style="margin-top:8px; padding: 0 4px;">
-                    <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"
-                        style="width:100%;justify-content:center;">
-                        <i class="fa-solid fa-moon" aria-hidden="true"></i>
-                    </button>
-                </div>
-            </div>
-        </aside>
-
-        <main class="main">
-            <div class="container">
-                <div id="quizContent">
-                    <!-- Loading state -->
-                    <div class="loading" id="loadingState">
-                        <div class="loader"></div>
-                        <p>Generating your personalized quiz...</p>
-                    </div>
-                </div>
-            </div>
-
-            <script src="../assets/js/config.js?v=11"></script>
-            <script>
-                let quizData = null;
-                let currentQuestion = 0;
-                let answers = [];
-                let quizResult = null;
-                let timerInterval = null;
-
-                function startTimer(minutes) {
-                    let secondsLeft = minutes * 60;
-                    timerInterval = setInterval(() => {
-                        secondsLeft--;
-                        if (secondsLeft <= 0) {
-                            clearInterval(timerInterval);
-                            alert("Time's up! Submitting automatically.");
-                            submitQuiz();
-                            return;
-                        }
-                        const m = Math.floor(secondsLeft / 60);
-                        const s = secondsLeft % 60;
-                        const timerEl = document.getElementById('quizTimer');
-                        if (timerEl) timerEl.textContent = `⏱️ ${m}:${s.toString().padStart(2, '0')}`;
-                    }, 1000);
-                }
-
-                // Check authentication
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    window.location.href = '/views/login.html';
-                }
-
-                // Load quiz on page load
-                window.addEventListener('DOMContentLoaded', async () => {
-                    await loadQuiz();
-                });
-
-                async function loadQuiz() {
-                    try {
-                        const apiBase = window.config?.apiBase || (window.location.origin + '/api');
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const quizId = urlParams.get('quiz_id');
-
-                        let response;
-                        if (quizId) {
-                            // Fetch specific LMS quiz
-                            response = await fetch(`${apiBase}/lms/quizzes/${quizId}`, {
-                                headers: { 'Authorization': `Bearer ${token}` }
-                            });
-                        } else {
-                            // Generate AI diagnostic quiz
-                            response = await fetch(`${apiBase}/quiz/generate`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify({
-                                    subject: 'general',
-                                    num_questions: 10
-                                })
-                            });
-                        }
-
-                        if (!response.ok) {
-                            const error = await response.json();
-                            throw new Error(error.detail || 'Failed to load quiz');
-                        }
-
-                        quizData = await response.json();
-                        answers = new Array(quizData.questions.length).fill(null);
-
-                        renderQuiz();
-
-                        if (quizData.time_limit) {
-                            startTimer(quizData.time_limit);
-                        }
-
-                    } catch (error) {
-                        document.getElementById('quizContent').innerHTML = `
-                    <div class="question-card" style="text-align: center;">
-                        <h2 style="color: #ff6b6b; margin-bottom: 1rem;">❌ Error Loading Quiz</h2>
-                        <p>${error.message}</p>
-                        <button class="btn btn-primary" onclick="window.location.href='/views/dashboard.html'" style="margin-top: 2rem;">
-                            Back to Dashboard
-                        </button>
-                    </div>
-                `;
-                    }
-                }
-
-                function renderQuiz() {
-                    if (!quizData || !quizData.questions || quizData.questions.length === 0) {
-                        document.getElementById('quizContent').innerHTML = `
-                    <div class="question-card" style="text-align: center;">
-                        <h2 style="color: #ff6b6b; margin-bottom: 1rem;">❌ No Questions Available</h2>
-                        <p>The system could not generate questions from the current content.</p>
-                        <button class="btn btn-primary" onclick="window.location.href='/views/subjects.html'" style="margin-top: 2rem;">
-                            Return to Dashboard
-                        </button>
-                    </div>
-                `;
-                        return;
-                    }
-
-                    const question = quizData.questions[currentQuestion];
-                    const progress = ((currentQuestion + 1) / quizData.questions.length) * 100;
-
-                    document.getElementById('quizContent').innerHTML = `
-                <div class="quiz-header">
-                    <h1>Knowledge Assessment</h1>
-                    <div class="level-badge level-beginner">Diagnostic Quiz</div>
-                </div>
-
-                <div class="progress-text">
-                    Question ${currentQuestion + 1} of ${quizData.questions.length} 
-                    <span id="quizTimer" style="float:right; color:#ffc107;"></span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${progress}%"></div>
-                </div>
-
-                <div class="question-card">
-                    <div class="question-text">${question.question}</div>
-                    <div class="options">
-                        ${question.options.map((option, index) => `
-                            <div class="option ${answers[currentQuestion] === index ? 'selected' : ''}" 
-                                 onclick="selectAnswer(${index})">
-                                <div class="option-letter">${String.fromCharCode(65 + index)}</div>
-                                <div>${typeof option === 'object' ? (option.text ?? option.label ?? '') : option}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <div class="quiz-actions">
-                    <button class="btn btn-secondary" onclick="previousQuestion()" ${currentQuestion === 0 ? 'disabled' : ''}>
-                        ← Previous
-                    </button>
-                    ${currentQuestion < quizData.questions.length - 1
-                            ? `<button class="btn btn-primary" onclick="nextQuestion()" ${answers[currentQuestion] === null ? 'disabled' : ''}>
-                            Next →
-                           </button>`
-                            : `<button class="btn btn-primary" onclick="submitQuiz()" ${answers[currentQuestion] === null ? 'disabled' : ''}>
-                            Submit Quiz
-                           </button>`
-                        }
-                </div>
-            `;
-                }
-
-                function selectAnswer(index) {
-                    answers[currentQuestion] = index;
-                    renderQuiz();
-                }
-
-                function nextQuestion() {
-                    if (currentQuestion < quizData.questions.length - 1) {
-                        currentQuestion++;
-                        renderQuiz();
-                        window.scrollTo(0, 0);
-                    }
-                }
-
-                function previousQuestion() {
-                    if (currentQuestion > 0) {
-                        currentQuestion--;
-                        renderQuiz();
-                        window.scrollTo(0, 0);
-                    }
-                }
-
-                async function submitQuiz() {
-                    if (timerInterval) clearInterval(timerInterval);
-                    if (answers.includes(null) && !window.confirm("You have unanswered questions. Submit anyway?")) {
-                        if (quizData.time_limit) startTimer(Math.max(1, quizData.time_limit)); // rough resume
-                        return;
-                    }
-
-                    document.getElementById('quizContent').innerHTML = `
-                <div class="loading">
-                    <div class="loader"></div>
-                    <p>Evaluating your answers...</p>
-                </div>
-            `;
-
-                    try {
-                        const apiBase = window.config?.apiBase || (window.location.origin + '/api');
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const quizId = urlParams.get('quiz_id') || quizData.quiz_id;
-
-                        // Format answers for LMS: { "question_id": "label", ... }
-                        const formattedAnswers = {};
-                        quizData.questions.forEach((q, i) => {
-                            const selectedIdx = answers[i];
-                            // If it's an LMS quiz, we use question ID. If AI quiz, we might just use index if ID missing.
-                            const qId = q.id || i;
-                            const label = String.fromCharCode(65 + selectedIdx); // Assuming A, B, C, D labels
-                            formattedAnswers[qId] = label;
-                        });
-
-                        let response;
-                        if (urlParams.get('quiz_id')) {
-                            // LMS Submit
-                            response = await fetch(`${apiBase}/lms/quizzes/${quizId}/attempt`, {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ answers: formattedAnswers })
-                            });
-                        } else {
-                            // AI Submit (Original logic)
-                            response = await fetch(`${apiBase}/quiz/submit`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify({
-                                    quiz_id: quizData.quiz_id,
-                                    answers: answers
-                                })
-                            });
-                        }
-
-                        if (!response.ok) {
-                            throw new Error('Failed to submit quiz');
-                        }
-
-                        quizResult = await response.json();
-
-                        // If LMS response doesn't match the old result format, adapt it
-                        if (!quizResult.level) quizResult.level = quizResult.percentage > 80 ? 'Advanced' : 'Intermediate';
-                        if (!quizResult.feedback) quizResult.feedback = `You scored ${quizResult.score} out of ${quizResult.max_score}. Great effort!`;
-                        if (!quizResult.total) quizResult.total = quizResult.max_score;
-
-                        renderResults();
-
-                    } catch (error) {
-                        alert(`Error: ${error.message}`);
-                        renderQuiz();
-                    }
-                }
-
-                function hasReviewResults() {
-                    if (Array.isArray(quizResult?.question_results) && quizResult.question_results.length > 0) {
-                        return true;
-                    }
-                    return Array.isArray(quizResult?.correct_answers) && quizResult.correct_answers.length > 0;
-                }
-
-                function getQuestionReviewResult(index) {
-                    if (Array.isArray(quizResult?.question_results) && quizResult.question_results[index]) {
-                        return quizResult.question_results[index];
-                    }
-
-                    if (Array.isArray(quizResult?.correct_answers) && quizResult.correct_answers.length > index) {
-                        return {
-                            correct_answers: [quizResult.correct_answers[index]],
-                            is_correct: answers[index] === quizResult.correct_answers[index],
-                        };
-                    }
-
-                    return null;
-                }
-
-                function renderResults() {
-                    const levelClass = `level-${quizResult.level.toLowerCase()}`;
-
-                    document.getElementById('quizContent').innerHTML = `
-                <div class="results-container">
-                    <div class="quiz-header">
-                        <h1>🎉 Quiz Complete!</h1>
-                    </div>
-
-                    <div class="score-circle">
-                        <div>${quizResult.score}/${quizResult.total}</div>
-                        <div class="percentage">${quizResult.percentage.toFixed(0)}%</div>
-                    </div>
-
-                    <div class="level-badge ${levelClass}">
-                        Level: ${quizResult.level}
-                    </div>
-
-                    <div class="feedback-message">
-                        ${quizResult.feedback}
-                    </div>
-
-                    ${quizResult.weak_topics && quizResult.weak_topics.length > 0 ? `
-                        <div class="weak-topics">
-                            <h3>📚 Areas to Review:</h3>
-                            ${quizResult.weak_topics.map(topic => `
-                                <span class="topic-tag">${topic}</span>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-
-                    <div class="results-actions">
-                        <button id="reviewAnswersBtn" class="btn btn-secondary" onclick="showReview()">
-                            📝 Review Answers
-                        </button>
-                        <button class="btn btn-primary" onclick="window.location.reload()">
-                            🔄 Retake Quiz
-                        </button>
-                        <button class="btn btn-primary" onclick="window.location.href='/views/subjects.html'">
-                            💬 Chat with AI Tutor
-                        </button>
-                    </div>
-
-                    <!-- QUIZ FEEDBACK -->
-                    <div class="quiz-feedback-section" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                        <h3 style="text-align: center; margin-bottom: 1.5rem; color: var(--accent);">📊 How was this quiz?</h3>
-                        <div id="quizFeedbackContainer" style="max-width: 500px; margin: 0 auto;">
-                            <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
-                                ${[1, 2, 3, 4, 5].map(star => `
-                                    <button class="star-btn" data-rating="${star}" onclick="selectQuizRating(${star})" 
-                                            style="background: var(--bg-secondary); border: 2px solid rgba(255, 255, 255, 0.2); 
-                                                   padding: 1rem; border-radius: 12px; cursor: pointer; font-size: 2rem; transition: all 0.2s;">
-                                        ⭐
-                                    </button>
-                                `).join('')}
-                            </div>
-                            <textarea id="quizFeedbackComment" placeholder="Share your thoughts about this quiz (optional)..." 
-                                      style="width: 100%; background: var(--bg-secondary); border: 1px solid rgba(255, 255, 255, 0.2); 
-                                             padding: 1rem; border-radius: 12px; color: #fff; min-height: 100px; margin-bottom: 1rem; resize: vertical;"></textarea>
-                            <button id="submitQuizFeedbackBtn" onclick="submitQuizFeedback()" disabled
-                                    style="width: 100%; background: linear-gradient(135deg, var(--accent), #00d4aa); color: #0f0c29; 
-                                           padding: 1rem; border-radius: 12px; border: none; font-weight: 600; cursor: not-allowed; opacity: 0.5; transition: all 0.3s;">
-                                Submit Feedback
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-                    if (!hasReviewResults()) {
-                        document.getElementById('reviewAnswersBtn')?.remove();
-                    }
-                }
-
-                function showReview() {
-                    if (!hasReviewResults()) {
-                        renderResults();
-                        return;
-                    }
-
-                    let reviewHTML = '<div class="review-answers"><h2 style="text-align:center; margin-bottom: 2rem;">📝 Answer Review</h2>';
-
-                    quizData.questions.forEach((question, index) => {
-                        const userAnswer = answers[index];
-                        const reviewResult = getQuestionReviewResult(index);
-                        const correctAnswers = Array.isArray(reviewResult?.correct_answers) ? reviewResult.correct_answers : [];
-                        const isCorrect = reviewResult ? !!reviewResult.is_correct : false;
-
-                        reviewHTML += `
-                    <div class="review-question ${isCorrect ? 'correct' : 'incorrect'}">
-                        <div style="font-weight: 600; margin-bottom: 0.5rem;">
-                            ${isCorrect ? '✅' : '❌'} Question ${index + 1}
-                        </div>
-                        <div style="font-size: 1.1rem; margin-bottom: 1rem;">${question.question}</div>
-                        
-                        ${question.options.map((option, optIndex) => {
-                            let classes = 'review-option';
-                            const optionLabel = String.fromCharCode(65 + optIndex);
-                            const isUserAnswer = userAnswer === optIndex || userAnswer === optionLabel;
-                            const isCorrectAnswer = correctAnswers.includes(optIndex) || correctAnswers.includes(optionLabel);
-                            if (isUserAnswer && !isCorrect) {
-                                classes += ' wrong-answer';
-                            }
-                            if (isCorrectAnswer) {
-                                classes += ' correct-answer';
-                            }
-                            if (isUserAnswer && isCorrect) {
-                                classes += ' user-answer correct-answer';
-                            }
-
-                            return `
-                                <div class="${classes}">
-                                    ${optionLabel}. ${typeof option === 'object' ? (option.text ?? option.label ?? '') : option}
-                                    ${isUserAnswer ? ' (Your answer)' : ''}
-                                    ${isCorrectAnswer ? ' ✓ Correct' : ''}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-                    });
-
-                    reviewHTML += `
-                <div style="text-align: center; margin-top: 2rem;">
-                    <button class="btn btn-secondary" onclick="renderResults()">← Back to Results</button>
-                </div>
-            </div>`;
-
-                    document.getElementById('quizContent').innerHTML = reviewHTML;
-                }
-
-                // Quiz Feedback Functions
-                let selectedQuizRating = null;
-
-                function selectQuizRating(rating) {
-                    selectedQuizRating = rating;
-
-                    // Update UI
-                    const stars = document.querySelectorAll('.star-btn');
-                    stars.forEach((star, index) => {
-                        if (index < rating) {
-                            star.style.background = 'linear-gradient(135deg, var(--accent), #00d4aa)';
-                            star.style.borderColor = 'var(--accent)';
-                            star.style.transform = 'scale(1.1)';
-                        } else {
-                            star.style.background = 'var(--bg-secondary)';
-                            star.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                            star.style.transform = 'scale(1)';
-                        }
-                    });
-
-                    // Enable submit button
-                    const submitBtn = document.getElementById('submitQuizFeedbackBtn');
-                    submitBtn.disabled = false;
-                    submitBtn.style.cursor = 'pointer';
-                    submitBtn.style.opacity = '1';
-                }
-
-                async function submitQuizFeedback() {
-                    if (!selectedQuizRating) return;
-
-                    const comment = document.getElementById('quizFeedbackComment').value.trim();
-                    const apiBase = window.config?.apiBase || (window.location.origin + '/api');
-
-                    try {
-                        const response = await fetch(`${apiBase}/feedback/`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                source: 'quiz',
-                                reference_id: quizData.quiz_id,
-                                rating: selectedQuizRating.toString(),
-                                subject: 'general',
-                                comment: comment
-                            })
-                        });
-
-                        if (!response.ok) {
-                            throw new Error('Failed to submit feedback');
-                        }
-
-                        // Replace feedback UI with thank you message
-                        document.getElementById('quizFeedbackContainer').innerHTML = `
-                    <div style="text-align: center; color: var(--accent); font-size: 1.1rem;">
-                        ✓ Thank you for your feedback!
-                    </div>
-                `;
-                    } catch (error) {
-                        alert(`Failed to submit feedback: ${error.message}`);
-                    }
-                }
-            </script>
-        </main>
+<body class="page-layout lms-quiz-page">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap"></i></div><span>RAG AI Tutor</span></div>
+    <div class="sidebar-scroll">
+    <nav class="nav-section">
+      <div class="nav-label">Learn</div>
+      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
+      <a id="navClassesLink" href="/views/lms.html?allow_student=1&page=classes&tab=quizzes" class="nav-item active"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open"></i></span>My Classes</a>
+      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments"></i></span>AI Tutor Chat</a>
+      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar"></i></span>Planner</a>
+      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running"></i></span>Activity Tracking</a>
+      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users"></i></span>Community</a>
+    </nav>
+    <nav class="nav-section">
+      <div class="nav-label">Analytics</div>
+      <a href="/views/analytics.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie"></i></span>Analytics</a>
+      <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check"></i></span>Evaluation</a>
+      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard"></i></span>Progress Report</a>
+      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days"></i></span>Unified Calendar</a>
+    </nav>
+    <nav class="nav-section"><div class="nav-label">Account</div><a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user"></i></span>Profile & Settings</a></nav>
     </div>
+    <div class="sidebar-footer">
+      <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Learner</div></div></div>
+      <div style="margin-top:10px;"><a href="#" onclick="logoutUser();return false;" class="nav-item" style="margin-bottom:0;padding:8px 4px;font-size:13px;"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-right-from-bracket"></i></span>Logout</a></div>
+    </div>
+  </aside>
 
-    <script>
-        // Theme toggle
-        function applyTheme(theme) {
-            var btn = document.querySelector('.theme-toggle-btn i');
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                localStorage.setItem('lms_theme', 'dark');
-                if (btn) { btn.classList.remove('fa-moon'); btn.classList.add('fa-sun'); }
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-                localStorage.setItem('lms_theme', 'light');
-                if (btn) { btn.classList.remove('fa-sun'); btn.classList.add('fa-moon'); }
-            }
-        }
-        function toggleTheme() {
-            applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-        }
-        document.addEventListener('DOMContentLoaded', function () {
-            applyTheme(localStorage.getItem('lms_theme') || 'light');
-        });
-    </script>
+  <main class="main-content">
+    <div class="page-container quiz-page-shell">
+      <div class="page-header lms-page-header">
+        <div class="lms-page-heading">
+          <div class="lms-page-eyebrow"><i class="fa-regular fa-circle-question"></i> Quiz workspace</div>
+          <h1 id="quizPageTitle"><i class="fa-regular fa-circle-question"></i> Quiz Session</h1>
+          <p id="quizPageSubtitle">A unified quiz experience for LMS quizzes and generated diagnostics.</p>
+        </div>
+        <div class="lms-page-toolbar">
+          <a id="backLink" class="btn btn-secondary" href="/views/dashboard.html"><i class="fa-solid fa-arrow-left"></i> Back</a>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+        </div>
+      </div>
+
+      <div id="quizNotice" class="quiz-notice-stack"></div>
+      <div id="loadingState" class="quiz-state-card state-screen"><span class="state-icon"><i class="fa-solid fa-spinner fa-spin"></i></span><h2>Loading quiz</h2><p>Fetching questions and timing rules.</p></div>
+      <div id="errorState" class="quiz-state-card state-screen" style="display:none;"><span class="state-icon"><i class="fa-solid fa-circle-exclamation"></i></span><h2 id="errorMsg">Quiz unavailable</h2><p id="errorHelp">We could not load this quiz.</p><a id="errorBackLink" href="/views/dashboard.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Return</a></div>
+
+      <div id="startState" style="display:none;">
+        <div class="bento-grid">
+          <section class="card col-span-8 quiz-intro-card">
+            <div class="quiz-intro-head"><div><div class="lms-section-kicker">Ready to begin</div><h2 id="startTitle">Quiz</h2></div><span id="attemptCountBadge" class="lms-feed-count">Attempt 1</span></div>
+            <p id="startCopy" class="quiz-intro-copy">Read each question carefully and submit when you are ready.</p>
+            <div id="startMeta" class="quiz-chip-row"></div>
+            <div class="quiz-start-actions"><button class="btn btn-primary" onclick="startQuiz()"><i class="fa-solid fa-play"></i> Start Quiz</button></div>
+          </section>
+          <aside class="card col-span-4 quiz-summary-card"><div class="lms-section-kicker">Overview</div><div id="quizStartFacts" class="quiz-summary-list"></div></aside>
+        </div>
+      </div>
+
+      <div id="quizState" style="display:none;">
+        <div class="bento-grid quiz-session-grid">
+          <section class="card col-span-8 quiz-main-card">
+            <div class="quiz-session-head">
+              <div><div class="lms-section-kicker">In progress</div><h2 id="quizTitle">Quiz</h2><p id="quizMeta" class="quiz-session-meta"></p></div>
+              <div class="quiz-progress-card"><span>Answered</span><strong id="answeredCount">0 / 0</strong></div>
+            </div>
+            <div class="progress-bar-wrap"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
+            <div id="questionArea"></div>
+            <div class="quiz-nav">
+              <button id="prevBtn" class="btn btn-secondary" onclick="goQuestion(currentQ-1)"><i class="fa-solid fa-arrow-left"></i> Previous</button>
+              <button id="submitBtn" class="btn btn-danger" onclick="confirmSubmit()"><i class="fa-solid fa-paper-plane"></i> Submit Quiz</button>
+              <button id="nextBtn" class="btn btn-secondary" onclick="goQuestion(currentQ+1)">Next <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </section>
+          <aside class="card col-span-4 quiz-side-card">
+            <div id="timerWrap" class="quiz-timer-card" style="display:none;"><div class="lms-section-kicker">Time remaining</div><div id="timerDisplay" class="timer-display">00:00</div><p>Auto-submit happens when the timer reaches zero.</p></div>
+            <div class="quiz-side-card-block"><div class="lms-section-kicker">Question map</div><div id="questionDots" class="q-dots"></div></div>
+            <div class="quiz-side-card-block"><div class="lms-section-kicker">Status</div><div id="liveQuizFacts" class="quiz-summary-list"></div></div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="resultsState" style="display:none;">
+        <div class="bento-grid">
+          <section class="card col-span-8 results-card">
+            <div class="results-head"><div class="results-copy-block"><div class="lms-section-kicker">Submitted</div><h2 id="resultTitle">Quiz complete</h2><p id="resultMsg"></p></div><div class="score-circle"><div id="scorePct" class="score-big">0%</div><div class="score-label">Score</div></div></div>
+            <div class="results-content-grid">
+              <div class="result-stats">
+                <div class="result-stat"><div id="resCorrect" class="result-stat-val">0</div><div class="result-stat-label">Correct</div></div>
+                <div class="result-stat"><div id="resTotal" class="result-stat-val">0</div><div class="result-stat-label">Questions</div></div>
+                <div class="result-stat"><div id="resScore" class="result-stat-val">0</div><div class="result-stat-label">Points</div></div>
+              </div>
+              <div id="resultInsight" class="result-insight-card">
+                <div class="lms-section-kicker">Performance note</div>
+                <p id="resultInsightText">We’ve scored your quiz and summarized the key takeaways below.</p>
+              </div>
+            </div>
+            <div id="weakTopicsWrap"></div>
+            <div class="quiz-results-actions">
+              <button id="reviewBtn" class="btn btn-secondary" onclick="showReview()"><i class="fa-regular fa-clipboard"></i> Review Answers</button>
+              <button id="retryBtn" class="btn btn-primary" onclick="restartQuiz()"><i class="fa-solid fa-rotate-right"></i> Try Again</button>
+              <a id="resultsBackLink" class="btn btn-secondary" href="/views/dashboard.html"><i class="fa-solid fa-arrow-left"></i> Back</a>
+            </div>
+          </section>
+          <aside class="card col-span-4 quiz-summary-card"><div class="lms-section-kicker">Result summary</div><div id="resultFacts" class="quiz-summary-list"></div></aside>
+        </div>
+        <div id="reviewSection" class="quiz-review-list" style="display:none;"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API=window.config?.apiBase||'/api',TOKEN=localStorage.getItem('token');
+    if(!TOKEN) window.location.href='/views/login.html';
+    const headers={Authorization:`Bearer ${TOKEN}`,'Content-Type':'application/json'};
+    const user=JSON.parse(localStorage.getItem('user')||'{}'),role=(user.role||'student').toLowerCase();
+    const params=new URLSearchParams(window.location.search),quizId=params.get('quiz_id'),classId=params.get('class_id')||'',quizMode=quizId?'lms':'diagnostic';
+    let quizData=null,questions=[],answers={},currentQ=0,timerInterval=null,secondsLeft=0,submitResult=null;
+
+    const esc=v=>String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const unwrap=p=>p&&typeof p==='object'&&'data' in p&&p.data!=null?p.data:p;
+    function logoutUser(){ if(window.auth?.logout) return window.auth.logout(); localStorage.clear(); window.location.href='/views/login.html'; }
+    async function apiFetch(path,opts={}){ const r=await fetch(`${API}${path}`,{headers,...opts}); const t=r.headers.get('content-type')||''; let p=t.includes('application/json')?await r.json():{detail:(await r.text())||''}; if(!r.ok) throw new Error(unwrap(p)?.detail||p?.detail||`HTTP ${r.status}`); return unwrap(p); }
+    function backHref(){ if(quizMode==='diagnostic') return '/views/dashboard.html'; const u=new URL('/views/lms.html',window.location.origin); if(role==='student') u.searchParams.set('allow_student','1'); u.searchParams.set('page','classes'); u.searchParams.set('tab','quizzes'); if(classId) u.searchParams.set('class_id',classId); return u.toString(); }
+    function setShell(){ document.getElementById('userName').textContent=user.name||'Learner'; document.getElementById('userLevel').textContent=role.charAt(0).toUpperCase()+role.slice(1); document.getElementById('userAvatar').textContent=(user.name||'L').charAt(0).toUpperCase(); ['navClassesLink','backLink','errorBackLink','resultsBackLink'].forEach(id=>document.getElementById(id).href=backHref()); }
+    function notice(msg,tone='warning'){ document.getElementById('quizNotice').innerHTML=msg?`<div class="quiz-notice tone-${tone}">${msg}</div>`:''; }
+    function showError(msg,help='Refresh once and try again, or return to the previous page.'){ ['loadingState','startState','quizState','resultsState'].forEach(id=>document.getElementById(id).style.display='none'); document.getElementById('errorState').style.display='grid'; document.getElementById('errorMsg').textContent=msg; document.getElementById('errorHelp').textContent=help; }
+    function facts(items){ return items.map(i=>`<div class="quiz-fact-row"><span>${i.label}</span><strong>${i.value}</strong></div>`).join(''); }
+    function nOpt(opt,i){ return typeof opt==='object'&&opt!==null?{index:i,label:opt.label||String.fromCharCode(65+i),text:opt.text??opt.label??'',is_correct:!!opt.is_correct}:{index:i,label:String.fromCharCode(65+i),text:String(opt??''),is_correct:false}; }
+    function nQuestion(q,i){ return {id:String(q.id||q.question_id||`q-${i}`),question:q.question||`Question ${i+1}`,options:(Array.isArray(q.options)?q.options:[]).map((o,j)=>nOpt(o,j)),points:Number(q.points||1),explanation:q.explanation||'',chunk_source:q.chunk_source||''}; }
+    function nQuiz(p){ const qs=(Array.isArray(p?.questions)?p.questions:[]).map((q,i)=>nQuestion(q,i)); return {quiz_id:p?.quiz_id||p?.id||quizId||'',title:p?.title||(quizMode==='diagnostic'?'Diagnostic Quiz':'Quiz Session'),description:p?.description||(quizMode==='diagnostic'?'A generated knowledge check based on your available materials.':'Answer each question carefully and submit when ready.'),time_limit:p?.time_limit||null,max_attempts:p?.max_attempts||1,start_time:p?.start_time||null,end_time:p?.end_time||null,questions:qs}; }
+    function dtRange(){ const parts=[]; if(quizData?.start_time){const d=new Date(quizData.start_time); if(!Number.isNaN(d)) parts.push(`Starts ${d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`);} if(quizData?.end_time){const d=new Date(quizData.end_time); if(!Number.isNaN(d)) parts.push(`Ends ${d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`);} return parts.join(' · '); }
+    function renderStart(){ const totalPoints=questions.reduce((s,q)=>s+Number(q.points||1),0); document.getElementById('quizStartFacts').innerHTML=facts([{label:'Questions',value:`${questions.length}`},{label:'Time limit',value:quizData.time_limit?`${quizData.time_limit} min`:'Untimed'},{label:'Mode',value:quizMode==='lms'?'LMS Quiz':'Diagnostic'},{label:'Total points',value:`${totalPoints}`}]); }
+    function liveFacts(){ const answered=Object.keys(answers).length; document.getElementById('answeredCount').textContent=`${answered} / ${questions.length}`; document.getElementById('liveQuizFacts').innerHTML=facts([{label:'Answered',value:`${answered}/${questions.length}`},{label:'Remaining',value:`${Math.max(questions.length-answered,0)}`},{label:'Current',value:`Q${currentQ+1}`}]); }
+    function updTimer(){ const m=Math.max(Math.floor(secondsLeft/60),0).toString().padStart(2,'0'); const s=Math.max(secondsLeft%60,0).toString().padStart(2,'0'); document.getElementById('timerDisplay').textContent=`${m}:${s}`; }
+    function startTimer(){ updTimer(); timerInterval=setInterval(()=>{ secondsLeft-=1; updTimer(); const el=document.getElementById('timerDisplay'); el.className=secondsLeft<=60?'timer-display danger':secondsLeft<=300?'timer-display warning':'timer-display'; if(secondsLeft<=0){ clearInterval(timerInterval); notice('Time is up. Your answers are being submitted automatically.','danger'); submitQuiz(); } },1000); }
+    function buildDots(){ document.getElementById('questionDots').innerHTML=questions.map((_,i)=>`<button type="button" class="q-dot" id="dot-${i}" onclick="goQuestion(${i})">${i+1}</button>`).join(''); }
+    function updateProgress(){ const answered=Object.keys(answers).length,pct=questions.length?(answered/questions.length)*100:0; document.getElementById('progressBar').style.width=`${pct}%`; questions.forEach((q,i)=>{ const dot=document.getElementById(`dot-${i}`); if(!dot) return; dot.className='q-dot'; if(i===currentQ) dot.classList.add('current'); if(answers[q.id]!=null) dot.classList.add('answered'); }); document.getElementById('prevBtn').disabled=currentQ===0; document.getElementById('nextBtn').disabled=currentQ>=questions.length-1; document.getElementById('submitBtn').disabled=Object.keys(answers).length===0; liveFacts(); }
+    function renderQuestion(){ const q=questions[currentQ],selected=answers[q.id]; document.getElementById('questionArea').innerHTML=`<article class="question-card"><div class="question-card-head"><div class="question-number">Question ${currentQ+1} of ${questions.length}</div><span class="lms-feed-count">${q.points} pt${q.points===1?'':'s'}</span></div><div class="question-text">${esc(q.question)}</div><div class="options-grid">${q.options.map(o=>`<button type="button" class="option-btn ${selected===o.index?'selected':''}" onclick="selectAnswer('${q.id}',${o.index})"><span class="option-label">${esc(o.label)}</span><span class="option-copy">${esc(o.text)}</span></button>`).join('')}</div></article>`; }
+    function goQuestion(i){ currentQ=Math.max(0,Math.min(i,questions.length-1)); renderQuestion(); updateProgress(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function selectAnswer(id,i){ answers[id]=i; renderQuestion(); updateProgress(); }
+    function startQuiz(){ document.getElementById('startState').style.display='none'; document.getElementById('quizState').style.display='block'; document.getElementById('quizTitle').textContent=quizData.title; document.getElementById('quizMeta').textContent=quizData.description; buildDots(); goQuestion(0); liveFacts(); if(quizData.time_limit){ secondsLeft=Number(quizData.time_limit)*60; document.getElementById('timerWrap').style.display='grid'; startTimer(); } else { document.getElementById('timerWrap').style.display='none'; } }
+    function confirmSubmit(){ if(Object.keys(answers).length<questions.length && !window.confirm('You still have unanswered questions. Submit anyway?')) return; submitQuiz(); }
+    function lmsAnswerMap(){ const out={}; questions.forEach(q=>{ const idx=answers[q.id]; if(idx==null) return; const opt=q.options.find(o=>o.index===idx); out[q.id]=opt?.label||String.fromCharCode(65+idx); }); return out; }
+    function diagnosticAnswers(){ return questions.map(q=>answers[q.id]==null?null:answers[q.id]); }
+    function normalizeResult(raw){ const p={...raw},totalPoints=questions.reduce((s,q)=>s+Number(q.points||1),0); if(quizMode==='lms'){ p.total=Number(p.max_score||totalPoints); p.level=p.level||(p.percentage>=80?'Advanced':p.percentage>=60?'Intermediate':'Beginner'); p.feedback=p.feedback||`You answered ${p.correct_count||0} of ${questions.length} questions correctly.`; p.review_results=questions.map(q=>{ const r=Array.isArray(p.question_results)?p.question_results.find(x=>String(x.question_id)===String(q.id)):null; const idx=answers[q.id]; return {question:q.question,user_answer_label:idx!=null?(q.options.find(o=>o.index===idx)?.label||''):'',correct_labels:Array.isArray(r?.correct_answers)?r.correct_answers:[],is_correct:!!r?.is_correct,options:Array.isArray(r?.options)&&r.options.length?r.options.map((o,i)=>nOpt(o,i)):q.options,explanation:r?.explanation||q.explanation||''}; }); return p; } p.total=Number(p.total||questions.length); p.level=p.level||(p.percentage>=80?'Advanced':p.percentage>=60?'Intermediate':'Beginner'); p.feedback=p.feedback||`You answered ${p.score||0} of ${p.total} questions correctly.`; p.review_results=questions.map((q,i)=>{ const idx=answers[q.id],correctIdx=Array.isArray(p.correct_answers)?p.correct_answers[i]:null; const label=correctIdx==null?'':(q.options.find(o=>o.index===correctIdx)?.label||String.fromCharCode(65+correctIdx)); return {question:q.question,user_answer_label:idx!=null?(q.options.find(o=>o.index===idx)?.label||''):'',correct_labels:label?[label]:[],is_correct:idx===correctIdx,options:q.options,explanation:q.chunk_source?`Generated from: ${q.chunk_source}`:''}; }); return p; }
+    async function submitQuiz(){ if(timerInterval){ clearInterval(timerInterval); timerInterval=null; } document.getElementById('quizState').style.display='none'; document.getElementById('loadingState').style.display='grid'; notice('Submitting your answers and calculating results...'); try { const raw=quizMode==='lms'?await apiFetch(`/lms/quizzes/${quizData.quiz_id}/attempt`,{method:'POST',body:JSON.stringify({answers:lmsAnswerMap()})}):await apiFetch('/quiz/submit',{method:'POST',body:JSON.stringify({quiz_id:quizData.quiz_id,answers:diagnosticAnswers()})}); submitResult=normalizeResult(raw); renderResults(); } catch(err){ notice('','warning'); showError(`Failed to submit quiz: ${err.message}`,'Refresh once and try again. If the issue persists, return to the previous page.'); } }
+    function renderResults(){ document.getElementById('loadingState').style.display='none'; document.getElementById('resultsState').style.display='block'; document.getElementById('reviewSection').style.display='none'; document.getElementById('reviewSection').innerHTML=''; const percentage=Number(submitResult.percentage||0); const correct=Number(submitResult.correct_count??submitResult.score??0); document.getElementById('resultTitle').textContent=quizMode==='lms'?'LMS quiz complete':'Diagnostic quiz complete'; document.getElementById('resultMsg').textContent=submitResult.feedback||'Your answers have been evaluated successfully.'; document.getElementById('scorePct').textContent=`${percentage.toFixed(0)}%`; document.getElementById('resCorrect').textContent=String(correct); document.getElementById('resTotal').textContent=String(questions.length); document.getElementById('resScore').textContent=`${Number(submitResult.score||0).toFixed(0)} / ${Number(submitResult.total||questions.length).toFixed(0)}`; document.getElementById('resultFacts').innerHTML=facts([{label:'Mode',value:quizMode==='lms'?'LMS Quiz':'Diagnostic'},{label:'Level',value:submitResult.level||'Completed'},{label:'Percentage',value:`${percentage.toFixed(2)}%`},{label:'Questions',value:`${questions.length}`}]); document.getElementById('resultInsightText').textContent=percentage>=80?'Excellent work. You have a strong grasp of this material and can move on to higher-difficulty questions.':percentage>=60?'Good progress. You understand the foundations, and a focused review will help you improve further.':'You are building the basics. Review the highlighted topics below, then retry the quiz to reinforce the concepts.'; const weak=Array.isArray(submitResult.weak_topics)?submitResult.weak_topics:[]; document.getElementById('weakTopicsWrap').innerHTML=weak.length?`<div class="result-review-card"><div class="lms-section-kicker">Review next</div><div class="result-review-copy">Focus on the topics that contributed most to the missed questions before your next attempt.</div><div class="result-topic-list">${weak.map(topic=>`<span class="result-topic-chip"><i class="fa-solid fa-book-open-reader"></i>${esc(topic)}</span>`).join('')}</div></div>`:''; document.getElementById('reviewBtn').style.display=submitResult.review_results?.length?'inline-flex':'none'; document.getElementById('retryBtn').textContent=quizMode==='lms'?'Reload Quiz':'Try Again'; notice(quizMode==='lms'?'Your LMS submission has been recorded successfully.':'Your diagnostic quiz has been scored successfully.','success'); }
+    function showReview(){ if(!submitResult?.review_results?.length) return; const host=document.getElementById('reviewSection'); host.style.display='grid'; host.innerHTML=submitResult.review_results.map((r,i)=>`<article class="review-card"><div class="review-card-head"><div><div class="question-number">Question ${i+1}</div><div class="question-text">${esc(r.question)}</div></div><span class="lms-feed-count">${r.is_correct?'Correct':'Needs review'}</span></div><div class="review-options">${r.options.map(o=>{ const user=r.user_answer_label===o.label,correct=r.correct_labels.includes(o.label),cls=['review-option',correct?'correct':'',user&&!correct?'wrong-choice':''].filter(Boolean).join(' '),state=correct?'Correct':user?'Your answer':''; return `<div class="${cls}"><span class="review-option-label">${esc(o.label)}</span><span class="review-option-copy">${esc(o.text)}</span><span class="review-option-state">${state}</span></div>`; }).join('')}</div>${r.explanation?`<div class="review-explanation"><i class="fa-regular fa-lightbulb"></i><div>${esc(r.explanation)}</div></div>`:''}</article>`).join(''); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }
+    function restartQuiz(){ if(quizMode==='diagnostic') window.location.href='/views/quiz.html'; else window.location.reload(); }
+    async function init(){ setShell(); if(quizMode==='lms'&&role!=='student'){ showError('LMS quiz attempts are available on student accounts only.','Use a student account to attempt this quiz, or go back to the LMS workspace.'); return; } try { const raw=quizMode==='lms'?await apiFetch(`/lms/quizzes/${quizId}`):await apiFetch('/quiz/generate',{method:'POST',body:JSON.stringify({subject:'general',num_questions:10})}); quizData=nQuiz(raw); questions=quizData.questions; if(!questions.length){ showError('This quiz has no questions yet.','Try again after adding more material or generating a fresh quiz.'); return; } document.getElementById('loadingState').style.display='none'; document.getElementById('startState').style.display='block'; document.getElementById('quizPageTitle').innerHTML=`<i class="fa-regular fa-circle-question"></i> ${esc(quizData.title)}`; document.getElementById('quizPageSubtitle').textContent=quizMode==='lms'?(quizData.description||'A cleaner LMS quiz flow with progress, timing, and answer review.'):'A generated diagnostic quiz based on the knowledge available to your account.'; document.getElementById('startTitle').textContent=quizData.title; document.getElementById('attemptCountBadge').textContent=quizMode==='lms'?`Max ${quizData.max_attempts||1} attempt${(quizData.max_attempts||1)===1?'':'s'}`:'Adaptive diagnostic'; document.getElementById('startCopy').textContent=quizMode==='lms'?'Read each question carefully. You can move between questions before submitting, and your progress stays visible in the sidebar.':'This generated quiz checks your current understanding from the available learning content.'; const meta=[`<span class="quiz-chip"><i class="fa-regular fa-list-check"></i> ${questions.length} questions</span>`,`<span class="quiz-chip"><i class="fa-regular fa-clock"></i> ${quizData.time_limit?`${quizData.time_limit} minutes`:'No timer'}</span>`,`<span class="quiz-chip"><i class="fa-solid fa-layer-group"></i> ${quizMode==='lms'?'LMS Quiz':'Diagnostic Quiz'}</span>`],range=dtRange(); if(range) meta.push(`<span class="quiz-chip"><i class="fa-regular fa-calendar"></i> ${esc(range)}</span>`); document.getElementById('startMeta').innerHTML=meta.join(''); renderStart(); } catch(err){ showError(`Failed to load quiz: ${err.message}`); } }
+    init();
+  </script>
 </body>
-
 </html>
-

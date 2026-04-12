@@ -112,7 +112,6 @@ async def _generate_rag_answer(
     if file_count >= 2 and chat_id:
         logger.info(f"[GRAG] File count {file_count} >= 2, using GRAG pipeline via MongoDB service")
         from backend.services.grag_service import graph_retrieve
-        from backend.utils.db import db_manager
         graph_results = await graph_retrieve(db_manager.db, chat_id, query)
         
         if graph_results:
@@ -180,7 +179,8 @@ Provide a helpful, educational answer based on the materials above:"""
                     user_id=user_id,
                     subject=subject or "general",
                     chat_id=chat_id,
-                    graph_context=graph_context_summary
+                    graph_context=graph_context_summary,
+                    answer_source_mode=source_mode,
                 )
 
         except Exception as e:
@@ -280,7 +280,6 @@ async def retrieve_chunks_for_streaming(
 
             logger.info(f"[GRAG] File count {file_count} >= 2, using GRAG service")
             from backend.services.grag_service import graph_retrieve
-            from backend.utils.db import db_manager
             
             graph_results = await graph_retrieve(db_manager.db, chat_id, query)
             if graph_results:
@@ -311,7 +310,6 @@ async def retrieve_chunks_for_streaming(
         # Add session document context if available
         doc_context = ""
         if chat_id:
-            from backend.utils.db import db_manager
             try:
                 # Note: This is a sync call inside an async func, but retrieve_chunks_for_streaming is async.
                 # However we need to be careful with DB access here. 

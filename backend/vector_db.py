@@ -227,17 +227,17 @@ def query_user_collection(user_id: str, subject: Optional[str], query_embedding:
     # results structure is list of lists
     if results["ids"] and results["ids"][0]:
         for i, doc in enumerate(results["documents"][0]):
+            raw_distance = results["distances"][0][i]
+            if raw_distance <= 1:
+                normalized_score = max(0.0, 1 - raw_distance)
+            else:
+                normalized_score = 1 / (1 + raw_distance)
             hits.append({
                 "id": results["ids"][0][i],
                 "text": doc,
                 "metadata": results["metadatas"][0][i],
-                "score": 1 - results["distances"][0][i] # default l2 distance?
-                # Wait, Chroma defaults to L2 (Squared L2). 
-                # Distance 0 = identical. 
-                # Similarity = 1 / (1 + dist) or specialized logic?
-                # If using L2, larger is worse.
-                # If using Cosine (default for some models), dist = 1 - sim.
-                # We should assume some reasonable conversion. 1 - dist is common for Cosine distance.
+                "score": normalized_score,
+                "distance": raw_distance,
             })
     return hits
 

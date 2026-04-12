@@ -1,82 +1,122 @@
 [
-    {
-        "question": "What is Scrum?",
-        "gold_answer": "Scrum is an agile framework that helps teams work together to develop and deliver products iteratively.",
-        "gold_chunk_id": "scrum_overview",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "What is Scrum? Scrum is a framework",
-        "subject": "general"
-    },
-    {
-        "question": "What are the roles in Scrum?",
-        "gold_answer": "The main Scrum roles are Product Owner, Scrum Master, and Scrum Team or Development Team.",
-        "gold_chunk_id": "scrum_roles",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "Product Owner The Scrum product owner",
-        "subject": "general"
-    },
-    {
-        "question": "What is a Sprint in Scrum?",
-        "gold_answer": "A Sprint is a short, time-boxed work cycle in Scrum used to complete a set amount of work and deliver an increment.",
-        "gold_chunk_id": "scrum_sprint",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "What are sprints? With scrum",
-        "subject": "general"
-    },
-    {
-        "question": "What is the Product Backlog?",
-        "gold_answer": "The Product Backlog is an ordered and prioritized list of work items or product requirements that the team may deliver.",
-        "gold_chunk_id": "product_backlog",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "Product to-do list entries",
-        "subject": "general"
-    },
-    {
-        "question": "What is a Sprint Retrospective?",
-        "gold_answer": "A Sprint Retrospective is a Scrum meeting where the team reflects on the sprint and identifies improvements for future work.",
-        "gold_chunk_id": "sprint_retrospective",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "Sprint Review & Team Retrospective Meetings",
-        "subject": "general"
-    },
-    {
-        "question": "What is Kanban?",
-        "gold_answer": "Kanban is an agile framework and visual system for managing work as it moves through a process.",
-        "gold_chunk_id": "kanban_overview",
-        "gold_chunk_source": "kanban notes_UNIT 1.pptx",
-        "gold_chunk_contains": "Kanban is a framework that falls under the Agile methodology",
-        "subject": "general"
-    },
-    {
-        "question": "What are user stories in Scrum?",
-        "gold_answer": "A user story is a Scrum technique for describing a software feature from the end-user perspective, explaining who wants what and why.",
-        "gold_chunk_id": "user_stories",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "User Story A user story is",
-        "subject": "general"
-    },
-    {
-        "question": "What is the Daily Standup meeting?",
-        "gold_answer": "The Daily Standup or Daily Scrum is a short daily meeting where each team member shares progress, plans, and impediments.",
-        "gold_chunk_id": "daily_standup",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "Each team member should briefly provide the answers",
-        "subject": "general"
-    },
-    {
-        "question": "What is Sprint Planning?",
-        "gold_answer": "Sprint Planning is the meeting that starts a sprint and defines what can be delivered and how the work will be achieved.",
-        "gold_chunk_id": "sprint_planning",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "Sprint Planning Meeting",
-        "subject": "general"
-    },
-    {
-        "question": "What is a Burndown Chart in Scrum?",
-        "gold_answer": "A Burndown Chart is a graphical representation of work remaining versus time and is commonly used in Scrum to track progress.",
-        "gold_chunk_id": "burndown_chart",
-        "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
-        "gold_chunk_contains": "What is Burndown Chart in Scrum?",
-        "subject": "general"
-    }
+  {
+    "question": "What is Scrum?",
+    "gold_answer": "Scrum is an agile framework that helps teams work together to develop and deliver products iteratively.",
+    "gold_chunk_id": "scrum_overview",
+    "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+    "gold_chunk_contains": "What is Scrum? Scrum is a framework",
+    "subject": "agile"
+  },
+  {
+    "question": "What are the roles in Scrum?",
+    "gold_answer": "The main Scrum roles are Product Owner, Scrum Master, and Scrum Team or Development Team.",
+    "gold_chunk_id": "scrum_roles",
+    "gold_chunk_source": "Scrum methodology_UNIT 1.pptx",
+    "gold_chunk_contains": "Product Owner The Scrum product owner",
+    "subject": "agile"
+  },
+  {
+    "question": "What is Kanban?",
+    "gold_answer": "Kanban is an agile framework and visual system for managing work as it moves through a process.",
+    "gold_chunk_id": "kanban_overview",
+    "gold_chunk_source": "kanban notes_UNIT 1.pptx",
+    "gold_chunk_contains": "Kanban is a framework that falls under the Agile methodology",
+    "subject": "agile"
+  },
+  {
+    "question": "What is software?",
+    "gold_answer": "Software is instructions, data structures, and documentation that together provide desired features, function, and performance.",
+    "gold_chunk_id": "software_basics",
+    "gold_chunk_source": "SE Unit-1.pdf",
+    "gold_chunk_contains": "What is Software? Software is:",
+    "subject": "software_engineering"
+  },
+  {
+    "question": "How is software different from manufactured products?",
+    "gold_answer": "Software is developed or engineered rather than manufactured in the classical sense, and it does not wear out like physical products.",
+    "gold_chunk_id": "software_engineering_difference",
+    "gold_chunk_source": "SE Unit-1.pdf",
+    "gold_chunk_contains": "Software is developed or engineered, it is not manufactured in the classical sense.",
+    "subject": "software_engineering"
+  },
+  {
+    "question": "What exactly is DevOps?",
+    "gold_answer": "DevOps is the practice or methodology of making development and operations teams work together through a shared culture and process set.",
+    "gold_chunk_id": "devops_overview",
+    "gold_chunk_source": "DevOps Introduction_UNIT 1.pptx",
+    "gold_chunk_contains": "What exactly is DevOps?",
+    "subject": "devops"
+  },
+  {
+    "question": "Why does DevOps help organizations work faster?",
+    "gold_answer": "DevOps lets organizations create and improve products faster than traditional development approaches by bringing development and operations together.",
+    "gold_chunk_id": "devops_speed",
+    "gold_chunk_source": "DevOps Introduction_UNIT 1.pptx",
+    "gold_chunk_contains": "It allows organizations to create and improve products at a faster pace",
+    "subject": "devops"
+  },
+  {
+    "question": "What is Git?",
+    "gold_answer": "Git is a distributed version control system tool used to track history, support collaboration, branching, and distributed development.",
+    "gold_chunk_id": "git_overview",
+    "gold_chunk_source": "git.pptx",
+    "gold_chunk_contains": "Git is Distributed Version Control System Tool.",
+    "subject": "scm"
+  },
+  {
+    "question": "What are some features of Git?",
+    "gold_answer": "Git tracks history, supports collaboration, non-linear development, branching, distributed development, and scalable backups.",
+    "gold_chunk_id": "git_features",
+    "gold_chunk_source": "git.pptx",
+    "gold_chunk_contains": "Tracks history",
+    "subject": "scm"
+  },
+  {
+    "question": "What is Selenium?",
+    "gold_answer": "Selenium is a free open-source functional automated testing framework used to validate web applications across different browsers and platforms.",
+    "gold_chunk_id": "selenium_overview",
+    "gold_chunk_source": "selenium_new.pptx",
+    "gold_chunk_contains": "Selenium is a free (open-source) functional automated testing framework",
+    "subject": "testing"
+  },
+  {
+    "question": "Which tools are included in the Selenium suite?",
+    "gold_answer": "The Selenium suite includes Selenium IDE, Selenium RC, WebDriver, and Selenium Grid.",
+    "gold_chunk_id": "selenium_tools",
+    "gold_chunk_source": "selenium_new.pptx",
+    "gold_chunk_contains": "Selenium Integrated Development Environment (IDE)",
+    "subject": "testing"
+  },
+  {
+    "question": "What is machine learning?",
+    "gold_answer": "Machine learning is programming computers to optimize a performance criterion using example data or past experience.",
+    "gold_chunk_id": "ml_definition",
+    "gold_chunk_source": "MACHINE LEARNING(18CSC18).docx",
+    "gold_chunk_contains": "Machine learning is programming computers to optimize a performance criterion using example data or past experience.",
+    "subject": "machine_learning"
+  },
+  {
+    "question": "How did Arthur Samuel define machine learning?",
+    "gold_answer": "Arthur Samuel defined machine learning as the field of study that gives computers the ability to learn without being explicitly programmed.",
+    "gold_chunk_id": "ml_samuel_definition",
+    "gold_chunk_source": "MACHINE LEARNING(18CSC18).docx",
+    "gold_chunk_contains": "the field of study that gives computers the ability to learn without being explicitly programmed",
+    "subject": "machine_learning"
+  },
+  {
+    "question": "What topics are covered in Unit-I of Neural Networks and Deep Learning?",
+    "gold_answer": "Unit-I covers artificial neural networks, evolution of neural networks, basic ANN models, terminology, McCulloch-Pitts neuron, perceptron, perceptron learning algorithm, and feed forward neural networks.",
+    "gold_chunk_id": "nndl_unit_topics",
+    "gold_chunk_source": "Unit-I NNDL.pptx",
+    "gold_chunk_contains": "Artificial Neural Networks: Fundamental concepts",
+    "subject": "nndl"
+  },
+  {
+    "question": "Which neural network concepts are introduced along with the perceptron in Unit-I?",
+    "gold_answer": "The unit introduces the McCulloch-Pitts neuron, the perceptron, the perceptron learning algorithm, and feed forward neural networks.",
+    "gold_chunk_id": "nndl_perceptron_topics",
+    "gold_chunk_source": "Unit-I NNDL.pptx",
+    "gold_chunk_contains": "McCulloch-Pitts neuron",
+    "subject": "nndl"
+  }
 ]

@@ -9,6 +9,7 @@ class ValidationResult(BaseModel):
     subject: str = "general"
     user_id: Optional[str] = None
     evaluation_source: str = "live"
+    answer_source_mode: str = "knowledge_base"
     chat_id: Optional[str] = None
     document_id: Optional[str] = None   # NEW
     document_name: Optional[str] = None # NEW

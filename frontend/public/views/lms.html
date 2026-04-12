@@ -367,6 +367,98 @@
         return null; 
       }
     }
+    async function apiFetchCompat(urls, opts = {}) {
+      const candidates = Array.isArray(urls) ? urls : [urls];
+      let lastError = null;
+      for (const url of candidates) {
+        try {
+          console.log(`🌐 API Request: ${API}${url}`, opts);
+          const res = await fetch(API + url, { headers, ...opts });
+          console.log(`📡 API Response: ${API}${url}`, res.status, res.statusText);
+
+          if (res.status === 401) {
+            console.error('🔒 Authentication failed - redirecting to login');
+            localStorage.clear();
+            window.location.href = '/views/login.html';
+            return { response: null, url, data: null };
+          }
+
+          if (res.status === 404) {
+            continue;
+          }
+
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`API Error ${res.status}: ${errorText || res.statusText}`);
+          }
+
+          const data = await res.json().catch(() => null);
+          return { response: res, url, data };
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (lastError) {
+        console.error('🚨 Compatibility fetch failed:', lastError);
+      }
+      return { response: null, url: null, data: null, error: lastError };
+    }
+    function formatMonthRange(month, year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+      const toIsoDay = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+      return { start: toIsoDay(start), end: toIsoDay(end) };
+    }
+    function normalizeAnnouncementItems(payload) {
+      const parsed = normalizeApiPayload(payload);
+      const raw = Array.isArray(parsed?.data)
+        ? parsed.data
+        : (parsed?.data?.announcements || parsed?.data?.notices || []);
+      return raw.map((item) => ({
+        id: item.id || item.notice_id || item.update_id || '',
+        title: item.title || 'Untitled announcement',
+        body: item.body || item.content || '',
+        content: item.content || item.body || '',
+        priority: item.priority || 'normal',
+        author_id: item.author_id || '',
+        author_name: item.author_name || 'System',
+        created_at: item.created_at || item.updated_at || '',
+        updated_at: item.updated_at || item.created_at || '',
+        delete_path: item.id ? `/announcements/${item.id}` : (item.notice_id ? `/comm/notices/${item.notice_id}` : null)
+      }));
+    }
+    function normalizeEventItems(payload) {
+      const parsed = normalizeApiPayload(payload);
+      const raw = Array.isArray(parsed?.data) ? parsed.data : (parsed?.data?.events || []);
+      return raw.map((item) => {
+        const startValue = item.start || item.date || '';
+        const [datePart, timePart = ''] = String(startValue).split('T');
+        const cleanTime = item.time || timePart.slice(0, 5);
+        const eventType = item.event_type || item.type || 'general';
+        return {
+          id: item.id || item.event_id || '',
+          title: item.title || 'Untitled event',
+          description: item.description || item.notes || '',
+          date: item.date || datePart || '',
+          time: cleanTime,
+          event_type: eventType,
+          author_id: item.author_id || item.user_id || '',
+          author_name: item.author_name || (eventType ? eventType.replace(/^\w/, (c) => c.toUpperCase()) : 'Calendar'),
+          delete_supported: Boolean(item.id && item.date)
+        };
+      });
+    }
+    async function fetchAnnouncementsFeed() {
+      const result = await apiFetchCompat(['/announcements', '/comm/notices']);
+      if (!result.response) return { items: [], mode: 'empty', url: null };
+      return { items: normalizeAnnouncementItems(result.data), mode: result.url === '/announcements' ? 'announcements' : 'notices', url: result.url };
+    }
+    async function fetchEventsFeed(month, year) {
+      const { start, end } = formatMonthRange(month, year);
+      const result = await apiFetchCompat([`/events?month=${month}&year=${year}`, `/calendar/events?start_date=${start}&end_date=${end}`]);
+      if (!result.response) return { items: [], mode: 'empty', url: null };
+      return { items: normalizeEventItems(result.data), mode: result.url?.startsWith('/events?') ? 'events' : 'calendar', url: result.url };
+    }
     function handleGlobalSearch(q) {
       const lower = (q || '').toLowerCase();
       // Filter all visible table rows
@@ -1270,7 +1362,19 @@
   `, async () => {
         const body = { title: document.getElementById('fEvtTitle').value, date: document.getElementById('fEvtDate').value, time: document.getElementById('fEvtTime').value, event_type: document.getElementById('fEvtType').value, description: document.getElementById('fEvtDesc').value };
         if (!body.title || !body.date) { toast('Title and date required', 'error'); return; }
-        const res = await apiFetch('/events', { method: 'POST', body: JSON.stringify(body) });
+        let res = await apiFetch('/events', { method: 'POST', body: JSON.stringify(body) });
+        if (!res) {
+          const start = `${body.date}T${body.time || '00:00'}`;
+          res = await apiFetch('/calendar/events', {
+            method: 'POST',
+            body: JSON.stringify({
+              title: body.title,
+              start,
+              type: body.event_type,
+              color: body.event_type === 'exam' ? '#ff6b6b' : body.event_type === 'meeting' ? '#4f8cff' : '#22c55e'
+            })
+          });
+        }
         if (res?.ok) { toast('Event created!'); closeFormModal(); loadPage('events'); } else { toast('Failed', 'error'); }
       });
     }
@@ -1278,7 +1382,7 @@
     async function deleteEvent(id) {
       if (!confirm('Delete this event?')) return;
       const res = await apiFetch(`/events/${id}`, { method: 'DELETE' });
-      if (res?.ok) { toast('Event deleted'); loadPage('events'); } else { toast('Failed', 'error'); }
+      if (res?.ok) { toast('Event deleted'); loadPage('events'); } else { toast('Delete is only available for LMS events on this server.', 'warning'); }
     }
 
     // ═══════════════════════════════════════════════════
@@ -1301,9 +1405,7 @@
       const feed = document.getElementById('annFeed');
       if (!feed) return;
       try {
-        const res = await apiFetch('/announcements');
-        const parsed = normalizeApiPayload(await res?.json());
-        const anns = Array.isArray(parsed.data) ? parsed.data : (parsed.data?.announcements || []);
+        const { items: anns, mode } = await fetchAnnouncementsFeed();
         if (!anns.length) {
           feed.innerHTML = '<p class="text-muted" style="text-align:center;padding:30px">No announcements yet.</p>';
           return;
@@ -1314,9 +1416,9 @@
           const dateStr = a.created_at ? new Date(a.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent';
           return `<div class="announcement-item" style="border-left:3px solid ${priorityColor};padding-left:12px;margin-bottom:12px">
         <div class="ann-title">${escHtml(a.title)} ${a.priority && a.priority !== 'normal' ? `<span class="badge badge-${a.priority === 'urgent' ? 'danger' : 'sky'}" style="font-size:10px;text-transform:uppercase">${a.priority}</span>` : ''}</div>
-        <div class="ann-meta">By ${escHtml(a.author_name || 'System')} · ${dateStr}</div>
+        <div class="ann-meta">By ${escHtml(a.author_name || 'System')} · ${dateStr}${mode === 'notices' ? ' · Notice board' : ''}</div>
         <div class="ann-body" style="margin-top:6px;font-size:13px;color:var(--lms-text)">${escHtml(a.content || a.body || '')}</div>
-        ${isTeacher && (a.author_id === String(user._id || user.id || '')) ? `<button class="btn btn-sm btn-danger" style="margin-top:8px" onclick="deleteAnnouncement('${a.id}')">🗑 Delete</button>` : ''}
+        ${isTeacher && a.delete_path && (a.author_id === String(user._id || user.id || '') || ROLE === 'admin') ? `<button class="btn btn-sm btn-danger" style="margin-top:8px" onclick="deleteAnnouncement('${a.id}')">🗑 Delete</button>` : ''}
       </div>`;
         }).join('');
       } catch (e) {
@@ -1332,7 +1434,10 @@
   `, async () => {
         const body = { title: document.getElementById('fAnnTitle').value, content: document.getElementById('fAnnContent').value, priority: document.getElementById('fAnnPriority').value };
         if (!body.title) { toast('Title required', 'error'); return; }
-        const res = await apiFetch('/announcements', { method: 'POST', body: JSON.stringify(body) });
+        let res = await apiFetch('/announcements', { method: 'POST', body: JSON.stringify(body) });
+        if (!res && body.content) {
+          res = await apiFetch('/comm/notices', { method: 'POST', body: JSON.stringify({ title: body.title, content: body.content, priority: body.priority }) });
+        }
         if (res?.ok) { toast('📢 Announcement posted!'); closeFormModal(); loadPage('announcements'); }
         else { const d = await res?.json().catch(() => ({})); toast(d.detail || 'Failed to post', 'error'); }
       });
@@ -1340,7 +1445,8 @@
 
     async function deleteAnnouncement(id) {
       if (!confirm('Delete this announcement?')) return;
-      const res = await apiFetch(`/announcements/${id}`, { method: 'DELETE' });
+      let res = await apiFetch(`/announcements/${id}`, { method: 'DELETE' });
+      if (!res) res = await apiFetch(`/comm/notices/${id}`, { method: 'DELETE' });
       if (res?.ok) { toast('Deleted'); loadPage('announcements'); } else { toast('Failed', 'error'); }
     }
 
@@ -1388,9 +1494,7 @@
       </section>
     </div>`;
 
-      const res = await apiFetch(`/events?month=${month}&year=${year}`);
-      const parsed = normalizeApiPayload(await res?.json());
-      const evts = Array.isArray(parsed.data) ? parsed.data : [];
+      const { items: evts, mode } = await fetchEventsFeed(month, year);
 
       _eventDates = new Set(evts.map((e) => parseInt(e.date?.split('-')[2]) || 0));
       drawMiniCalendar('miniCal');
@@ -1411,7 +1515,7 @@
       }
 
       const countPill = document.getElementById('eventCountPill');
-      if (countPill) countPill.textContent = `${evts.length} scheduled`;
+      if (countPill) countPill.textContent = `${evts.length} scheduled${mode === 'calendar' ? ' · unified feed' : ''}`;
 
       const list = document.getElementById('eventList');
       if (!list) return;
@@ -1439,14 +1543,14 @@
             <div class="lms-announcement-head">
               <div>
                 <div class="ann-title">${escHtml(e.title || 'Untitled event')}</div>
-                <div class="ann-meta">${formatDateTimeLabel(e.date, e.time)} · ${escHtml(e.author_name || 'Staff')}</div>
+                <div class="ann-meta">${formatDateTimeLabel(e.date, e.time)} · ${escHtml(e.author_name || 'Staff')}${mode === 'calendar' ? ' · Unified calendar' : ''}</div>
               </div>
               <span class="badge badge-${badgeTone}">${escHtml((e.event_type || 'general').replace(/^\w/, (c) => c.toUpperCase()))}</span>
             </div>
             <div class="ann-body">${e.description ? escHtml(e.description) : 'No extra notes were added for this event.'}</div>
           </div>
         </div>
-        ${isTeacher && ownEvent ? `<div class="lms-event-actions"><button class="btn btn-sm btn-danger" onclick="deleteEvent('${e.id}')"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button></div>` : ''}
+        ${isTeacher && ownEvent && e.delete_supported ? `<div class="lms-event-actions"><button class="btn btn-sm btn-danger" onclick="deleteEvent('${e.id}')"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button></div>` : ''}
       </article>`;
       }).join('');
     }
@@ -1493,9 +1597,7 @@
       if (!feed) return;
 
       try {
-        const res = await apiFetch('/announcements');
-        const parsed = normalizeApiPayload(await res?.json());
-        const anns = Array.isArray(parsed.data) ? parsed.data : (parsed.data?.announcements || []);
+        const { items: anns, mode } = await fetchAnnouncementsFeed();
         const countPill = document.getElementById('announcementCountPill');
         if (countPill) countPill.textContent = `${anns.length} posts`;
 
@@ -1528,14 +1630,14 @@
         <div class="lms-announcement-head">
           <div>
             <div class="ann-title">${escHtml(a.title || 'Untitled announcement')}</div>
-            <div class="ann-meta">By ${escHtml(a.author_name || 'System')} · ${formatRelativeTime(a.created_at)}</div>
+            <div class="ann-meta">By ${escHtml(a.author_name || 'System')} · ${formatRelativeTime(a.created_at)}${mode === 'notices' ? ' · Notice board' : ''}</div>
           </div>
           <span class="badge badge-${badgeTone}">${escHtml((a.priority || 'normal').replace(/^\w/, (c) => c.toUpperCase()))}</span>
         </div>
         <div class="ann-body">${escHtml(a.content || a.body || '')}</div>
         <div class="lms-item-meta">
           <span>${formatDateLabel(a.created_at || a.updated_at, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-          ${isTeacher && ownAnnouncement ? `<button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>` : ''}
+          ${isTeacher && a.delete_path && (ownAnnouncement || ROLE === 'admin') ? `<button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>` : ''}
         </div>
       </article>`;
         }).join('');
@@ -1560,7 +1662,10 @@
           priority: document.getElementById('fAnnPriority').value
         };
         if (!body.title) { toast('Title required', 'error'); return; }
-        const res = await apiFetch('/announcements', { method: 'POST', body: JSON.stringify(body) });
+        let res = await apiFetch('/announcements', { method: 'POST', body: JSON.stringify(body) });
+        if (!res && body.body) {
+          res = await apiFetch('/comm/notices', { method: 'POST', body: JSON.stringify({ title: body.title, content: body.body, priority: body.priority }) });
+        }
         if (res?.ok) { toast('Announcement posted!'); closeFormModal(); loadPage('announcements'); }
         else { const d = await res?.json().catch(() => ({})); toast(d.detail || 'Failed to post', 'error'); }
       });
