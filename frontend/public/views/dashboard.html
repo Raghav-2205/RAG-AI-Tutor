@@ -808,7 +808,7 @@
                     <strong>${q.title}</strong>
                     <div style="font-size:11px; color:var(--text-muted)">Due: ${q.due_date || 'N/A'}</div>
                 </div>
-                <button class="btn" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='/views/quiz.html?quiz_id=${q.id}'">Take Quiz</button>
+                <button class="btn" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='/views/lms_quiz.html?quiz_id=${q.id}${q.class_id ? `&class_id=${q.class_id}` : ''}'">Take Quiz</button>
             </div>
         `).join('') || '<div class="empty-state"><p>No quizzes found.</p></div>';
 
@@ -1012,7 +1012,7 @@
                     title: `Quiz: ${q.subject}`,
                     sub: `Score: ${q.score_percentage}% (${q.correct}/${q.total})`,
                     time: q.completed_at,
-                    url: `/views/quiz.html`
+                    url: `/views/lms.html?allow_student=1&page=quizzes`
                 })),
                 ...data.recent_documents.map(d => ({
                     type: 'doc', icon: '<i class="fa-regular fa-file-lines"></i>', iconClass: 'doc',
@@ -1083,7 +1083,7 @@
                 <div style="flex:1;">
                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">${data.total_validated} answers evaluated</div>
                     ${Object.entries(statusBrk).map(([status, count]) => {
-                const icon = status === 'VERIFIED' ? '<i class="fa-solid fa-circle-check" style="color:var(--success)"></i>' : status === 'WARNING' ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i>' : status === 'REJECTED' ? '<i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i>' : '<i class="fa-solid fa-circle-info" style="color:var(--text-muted)"></i>';
+                const icon = status === 'VERIFIED' ? '<i class="fa-solid fa-circle-check" style="color:var(--success)"></i>' : status === 'REJECTED' ? '<i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i>' : '<i class="fa-solid fa-circle-info" style="color:var(--text-muted)"></i>';
                 return `<span style="font-size:11px;margin-right:10px;">${icon} ${count} ${status.toLowerCase()}</span>`;
             }).join('')}
                 </div>

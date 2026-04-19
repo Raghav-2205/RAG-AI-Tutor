@@ -245,13 +245,15 @@
     }
 
     function normalizeStatus(value) {
-      return String(value || 'UNKNOWN').trim().toUpperCase();
+      const normalized = String(value || 'UNKNOWN').trim().toUpperCase();
+      if (normalized === 'VERIFIED') return 'VERIFIED';
+      if (normalized === 'REJECTED') return 'REJECTED';
+      return normalized;
     }
 
     function getStatusTone(status) {
       const normalized = normalizeStatus(status);
       if (normalized === 'VERIFIED') return 'good';
-      if (normalized === 'WARNING' || normalized === 'INSUFFICIENT_CONTEXT') return 'warn';
       if (normalized === 'NO_DATA' || normalized === 'UNKNOWN') return 'muted';
       return 'bad';
     }
@@ -259,7 +261,6 @@
     function isGenerationErrorLog(log) {
       const sourceMode = String(log?.answer_source_mode || '').trim().toLowerCase();
       if (sourceMode === 'error') return true;
-      if (normalizeStatus(log?.validation_status) !== 'ERROR') return false;
       const answer = String(log?.answer || '').trim().toLowerCase();
       const reason = String(log?.reason || '').trim().toLowerCase();
       return answer.startsWith('llm async request failed')
@@ -365,7 +366,7 @@
     }
 
     function updateMetricTrends(logs) {
-      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log) && !['ERROR', 'INSUFFICIENT_CONTEXT'].includes(normalizeStatus(log.validation_status)));
+      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log));
       const benchmarkLogs = logs.filter((log) => getEvaluationSource(log) === 'benchmark');
       renderTrend('trendFaithfulness', computeMetricTrend(qualityLogs, (log) => log.faithfulness_score));
       renderTrend('trendHallucination', computeMetricTrend(qualityLogs, (log) => log.hallucination_rate), true);
@@ -418,12 +419,9 @@
     function renderStatusBreakdown(data) {
       const parts = [
         `<span class="evaluation-status-pill tone-good">Verified ${safeNum(data.verified_count)}</span>`,
-        `<span class="evaluation-status-pill tone-warn">Warning ${safeNum(data.warning_count)}</span>`,
         `<span class="evaluation-status-pill tone-bad">Rejected ${safeNum(data.rejected_count)}</span>`
       ];
-      if (safeNum(data.error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Errors ${safeNum(data.error_count)}</span>`);
-      if (safeNum(data.insufficient_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Insufficient ${safeNum(data.insufficient_count)}</span>`);
-      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Generation ${safeNum(data.generation_error_count)}</span>`);
+      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Generation ${safeNum(data.generation_error_count)}</span>`);
       $('statusBreakdown').innerHTML = parts.join('');
     }
 
@@ -573,6 +571,11 @@
 
         const issues = Array.isArray(report.issues) ? report.issues : [];
         const recs = Array.isArray(report.recommendations) ? report.recommendations : [];
+        const latestBenchmark = report.latest_benchmark || {};
+        const liveWindow = report.live_window_metrics || {};
+        const feedbackLoop = report.feedback_loop_status || {};
+        const graphQuality = report.graph_quality_metrics || {};
+        const judgeParseFailures = safeNum(report.judge_parse_failure_count || report.metrics?.judge_parse_failure_count || 0);
         const issueCards = issues.map((issue) => `
           <div class="evaluation-insight ${normalizeSeverity(issue.severity) === 'HIGH' ? 'bad' : 'warn'}">
             <div class="evaluation-insight-label">${escapeHtml(issue.metric || 'Issue')}</div>
@@ -580,6 +583,33 @@
             <div class="evaluation-insight-copy">Threshold ${escapeHtml(String(issue.threshold ?? '--'))}</div>
           </div>
         `).join('');
+        const diagnosticCards = `
+          <div class="evaluation-insight ${Boolean(latestBenchmark.generation_valid) ? 'good' : 'warn'}">
+            <div class="evaluation-insight-label">Latest benchmark</div>
+            <div class="evaluation-insight-value">${escapeHtml(String(latestBenchmark.avg_final_rag_score ?? '--'))}</div>
+            <div class="evaluation-insight-copy">${safeNum(latestBenchmark.completed || latestBenchmark.answer_quality_count || 0)}/${safeNum(latestBenchmark.total_samples || 0)} clean samples</div>
+          </div>
+          <div class="evaluation-insight ${safeNum(liveWindow.avg_final_rag_score, 0) >= 0.9 ? 'good' : 'warn'}">
+            <div class="evaluation-insight-label">Live window</div>
+            <div class="evaluation-insight-value">${hasFinite(liveWindow.avg_final_rag_score) ? Number(liveWindow.avg_final_rag_score).toFixed(2) : '--'}</div>
+            <div class="evaluation-insight-copy">${safeNum(liveWindow.window_count || 0)} recent answers</div>
+          </div>
+          <div class="evaluation-insight ${judgeParseFailures === 0 ? 'good' : 'warn'}">
+            <div class="evaluation-insight-label">Judge parse failures</div>
+            <div class="evaluation-insight-value">${judgeParseFailures}</div>
+            <div class="evaluation-insight-copy">Malformed judge JSON seen in reports</div>
+          </div>
+          <div class="evaluation-insight ${safeNum(graphQuality.multi_document_answer_count || 0) > 0 ? 'good' : 'muted'}">
+            <div class="evaluation-insight-label">Multi-doc answers</div>
+            <div class="evaluation-insight-value">${safeNum(graphQuality.multi_document_answer_count || 0)}</div>
+            <div class="evaluation-insight-copy">Graph tracked: ${safeNum(graphQuality.graph_answer_count || 0)} answers</div>
+          </div>
+          <div class="evaluation-insight ${feedbackLoop.tracking_populated ? 'good' : 'warn'}">
+            <div class="evaluation-insight-label">Feedback loop</div>
+            <div class="evaluation-insight-value">${feedbackLoop.tracking_populated ? 'On' : 'Off'}</div>
+            <div class="evaluation-insight-copy">Tracked responses ${safeNum(feedbackLoop.response_chunk_count || 0)}</div>
+          </div>
+        `;
 
         const issueText = issues.map((issue) => `${escapeHtml(issue.metric)} is at ${escapeHtml(String(issue.value))} against ${escapeHtml(String(issue.threshold))}.`);
         const recText = recs.map((rec) => escapeHtml(String(rec)));
@@ -591,6 +621,7 @@
               <div class="evaluation-insight-value">${escapeHtml(status.replace(/_/g, ' '))}</div>
               <div class="evaluation-insight-copy">${issues.length} issues, ${recs.length} recommendations</div>
             </div>
+            ${diagnosticCards}
             ${issueCards || '<div class="evaluation-insight good"><div class="evaluation-insight-label">Issues detected</div><div class="evaluation-insight-value">0</div><div class="evaluation-insight-copy">All monitored metrics are healthy.</div></div>'}
           </div>
           <div class="evaluation-report-sections">

@@ -96,6 +96,11 @@ async def upload_document(
     if not pages:
         raise HTTPException(400, "No readable text found in document.")
 
+    full_text = "\n".join(
+        page.get("text", "") if isinstance(page, dict) else str(page)
+        for page in pages
+    )
+
     # ================= CHUNK =================
 
     doc_id = str(uuid.uuid4())
@@ -133,36 +138,52 @@ async def upload_document(
     if chat_id:
         session = await db.chat_sessions.find_one({"chat_id": chat_id, "user_id": user_id})
         if session:
-            doc_ids = session.get("document_ids", [])
-            doc_names = session.get("document_names", [])
-            
+            doc_ids = list(session.get("document_ids", []))
+            doc_names = list(session.get("document_names", []))
+             
             # backward compatibility for single document setup
             if "document_id" in session and session["document_id"] and session["document_id"] not in doc_ids:
                 doc_ids.append(session["document_id"])
                 doc_names.append(session.get("document_name", "Unknown"))
-                
+
+            previous_file_count = max(int(session.get("file_count") or 0), len(doc_ids))
+
             if doc_id not in doc_ids:
                 doc_ids.append(doc_id)
                 doc_names.append(file.filename)
-            
+
+            resulting_file_count = len(doc_ids)
+            legacy_document_id = doc_ids[0] if resulting_file_count == 1 else None
+            legacy_document_name = doc_names[0] if resulting_file_count == 1 else ", ".join(doc_names)
+             
             await db.chat_sessions.update_one(
                 {"chat_id": chat_id},
                 {"$set": {
+                    "scope_mode": "document_scoped",
                     "document_ids": doc_ids,
                     "document_names": doc_names,
-                    "file_count": len(doc_ids),
-                    "document_id": None, # clear legacy
-                    "document_name": ", ".join(doc_names) # UI uses this for title
+                    "file_count": resulting_file_count,
+                    "document_id": legacy_document_id,
+                    "document_name": legacy_document_name,
                 }}
             )
             logger.info(f"[UPLOAD] Appended doc {doc_id} to chat session {chat_id}")
 
-            try:
-                from backend.services.grag_service import build_or_update_knowledge_graph
-                full_text = "\n".join([p.get("text", "") if isinstance(p, dict) else str(p) for p in pages])
-                await build_or_update_knowledge_graph(db, chat_id, user_id, full_text, source=file.filename)
-            except Exception as e:
-                logger.warning(f"Failed to update GRAG knowledge graph: {e}")
+            if resulting_file_count >= 2:
+                try:
+                    from backend.services.grag_service import ensure_grag_for_session
+
+                    await ensure_grag_for_session(
+                        db,
+                        chat_id,
+                        user_id,
+                        new_text=full_text,
+                        source=file.filename,
+                        chunks=chunks,
+                        force_rebuild=previous_file_count < 2,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to update GRAG knowledge graph: {e}")
 
             return {
                 "status": "success",
@@ -177,9 +198,11 @@ async def upload_document(
     chat_session = {
         "chat_id": chat_id,
         "user_id": str(current_user["_id"]),  # CONVERT TO STRING
+        "scope_mode": "document_scoped",
         "document_ids": [doc_id],
         "document_names": [file.filename],
         "file_count": 1,
+        "document_id": doc_id,
         "document_name": file.filename, # For UI
         "subject": subject,
         "class_id": class_id, # Added LMS context
@@ -191,13 +214,6 @@ async def upload_document(
     
     await db.chat_sessions.insert_one(chat_session)
     logger.info(f"[UPLOAD] Created document-scoped chat session {chat_id} for doc {doc_id}")
-
-    try:
-        from backend.services.grag_service import build_or_update_knowledge_graph
-        full_text = "\n".join([p.get("text", "") if isinstance(p, dict) else str(p) for p in pages])
-        await build_or_update_knowledge_graph(db, chat_id, user_id, full_text, source=file.filename)
-    except Exception as e:
-        logger.warning(f"Failed to update initial GRAG knowledge graph: {e}")
 
     return {
         "status": "success",

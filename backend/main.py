@@ -12,6 +12,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 # Config & DB
 from backend.config import settings
+from backend.services.knowledge_base_service import auto_index_on_startup
 from backend.utils.db import init_db, db_manager
 # Routers
 from backend.api import auth, chat, upload, quiz, feedback, ingest, rag, dashboard
@@ -24,6 +25,12 @@ from backend.api import announcements, events
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def _resolve_cors_config() -> tuple[list[str], bool]:
+    allowed_origins = settings.cors_origins or ["*"]
+    allow_all_origins = allowed_origins == ["*"]
+    return allowed_origins, allow_all_origins
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -31,6 +38,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     os.makedirs(settings.upload_dir, exist_ok=True)
     await create_indexes()
+    # Auto-index the base_dataset into the global knowledge base
+    # so every new chat session can query it immediately.
+    await auto_index_on_startup()
     yield
     # Shutdown
     logger.info("🛑 Shutting down...")
@@ -63,11 +73,13 @@ async def create_indexes():
 
 app = FastAPI(title="RAG AI Tutor", lifespan=lifespan)
 
-# --- CRITICAL FIX: ALLOW ALL ORIGINS ---
+cors_origins, allow_all_origins = _resolve_cors_config()
+logger.info("CORS origins configured: %s", cors_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows localhost:3000, 127.0.0.1, etc.
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

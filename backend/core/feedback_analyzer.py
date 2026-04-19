@@ -146,7 +146,10 @@ IMPORTANT: This user has given negative feedback recently. Adjust your approach:
     async def track_response_quality(
         self,
         reference_id: str,
-        chunk_sources: List[str]
+        chunk_sources: List[str],
+        chunk_ids: Optional[List[str]] = None,
+        user_id: Optional[str] = None,
+        subject: Optional[str] = None,
     ):
         """
         Track which document chunks were used for a response.
@@ -159,35 +162,35 @@ IMPORTANT: This user has given negative feedback recently. Adjust your approach:
         
         await self.db.response_chunks.insert_one({
             "reference_id": reference_id,
-            "chunk_sources": chunk_sources,
+            "user_id": user_id,
+            "subject": subject,
+            "chunk_ids": [str(chunk_id) for chunk_id in (chunk_ids or []) if chunk_id],
+            "chunk_sources": [str(source) for source in chunk_sources if source],
             "timestamp": datetime.utcnow()
         })
-    
-    async def get_low_quality_chunks(
+
+    async def get_low_quality_chunk_signals(
         self,
         subject: Optional[str] = None,
         threshold: float = 0.3
-    ) -> List[str]:
+    ) -> Dict[str, List[str]]:
         """
-        Get chunk sources that consistently lead to negative feedback.
+        Get chunk ids and sources that consistently lead to negative feedback.
         
         Args:
             subject: Optional subject filter
             threshold: If >30% of responses using this chunk get negative feedback, mark it
         
         Returns:
-            List of chunk source identifiers
+            A dict of demotion candidates keyed by `chunk_ids` and `chunk_sources`.
         """
-        # Aggregate: Find chunks used in responses with negative feedback
         pipeline = [
-            # Stage 1: Get all negative feedback with reference_ids
             {
                 "$match": {
                     "rating": {"$in": ["negative", "1", "2"]},
                     **({"subject": subject} if subject else {})
                 }
             },
-            # Stage 2: Lookup the chunks used in those responses
             {
                 "$lookup": {
                     "from": "response_chunks",
@@ -196,38 +199,66 @@ IMPORTANT: This user has given negative feedback recently. Adjust your approach:
                     "as": "chunks"
                 }
             },
-            # Stage 3: Unwind chunk arrays
             {"$unwind": "$chunks"},
-            {"$unwind": "$chunks.chunk_sources"},
-            # Stage 4: Group by chunk source and count
             {
                 "$group": {
-                    "_id": "$chunks.chunk_sources",
-                    "negative_count": {"$sum": 1}
+                    "_id": "$reference_id",
+                    "negative_count": {"$sum": 1},
+                    "chunk_ids": {"$addToSet": "$chunks.chunk_ids"},
+                    "chunk_sources": {"$addToSet": "$chunks.chunk_sources"},
                 }
             }
         ]
-        
-        negative_chunks = await self.db.feedback.aggregate(pipeline).to_list(length=1000)
-        
-        # Now get total usage for each chunk to calculate percentage
-        low_quality = []
-        for chunk_data in negative_chunks:
-            chunk_id = chunk_data["_id"]
-            negative_count = chunk_data["negative_count"]
-            
-            # Get total times this chunk was used
-            total_uses = await self.db.response_chunks.count_documents({
-                "chunk_sources": chunk_id
-            })
-            
-            if total_uses > 0:
-                negative_rate = negative_count / total_uses
-                if negative_rate >= threshold:
-                    low_quality.append(chunk_id)
-                    logger.info(f"Low quality chunk detected: {chunk_id} ({negative_rate:.1%} negative)")
-        
-        return low_quality
+
+        negative_links = await self.db.feedback.aggregate(pipeline).to_list(length=1000)
+
+        chunk_negative_counts: Dict[str, int] = {}
+        source_negative_counts: Dict[str, int] = {}
+
+        for row in negative_links:
+            negative_count = int(row.get("negative_count") or 0)
+            for nested_ids in row.get("chunk_ids", []):
+                for chunk_id in nested_ids or []:
+                    chunk_negative_counts[str(chunk_id)] = chunk_negative_counts.get(str(chunk_id), 0) + negative_count
+            for nested_sources in row.get("chunk_sources", []):
+                for source in nested_sources or []:
+                    source_negative_counts[str(source)] = source_negative_counts.get(str(source), 0) + negative_count
+
+        low_quality_chunk_ids: List[str] = []
+        for chunk_id, negative_count in chunk_negative_counts.items():
+            total_uses = await self.db.response_chunks.count_documents({"chunk_ids": chunk_id})
+            if total_uses <= 0:
+                continue
+            negative_rate = negative_count / total_uses
+            if negative_rate >= threshold:
+                low_quality_chunk_ids.append(chunk_id)
+                logger.info("Low quality chunk detected: %s (%.1f%% negative)", chunk_id, negative_rate * 100)
+
+        low_quality_sources: List[str] = []
+        for source, negative_count in source_negative_counts.items():
+            total_uses = await self.db.response_chunks.count_documents({"chunk_sources": source})
+            if total_uses <= 0:
+                continue
+            negative_rate = negative_count / total_uses
+            if negative_rate >= threshold:
+                low_quality_sources.append(source)
+                logger.info("Low quality chunk source detected: %s (%.1f%% negative)", source, negative_rate * 100)
+
+        return {
+            "chunk_ids": sorted(set(low_quality_chunk_ids)),
+            "chunk_sources": sorted(set(low_quality_sources)),
+        }
+
+    async def get_low_quality_chunks(
+        self,
+        subject: Optional[str] = None,
+        threshold: float = 0.3
+    ) -> List[str]:
+        """
+        Backward-compatible wrapper returning chunk ids first, then source names.
+        """
+        signals = await self.get_low_quality_chunk_signals(subject=subject, threshold=threshold)
+        return signals["chunk_ids"] or signals["chunk_sources"]
     
     async def log_feedback_influence(
         self,

@@ -751,12 +751,21 @@
             const classId = document.getElementById('enrollClassId').value;
             const email = document.getElementById('enrollEmail').value;
             if (!classId || !email) { showToast('❌ Please select a class and enter the student email.', 'error'); return; }
-            const res = await fetch(`${API}/lms/classes/${classId}/enroll-by-email`, {
+            let res = await fetch(`${API}/lms/classes/${classId}/enroll-by-email`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ student_email: email })
             });
-            const data = await res.json();
+            let data = await res.json();
+            if (!res.ok && res.status === 404) {
+                res = await fetch(`${API}/lms/classes/${classId}/students/invite`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ student_email: email })
+                });
+                data = await res.json();
+            }
             if (res.ok) {
+                const successMsg = data.invite_url ? `${data.message || 'Invitation created.'} ${data.invite_url}` : (data.message || 'Student enrolled!');
+                data.message = successMsg;
                 showToast(`✅ ${data.message || 'Student enrolled!'}`, 'success');
                 hideModal('enrollStudentModal');
                 document.getElementById('enrollEmail').value = '';
@@ -1230,8 +1239,14 @@
                             ${s.email && s.name ? `<div style="font-size:0.75rem;color:var(--text-muted);">${s.email}</div>` : ''}
                         </div>
                         <div style="display:flex; gap:10px; align-items:center;">
-                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="present" checked style="margin-right:4px;"> <span style="color:var(--accent);">P</span></label>
-                            <label style="cursor:pointer;"><input type="radio" name="att-${s.id}" value="absent" style="margin-right:4px;"> <span style="color:#ff6b6b;">A</span></label>
+                            <select name="att-${s.id}" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);">
+                                <option value="present" selected>Present</option>
+                                <option value="late">Late</option>
+                                <option value="absent">Absent</option>
+                                <option value="excused">Excused</option>
+                                <option value="medical">Medical</option>
+                                <option value="holiday">Holiday</option>
+                            </select>
                         </div>
                     </div>
                 `).join('');
@@ -1240,8 +1255,14 @@
                     <div class="list-item" data-student-id="${sid}">
                         <span style="color:var(--text-muted);font-family:monospace;font-size:0.8rem;">${sid}</span>
                         <div style="display:flex; gap:10px;">
-                            <label><input type="radio" name="att-${sid}" value="present" checked> P</label>
-                            <label><input type="radio" name="att-${sid}" value="absent"> A</label>
+                            <select name="att-${sid}" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);">
+                                <option value="present" selected>Present</option>
+                                <option value="late">Late</option>
+                                <option value="absent">Absent</option>
+                                <option value="excused">Excused</option>
+                                <option value="medical">Medical</option>
+                                <option value="holiday">Holiday</option>
+                            </select>
                         </div>
                     </div>
                 `).join('');
@@ -1254,7 +1275,7 @@
             const rows = document.querySelectorAll('#studentAttendanceList .list-item');
             rows.forEach(row => {
                 const sid = row.getAttribute('data-student-id');
-                const status = row.querySelector(`input[name="att-${sid}"]:checked`).value;
+                const status = row.querySelector(`[name="att-${sid}"]`).value;
                 records.push({ student_id: sid, status: status });
             });
 

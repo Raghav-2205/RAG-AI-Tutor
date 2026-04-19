@@ -31,7 +31,7 @@ class ValidationResult(BaseModel):
     final_rag_score: float = 0.0
     
     # Status
-    validation_status: str = "PENDING"  # VERIFIED, REJECTED, WARNING, ERROR, INSUFFICIENT_CONTEXT
+    validation_status: str = "VERIFIED"  # Persisted statuses are VERIFIED or REJECTED
     reason: Optional[str] = None
     
     # Metadata
@@ -42,6 +42,10 @@ class ValidationResult(BaseModel):
     retrieval_confidence: float = 0.0
     chunk_usage: Dict[str, Any] = {}  # {retrieved: int, used: int, coverage: float}
     unsupported_sentences: List[str] = []
+    judge_fallback_used: bool = False
+    judge_parse_failure_count: int = 0
+    graph_quality_metrics: Dict[str, Any] = {}
+    multi_document_metrics: Dict[str, Any] = {}
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     @field_validator("id", mode="before")

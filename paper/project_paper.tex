@@ -1,0 +1,311 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage[table]{xcolor}
+
+\geometry{margin=1in}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\title{A Retrieval-Augmented AI Tutor with Graph-Enhanced Multi-Document Reasoning, Citation Grounding, and Feedback-Aware Validation for Educational Platforms}
+
+\author{
+First AUTHOR\thanks{Corresponding author: corresponding.author@example.edu}\\
+Department of [Department Name], Faculty of [Faculty Name]\\
+[University Name], [City], [Country]\\
+\url{https://orcid.org/0000-0000-0000-0000}
+\and
+Second AUTHOR\\
+Department of [Department Name], Faculty of [Faculty Name]\\
+[University Name], [City], [Country]\\
+\url{https://orcid.org/0000-0000-0000-0000}
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This study presents a retrieval-augmented artificial intelligence tutor designed for educational settings in which learners ask questions over uploaded course materials while instructors manage the surrounding learning workflow through a lightweight platform. The implemented system combines document ingestion, hybrid retrieval, multi-document reasoning, citation grounding, streaming responses, and post-generation validation in a single web application. Uploaded files are parsed, chunked into 600-character windows with 100-character overlap, embedded with the \texttt{all-MiniLM-L6-v2} sentence-transformer model, indexed through ChromaDB, and linked to persistent chat sessions stored in MongoDB. During question answering, the tutor combines BM25 keyword search, dense retrieval, reciprocal rank fusion, and cross-encoder reranking to construct grounded evidence. When a session contains at least two uploaded documents, a graph-enhanced retrieval stage is activated to improve cross-document synthesis. The answering layer returns chunk-level citations and records feedback signals that can influence later prompting and retrieval. A validation module computes faithfulness, hallucination rate, semantic overlap, citation alignment, answer relevance, retrieval confidence, and an aggregate retrieval-augmented generation score to support quality monitoring. The manuscript reports the architecture, verified interface contracts, implementation parameters, and the benchmark and automated verification assets already present in the project.
+\end{abstract}
+
+\noindent\textbf{Keywords:} retrieval-augmented generation, educational question answering, graph-enhanced retrieval, citation grounding, answer validation
+
+\section{Introduction}
+
+Educational software increasingly combines content delivery, assessment, and automated assistance. However, many conversational assistants remain weak in two areas that are especially important for learning environments: they do not consistently ground answers in course materials, and they often fail to expose evidence that helps students verify what they have read. These limitations are amplified when learners upload multiple notes, slides, or reports and expect a system to synthesize information across documents instead of responding from generic prior knowledge.
+
+This manuscript describes an educational platform in which an artificial intelligence tutor is the core technical contribution. The wider platform also contains lightweight learning management features such as classes, assignments, quizzes, attendance, planning, notifications, and analytics, but those modules serve as application context rather than the primary novelty of this study. The central problem addressed here is how to provide grounded tutoring over uploaded materials while supporting session persistence, citation lookup, multi-document reasoning, and quality control in a single deployable system.
+
+The implemented tutor follows a retrieval-augmented generation pipeline in which user-uploaded documents are converted into searchable chunks and stored together with metadata needed for citation rendering and session scoping. Question answering combines sparse and dense retrieval with reciprocal rank fusion and cross-encoder reranking, then optionally augments the retrieved context with graph-derived evidence when multiple documents are present in the same chat. A validation stage scores answer quality after generation so that groundedness can be monitored during real use.
+
+The main contributions of the system are as follows. First, it integrates document-scoped retrieval and knowledge-base retrieval within one session-oriented tutoring workflow. Second, it introduces a graph-enhanced mode for multi-document reasoning over uploaded learning materials. Third, it returns chunk-level citations and supports citation preview retrieval through a dedicated interface. Fourth, it incorporates feedback-aware prompt adjustment and retrieval penalties based on observed low-quality responses. Fifth, it evaluates generated answers with a multi-metric validation engine that supports both live monitoring and benchmark-style assessment.
+
+\section{Related Background}
+
+Retrieval-augmented generation has emerged as a practical method for reducing unsupported claims in large language model outputs by conditioning generation on retrieved evidence. In educational settings, this approach is attractive because course notes, lecture slides, policy documents, and instructor-authored materials can be indexed and reused as the evidence base for tutoring. A grounded tutor can therefore behave more like an evidence-based study assistant than a free-form chatbot.
+
+The retrieval component in many modern systems combines lexical and semantic matching. BM25 remains a strong sparse baseline for handling exact terminology and short keyword-focused questions, while dense encoders improve recall for semantically related expressions. Rank fusion methods such as reciprocal rank fusion provide a simple and effective mechanism for merging heterogeneous candidate lists. Cross-encoder reranking adds a stronger late-stage relevance signal by scoring question-document pairs directly.
+
+Recent systems also explore graph-structured evidence for multi-hop or multi-document reasoning. In educational scenarios, graph augmentation is useful when several uploaded documents cover related topics, definitions, or dependencies. Instead of treating each chunk independently, graph-derived summaries can highlight cross-document relationships and document coverage patterns. This is particularly relevant when a learner asks comparative or synthesis-style questions that cannot be answered well from a single chunk.
+
+The literature also shows that retrieval quality alone is insufficient. A practical tutor needs answer-level quality control, exposure of evidence, and feedback mechanisms for iterative improvement. For this reason, the present system combines retrieval, generation, citation support, validation, and feedback-aware adaptation in one architecture rather than treating them as disconnected utilities.
+
+\section{System Architecture}
+
+The platform follows a client-server architecture with a static web front end and a FastAPI backend. The front end is implemented as page-oriented HTML and vanilla JavaScript, while the backend orchestrates authentication, upload processing, tutoring, and auxiliary educational workflows. MongoDB stores users, sessions, documents, feedback, and learning management data, and ChromaDB stores vectorized document chunks for retrieval.
+
+From a deployment perspective, the backend exposes application programming interfaces for authentication, upload, chat, citations, feedback, learning management functions, planner utilities, analytics, and notifications. The same backend process also serves the static front end. The current configuration uses the MongoDB database \texttt{rag\_ai\_tutor}, a ChromaDB REST endpoint at \texttt{http://127.0.0.1:8001/api/v2}, and Gemini generation through direct REST calls with \texttt{gemini-2.5-flash} as the primary model and \texttt{gemini-2.0-flash} as a fallback candidate.
+
+Within the tutoring path, the architecture contains five cooperating subsystems: document ingestion, hybrid retrieval, graph-enhanced multi-document support, response generation, and answer validation. The ingestion subsystem converts uploaded documents into chunks and metadata records. The retrieval subsystem searches user-scoped and system-scoped evidence depending on the active session mode. The graph subsystem augments retrieval when the session contains at least two uploaded documents. The generation subsystem produces either a standard response, a grounded abstention, or a fallback answer when evidence is unavailable. The validation subsystem scores the final response and stores quality signals for later analysis.
+
+\begin{figure}[h!]
+\centering
+\fbox{\parbox[c][5.4cm][c]{0.88\textwidth}{\centering
+\textbf{Architecture figure placeholder}\\[0.5em]
+Replace this box with a figure file such as \texttt{architecture\_overview.pdf}.\\
+Suggested content: browser client, FastAPI backend, MongoDB, ChromaDB, Gemini generation, validation engine, and feedback loop.}}
+\caption{High-level architecture of the retrieval-augmented tutor and its supporting services.}
+\label{fig:architecture}
+\end{figure}
+
+The learning management system is intentionally treated as contextual infrastructure in this paper. It provides class, assignment, quiz, attendance, planner, and notification workflows that situate the tutor within a broader educational product, but the technical emphasis of the manuscript remains on grounded tutoring over uploaded documents.
+
+\section{Methods and Pipeline Design}
+
+\subsection{Document Ingestion and Session Scoping}
+
+The ingestion pipeline begins when a user uploads a document through the upload interface. The backend accepts supported formats such as PDF, DOCX, PPTX, TXT, and selected image formats, stores the raw file on disk, extracts text, and converts the resulting content into overlapping chunks. Each chunk receives a document identifier, source filename, and chunk-level metadata suitable for later retrieval and citation display.
+
+In the current upload route, files are accepted up to 20~MB and are written into the \texttt{uploads} directory before extraction. After chunk creation, the system computes embeddings and adds the chunk vectors to a user-specific Chroma collection through the REST client. In parallel, it stores document metadata in MongoDB and either creates a new chat session or appends the document to an existing one. This session-level bookkeeping is important because the later retrieval mode depends on whether the chat is scoped to one or more uploaded documents or should instead consult the wider system knowledge base.
+
+\subsection{Hybrid Retrieval and Reranking}
+
+The retrieval engine combines sparse and dense search over candidate chunks. BM25 supports exact lexical matching and domain-specific terminology, whereas dense embeddings support semantic similarity. In the current configuration, hybrid fusion uses BM25 and dense weights of 0.35 and 0.65, respectively, with a default retrieval depth of eight candidate chunks. The system fuses the two candidate lists by reciprocal rank fusion so that both evidence types influence the final shortlist. It then applies a cross-encoder reranker based on \texttt{cross-encoder/ms-marco-MiniLM-L-6-v2} to rescore candidate chunks using the full question-chunk pair.
+
+This hybrid design is motivated by typical educational questions. Some learner questions contain exact terms drawn from lecture notes, whereas others restate concepts in paraphrased form. A purely lexical or purely dense retriever may underperform on one of these patterns. The fusion stage offers a practical compromise, and the reranking stage improves the likelihood that the final context contains the most directly supportive chunks.
+
+\subsection{Graph-Enhanced Multi-Document Reasoning}
+
+When a chat session contains at least two uploaded documents, the system enables a graph-enhanced mode. The graph service derives lightweight entities, relations, definitions, and co-occurrence links from chunk content and stores a session-specific knowledge graph. During retrieval, graph search estimates which nodes and edges are most relevant to the current query, computes document coverage, extracts cross-document facts, and produces a graph summary that is merged with chunk-level evidence. In implementation terms, graph mode is activated when the session \texttt{file\_count} is at least two or when at least two \texttt{document\_ids} are associated with the active chat.
+
+This design is intended for multi-document synthesis tasks, such as comparing two sets of notes or summarizing how several files relate to each other. Rather than relying only on top-ranked chunks, the graph layer provides a compact view of evidence distribution across documents and highlights whether the response is supported by one source or multiple sources.
+
+\subsection{Grounded Generation, Citations, and Fallback Behavior}
+
+The response generator constructs a grounded prompt from retrieved chunks, graph context when available, recent chat history, and feedback-conditioned system instructions. The system supports both non-streaming and streaming interfaces. In streaming mode, the server emits session metadata first, then token events, then a completion event, and optionally a validation payload.
+
+The answer generator returns citations linked to retrieved chunks and normalizes citation references so that the front end can render them consistently. If the retrieval state indicates insufficient evidence, the system may abstain rather than fabricate an answer. If no document or knowledge-base evidence is available, the system can fall back to a general language model response while clearly distinguishing that mode from grounded retrieval-backed answers.
+
+\subsection{Feedback-Aware Adaptation and Validation}
+
+The tutor records positive and negative feedback on prior responses and uses these signals in two ways. First, prompt adjustment can be activated when recent response quality appears poor for a user or topic. Second, chunks or sources associated with weak feedback can be penalized during later retrieval, reducing their ranking priority.
+
+After generation, the validation engine computes multiple answer-quality indicators, including faithfulness, hallucination rate, BERTScore, cosine similarity, citation alignment, answer relevance, retrieval confidence, and a composite retrieval-augmented generation score. The current implementation computes the final score as a weighted combination of Recall@5 (0.25, when benchmark labels are available), faithfulness (0.25), BERTScore (0.20), citation alignment (0.15), and answer relevance (0.15). These signals support live monitoring, post-hoc analysis, and benchmark-style testing. The validation stage is especially important in educational use because it gives developers and instructors a mechanism to inspect whether seemingly fluent answers remain tied to supporting evidence.
+
+\section{Implementation Details and Verified Interfaces}
+
+The tutoring path is implemented across backend modules that include the application entry point, upload route, chat route, hybrid search engine, graph service, citation route, feedback route, and validation engine. The current implementation verifies the following interface contracts.
+
+\subsection{Verified Tutoring Interfaces}
+
+\begin{table}[h!]
+\centering
+\small
+\caption{Verified tutoring interface contracts used by the manuscript.}
+\begin{tabular}{|p{2.7cm}|p{5.0cm}|p{5.2cm}|}
+\hline
+\textbf{Endpoint} & \textbf{Main inputs} & \textbf{Main outputs} \\
+\hline
+\texttt{POST /api/upload/} & \texttt{file}, \texttt{subject}, optional \texttt{chat\_id}, optional \texttt{class\_id} & \texttt{status}, \texttt{doc\_id}, \texttt{chat\_id}, \texttt{filename}, \texttt{chunks} \\
+\hline
+\texttt{POST /api/chat/} & \texttt{message}, \texttt{subject}, optional \texttt{chat\_id}, optional \texttt{document\_id}, optional \texttt{class\_id} & \texttt{answer}, \texttt{citations}, \texttt{chat\_id}, \texttt{validation}, \texttt{source\_mode}, \texttt{feedback\_reference\_id}, \texttt{graph\_used}, \texttt{multi\_document\_mode}, \texttt{comparison\_mode}, \texttt{document\_coverage} \\
+\hline
+\texttt{POST /api/chat/stream} & Same semantic inputs as non-streaming chat & Server-sent events: \texttt{meta}, \texttt{token}, \texttt{done}, optional \texttt{validation} \\
+\hline
+\texttt{GET /api/chunks/\{chunk\_id\}} & \texttt{chunk\_id} & \texttt{id}, \texttt{text}, \texttt{metadata} \\
+\hline
+\texttt{POST /api/feedback/} & \texttt{source}, \texttt{subject}, \texttt{reference\_id}, \texttt{rating}, optional \texttt{comment} & \texttt{feedback\_id}, \texttt{message} \\
+\hline
+\end{tabular}
+\label{tab:interfaces}
+\end{table}
+
+The upload route accepts a user file, validates the extension and size, extracts readable text, creates chunks, indexes vectors, stores document metadata, and updates or creates the current chat session. The chat route reads the existing session state, resolves document-scoped versus knowledge-base retrieval, invokes the tutoring pipeline, appends user and assistant messages to persistent session storage, and records activity and feedback-tracking information.
+
+The streaming route follows the same tutoring logic but returns responses incrementally through server-sent events. This design supports a more interactive tutoring experience while still preserving session history and, when available, post-generation validation results. The citation route supports front-end preview of the exact supporting chunk associated with a citation click. The feedback route stores response- or quiz-level ratings and resolves legacy versus response-specific references when needed.
+
+\subsection{Operational Characteristics}
+
+The backend initializes the database and required indexes at application startup, mounts the static front end, and registers dedicated routers for tutoring, uploads, evaluation, analytics, and educational workflows. The project also includes automated verification assets that serve ten static HTML entry points, check four shared front-end assets, run six top-level isolated API integration flow tests, and provide an opt-in Mongo-backed learning-management smoke test. In practice, this means the tutoring system is not a standalone research script; it is implemented as a persistent application service with session storage, role-aware access control, and surrounding educational workflows.
+
+\section{Experimental Setup and Evaluation Protocol}
+
+This section provides the evaluation protocol already supported by the repository. The current codebase contains both benchmark-oriented evaluation utilities and automated application-level verification assets, even though a final full-scale experimental table has not yet been committed for publication.
+
+\subsection{Evaluation Objectives}
+
+The evaluation should answer four questions. First, how reliably does the retrieval stage recover supporting evidence for user questions? Second, how grounded are the generated answers with respect to retrieved context? Third, does graph-enhanced multi-document mode improve synthesis-oriented questions relative to chunk-only retrieval? Fourth, how do feedback-aware penalties and prompt adjustments affect later answer quality over time?
+
+\subsection{Suggested Datasets and Partitions}
+
+The repository already includes a benchmark dataset with 15 labeled question-answer pairs in \texttt{backend/core/evaluation/benchmark\_dataset.json}. The examples currently span subjects such as agile methods, software engineering, DevOps, source control, and testing. Each record stores a benchmark question, a gold answer, a gold chunk identifier, a gold chunk source, and the subject label. This benchmark artifact is suitable for retrieval and answer-quality checks on grounded single-hop questions, while larger multi-document benchmarks can be added later for broader publication studies.
+
+\subsection{Metrics and Baselines}
+
+Retrieval quality is measured with recall at rank five, precision at rank five, and mean reciprocal rank. Answer quality is measured with faithfulness, hallucination rate, BERTScore, cosine similarity, citation alignment, answer relevance, and the final composite retrieval-augmented generation score. In addition, the multi-document condition reports document coverage balance and the number of supported documents represented in the final answer.
+
+Recommended baselines are a dense-only retriever, a BM25-only retriever, the hybrid retriever without reranking, the hybrid retriever without graph enhancement, and the full proposed system. If operational history is available, a temporal comparison before and after enabling feedback-aware penalties can also be reported.
+
+\subsection{Reproducibility Notes}
+
+The implementation already contains automated tests for core application flows, including authentication, uploads, chat, static page serving, learning management smoke tests, and evaluation-related utilities. The static smoke suite currently verifies ten front-end routes, while the shared asset smoke suite checks four core JavaScript or CSS assets. These tests do not replace a formal experimental benchmark, but they support the claim that the system is implemented as a working software product rather than only as a conceptual architecture.
+
+\section{Results and Discussion}
+
+At the current repository state, the most defensible quantitative statements are the implemented system parameters and the already committed verification assets rather than publication-ready benchmark scores. For that reason, Table~\ref{tab:results} summarizes verified implementation values already present in the codebase. A later paper revision can append full benchmark scores once the final experimental run is frozen.
+
+\begin{table}[h!]
+\centering
+\small
+\caption{Verified implementation values and currently committed evaluation assets drawn from the project.}
+\begin{tabular}{|p{4.5cm}|p{8.0cm}|}
+\hline
+\textbf{Project item} & \textbf{Verified value} \\
+\hline
+\textbf{Embedding model} & \texttt{all-MiniLM-L6-v2} \\
+\hline
+\textbf{Primary generation model} & \texttt{gemini-2.5-flash} via direct REST API \\
+\hline
+\textbf{Fallback generation model} & \texttt{gemini-2.0-flash} \\
+\hline
+\textbf{Chunking configuration} & 600-character chunk size with 100-character overlap \\
+\hline
+\textbf{Hybrid retrieval weights} & BM25 weight 0.35, dense weight 0.65 \\
+\hline
+\textbf{Default retrieval depth} & Top-$k$ retrieval of 8 chunks \\
+\hline
+\textbf{Reranker} & \texttt{cross-encoder/ms-marco-MiniLM-L-6-v2} \\
+\hline
+\textbf{Vector store} & ChromaDB via REST at \texttt{http://127.0.0.1:8001/api/v2} \\
+\hline
+\textbf{Document store} & MongoDB database \texttt{rag\_ai\_tutor} \\
+\hline
+\textbf{Upload limit in route} & 20~MB \\
+\hline
+\textbf{Benchmark dataset size} & 15 labeled evaluation items \\
+\hline
+\textbf{Static page smoke coverage} & 10 front-end routes \\
+\hline
+\textbf{Shared asset smoke coverage} & 4 front-end assets \\
+\hline
+\textbf{Top-level API flow tests} & 6 isolated integration flow tests \\
+\hline
+\end{tabular}
+\label{tab:results}
+\end{table}
+
+These values clarify the exact current implementation state of the tutor. They also help separate verified software facts from not-yet-frozen experimental claims. In a later revision, this section can be extended with benchmark scores comparing dense-only, BM25-only, hybrid, reranked, and graph-enhanced configurations using the same evaluation metrics already implemented in the codebase.
+
+The discussion should also address failure cases. Relevant examples include unsupported answers when no evidence exists, imbalanced multi-document coverage when one file dominates the retrieved context, and operational failures caused by unavailable external model services. These cases are important because an educational assistant must signal uncertainty and evidence gaps clearly instead of hiding them behind fluent language.
+
+\section{Conclusion}
+
+This paper presents a retrieval-augmented tutor designed for educational platforms that need grounded question answering over uploaded course materials. The implemented system combines document ingestion, hybrid retrieval, graph-enhanced multi-document reasoning, streaming chat, citation lookup, feedback-aware adaptation, and post-generation validation within a unified application architecture.
+
+The main engineering contribution is not a single isolated algorithm, but a complete tutoring pathway that connects evidence acquisition, response generation, evidence display, and quality monitoring. This integration is essential in educational use because learners and instructors need more than fluent answers: they need grounded responses, traceable evidence, and observable quality signals.
+
+The current manuscript is prepared as a submission-ready draft aligned with the verified implementation. It now reflects the actual system configuration already present in the repository, while still leaving author-specific metadata and future publication benchmark tables to a later finalization step.
+
+\section*{Acknowledgment and/or Disclaimers, if Any}
+
+[Add acknowledgments for institutional support, collaborators, annotation effort, infrastructure support, or funding administration.]
+
+\section*{Declaration of Generative AI and AI-Assisted Technologies, if Any}
+
+[If generative AI tools were used during manuscript preparation, specify the model or service name, version, purpose of use, exact prompts where required by policy, and the sections affected. If not applicable, replace this text with: ``The authors declare that no generative AI or AI-assisted writing technologies were used in the preparation of the manuscript.'']
+
+\section*{Data Availability Statement}
+
+[Describe whether benchmark questions, anonymized evaluation artifacts, configuration files, code snapshots, or supplementary materials will be shared. Add repository identifiers or DOI links when available.]
+
+\section*{Funding, if Any}
+
+[Insert full funding statement here.]
+
+\section*{Conflict of Interest, if Any}
+
+[Declare any personal, academic, financial, or organizational conflicts of interest. If none exist, state that the authors declare no conflict of interest.]
+
+\section*{Informed Consent, if Any}
+
+[If human subjects, classroom users, or instructor participants were involved in data collection or evaluation, insert ethics approval and informed consent details here. Otherwise state that informed consent was not required for this study.]
+
+\section{Information About References}
+
+The final submission should retain only sources that are directly relevant to the completed manuscript. If the benchmark section is expanded with additional experimental comparisons, references for those baselines should be added at the same time. Web pages, unpublished private notes, and informal project communications should not be inserted as formal references unless they satisfy the journal's policy.
+
+\begin{thebibliography}{99}
+
+\bibitem{ref1}
+Lewis P, Perez E, Piktus A, Petroni F, Karpukhin V et al.
+Retrieval-augmented generation for knowledge-intensive NLP tasks.
+Advances in Neural Information Processing Systems 2020; 33: 9459--9474.
+
+\bibitem{ref2}
+Gao Y, Xiong Y, Gao X, Jia K, Pan J et al.
+Retrieval-augmented generation for large language models: A survey.
+arXiv 2023; arXiv:2312.10997.
+
+\bibitem{ref3}
+Robertson S, Zaragoza H.
+The probabilistic relevance framework: BM25 and beyond.
+Foundations and Trends in Information Retrieval 2009; 3 (4): 333--389.
+
+\bibitem{ref4}
+Cormack GV, Clarke CLA, Buettcher S.
+Reciprocal rank fusion outperforms condorcet and individual rank learning methods.
+In: Proceedings of the 32nd International ACM SIGIR Conference on Research and Development in Information Retrieval; Boston, MA, USA; 2009. pp. 758--759.
+
+\bibitem{ref5}
+Nogueira R, Cho K.
+Passage re-ranking with BERT.
+arXiv 2019; arXiv:1901.04085.
+
+\bibitem{ref6}
+Devlin J, Chang MW, Lee K, Toutanova K.
+BERT: Pre-training of deep bidirectional transformers for language understanding.
+In: Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies; Minneapolis, MN, USA; 2019. pp. 4171--4186.
+
+\bibitem{ref7}
+Karpukhin V, Oguz B, Min S, Lewis P, Wu L et al.
+Dense passage retrieval for open-domain question answering.
+In: Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing; Online; 2020. pp. 6769--6781.
+
+\bibitem{ref8}
+Thoppilan R, De Freitas D, Hall J, Shazeer N, Kulshreshtha A et al.
+LaMDA: Language models for dialog applications.
+arXiv 2022; arXiv:2201.08239.
+
+\bibitem{ref9}
+Izacard G, Grave E.
+Leveraging passage retrieval with generative models for open domain question answering.
+In: Proceedings of the 16th Conference of the European Chapter of the Association for Computational Linguistics; Online; 2021. pp. 874--880.
+
+\end{thebibliography}
+
+\end{document}

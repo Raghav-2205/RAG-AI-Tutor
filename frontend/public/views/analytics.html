@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="/assets/js/theme-init.js"></script>
   <title>Analytics - RAG AI Tutor</title>
-  <meta name="description" content="Personal learning analytics with quiz performance, study time, attendance, and coaching suggestions." />
+  <meta name="description" content="Learning analytics for students, teachers, and admins." />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <script src="/assets/js/config.js?v=11"></script>
@@ -19,26 +19,26 @@
   <aside class="sidebar">
     <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i></div><span>RAG AI Tutor</span></div>
     <div class="sidebar-scroll">
-    <nav class="nav-section">
-      <div class="nav-label">Learn</div>
-      <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
-      <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
-      <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
-      <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
-      <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
-      <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
-    </nav>
-    <nav class="nav-section">
-      <div class="nav-label">Analytics</div>
-      <a href="/views/analytics.html" class="nav-item active"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
-      <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
-      <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
-      <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
-    </nav>
-    <nav class="nav-section">
-      <div class="nav-label">Account</div>
-      <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
-    </nav>
+      <nav class="nav-section">
+        <div class="nav-label">Learn</div>
+        <a href="/views/dashboard.html" class="nav-item"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>Dashboard</a>
+        <a href="/views/lms.html?allow_student=1&page=classes" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-book-open" aria-hidden="true"></i></span>My Classes</a>
+        <a href="/views/subjects.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>AI Tutor Chat</a>
+        <a href="/views/planner.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span>Planner</a>
+        <a href="/views/tracking.html" class="nav-item"><span class="nav-icon sidebar-c5"><i class="fa-solid fa-person-running" aria-hidden="true"></i></span>Activity Tracking</a>
+        <a href="/views/community.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-solid fa-users" aria-hidden="true"></i></span>Community</a>
+      </nav>
+      <nav class="nav-section">
+        <div class="nav-label">Analytics</div>
+        <a href="/views/analytics.html" class="nav-item active"><span class="nav-icon sidebar-c1"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>Analytics</a>
+        <a href="/views/evaluation.html" class="nav-item"><span class="nav-icon sidebar-c2"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>Evaluation</a>
+        <a href="/views/progress.html" class="nav-item"><span class="nav-icon sidebar-c3"><i class="fa-regular fa-clipboard" aria-hidden="true"></i></span>Progress Report</a>
+        <a href="/views/calendar.html" class="nav-item"><span class="nav-icon sidebar-c4"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i></span>Unified Calendar</a>
+      </nav>
+      <nav class="nav-section">
+        <div class="nav-label">Account</div>
+        <a href="/views/profile.html" class="nav-item"><span class="nav-icon sidebar-c6"><i class="fa-regular fa-user" aria-hidden="true"></i></span>Profile &amp; Settings</a>
+      </nav>
     </div>
     <div class="sidebar-footer">
       <div class="user-info"><div class="avatar" id="userAvatar">?</div><div><div class="user-name" id="userName">Loading...</div><div class="user-level" id="userLevel">Student</div></div></div>
@@ -50,11 +50,15 @@
     <div class="container analytics-page">
       <div class="page-header analytics-page-header">
         <div>
-          <div class="analytics-page-eyebrow"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Performance intelligence</div>
-          <h1><i class="fa-regular fa-chart-bar" aria-hidden="true"></i> Learning Analytics</h1>
+          <div class="analytics-page-eyebrow" id="analyticsHeroKicker"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Performance intelligence</div>
+          <h1 id="analyticsHeroTitle"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i> Learning Analytics</h1>
           <p id="analyticsSubtitle">Loading your performance insights...</p>
         </div>
         <div class="analytics-header-actions">
+          <div id="classSelectorWrap" hidden style="min-width:220px;">
+            <label for="classSelector" style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px;">Selected class</label>
+            <select id="classSelector" class="input" style="width:100%;"></select>
+          </div>
           <a href="/views/progress.html" class="btn btn-secondary"><i class="fa-regular fa-clipboard" aria-hidden="true"></i> Progress Report</a>
           <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
         </div>
@@ -62,89 +66,63 @@
 
       <section class="card analytics-hero-card">
         <div class="analytics-hero-copy">
-          <div class="community-kicker">Learning pulse</div>
-          <h2>See how your study time, quiz performance, attendance, and rewards stack up in one cohesive dashboard-grade view.</h2>
+          <div class="community-kicker" id="analyticsHeroMode">Learning pulse</div>
+          <h2 id="analyticsHeroSummary">See study patterns, performance, attendance, and next-step recommendations in one place.</h2>
         </div>
         <div class="analytics-stat-grid">
-          <article class="analytics-stat-card"><span class="analytics-stat-label">Average quiz score</span><strong id="statAvgScore">--%</strong><span class="analytics-stat-sub">Across recent completed quizzes</span></article>
-          <article class="analytics-stat-card"><span class="analytics-stat-label">Study time</span><strong id="statStudyTime">--</strong><span class="analytics-stat-sub">Tracked over the active window</span></article>
-          <article class="analytics-stat-card"><span class="analytics-stat-label">Points earned</span><strong id="statPoints">--</strong><span class="analytics-stat-sub">Gamification total</span></article>
-          <article class="analytics-stat-card"><span class="analytics-stat-label">Badges unlocked</span><strong id="statBadges">--</strong><span class="analytics-stat-sub">Achievements earned so far</span></article>
+          <article class="analytics-stat-card"><span class="analytics-stat-label" id="statAvgScoreLabel">Average quiz score</span><strong id="statAvgScore">--%</strong><span class="analytics-stat-sub" id="statAvgScoreSub">Across recent completed quizzes</span></article>
+          <article class="analytics-stat-card"><span class="analytics-stat-label" id="statStudyTimeLabel">Study time</span><strong id="statStudyTime">--</strong><span class="analytics-stat-sub" id="statStudyTimeSub">Tracked over the active window</span></article>
+          <article class="analytics-stat-card"><span class="analytics-stat-label" id="statPointsLabel">Points earned</span><strong id="statPoints">--</strong><span class="analytics-stat-sub" id="statPointsSub">Gamification total</span></article>
+          <article class="analytics-stat-card"><span class="analytics-stat-label" id="statBadgesLabel">Badges unlocked</span><strong id="statBadges">--</strong><span class="analytics-stat-sub" id="statBadgesSub">Achievements earned so far</span></article>
         </div>
       </section>
 
       <div class="bento-grid">
-        <section class="card col-span-8">
+        <section class="card col-span-8" id="trendSection">
           <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Performance Trend</h3>
-            <span class="card-badge">Last 7 Days</span>
+            <h3 class="card-title" id="trendTitle"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Performance Trend</h3>
+            <span class="card-badge" id="trendBadge">Last 7 Days</span>
           </div>
-          <div class="analytics-chart-shell"><canvas id="trendChart"></canvas></div>
-          <div class="analytics-chart-empty" id="trendEmpty" hidden>Take a few quizzes to start seeing your score trend.</div>
+          <div class="analytics-chart-shell" id="trendChartShell"><canvas id="trendChart"></canvas></div>
+          <div class="analytics-chart-empty" id="trendEmpty" hidden>Performance data will appear here once activity is available.</div>
         </section>
-        <section class="card col-span-4">
+        <section class="card col-span-4" id="weakSection">
           <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Areas to Improve</h3>
-            <span class="card-badge">Weakest Subjects</span>
+            <h3 class="card-title" id="weakTitle"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Areas to Improve</h3>
+            <span class="card-badge" id="weakBadge">Weakest Subjects</span>
           </div>
-          <div class="analytics-weak-list" id="weakSubjects">
-            <div class="evaluation-empty-state">Loading weak-subject analysis...</div>
-          </div>
+          <div class="analytics-weak-list" id="weakSubjects"><div class="evaluation-empty-state">Loading analysis...</div></div>
         </section>
-
-        <section class="card col-span-6">
+        <section class="card col-span-6" id="studySection">
           <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-clock" aria-hidden="true"></i> Study Time</h3>
-            <span class="card-badge">Daily Breakdown</span>
+            <h3 class="card-title" id="studyTitle"><i class="fa-solid fa-clock" aria-hidden="true"></i> Study Time</h3>
+            <span class="card-badge" id="studyBadge">Daily Breakdown</span>
           </div>
-          <div class="analytics-chart-shell"><canvas id="studyChart"></canvas></div>
+          <div class="analytics-chart-shell" id="studyChartShell"><canvas id="studyChart"></canvas></div>
+          <div class="analytics-chart-empty" id="studyEmpty" hidden>Study-time data is not available yet.</div>
         </section>
-        <section class="card col-span-6">
+        <section class="card col-span-6" id="attendanceSection">
           <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Attendance Overview</h3>
-            <span class="card-badge">Student View</span>
+            <h3 class="card-title" id="attendanceTitle"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Attendance Overview</h3>
+            <span class="card-badge" id="attendanceBadge">Student View</span>
           </div>
-          <div class="analytics-attendance-panel" id="attendanceStats">
-            <div class="evaluation-empty-state">Loading attendance insight...</div>
-          </div>
+          <div class="analytics-attendance-panel" id="attendanceStats"><div class="evaluation-empty-state">Loading attendance insight...</div></div>
         </section>
-
-        <section class="card col-span-6">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-medal" aria-hidden="true"></i> Badges &amp; Achievements</h3>
-            <span class="card-badge">Recent</span>
-          </div>
-          <div class="analytics-badge-grid" id="badgeGrid">
-            <div class="evaluation-empty-state">Loading badges...</div>
-          </div>
+        <section class="card col-span-6" id="badgesSection">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-medal" aria-hidden="true"></i> Badges &amp; Achievements</h3><span class="card-badge">Recent</span></div>
+          <div class="analytics-badge-grid" id="badgeGrid"><div class="evaluation-empty-state">Loading badges...</div></div>
         </section>
-        <section class="card col-span-6">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Global Leaderboard</h3>
-            <span class="card-badge">Top 10</span>
-          </div>
-          <div class="analytics-leaderboard" id="leaderboard">
-            <div class="evaluation-empty-state">Loading leaderboard...</div>
-          </div>
+        <section class="card col-span-6" id="leaderboardSection">
+          <div class="card-header"><h3 class="card-title" id="leaderboardTitle"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Global Leaderboard</h3><span class="card-badge" id="leaderboardBadge">Top 10</span></div>
+          <div class="analytics-leaderboard" id="leaderboard"><div class="evaluation-empty-state">Loading leaderboard...</div></div>
         </section>
-
-        <section class="card col-span-6">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Coaching Suggestions</h3>
-            <span class="card-badge">Personalized</span>
-          </div>
-          <div class="analytics-rec-list" id="aiSuggestions">
-            <div class="evaluation-empty-state">Loading coaching suggestions...</div>
-          </div>
+        <section class="card col-span-6" id="suggestionsSection">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Coaching Suggestions</h3><span class="card-badge">Personalized</span></div>
+          <div class="analytics-rec-list" id="aiSuggestions"><div class="evaluation-empty-state">Loading coaching suggestions...</div></div>
         </section>
-        <section class="card col-span-6">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fa-solid fa-book-bookmark" aria-hidden="true"></i> Material Recommendations</h3>
-            <span class="card-badge">RAG-Based</span>
-          </div>
-          <div class="analytics-rec-list" id="aiRecommendations">
-            <div class="evaluation-empty-state">Loading recommendations...</div>
-          </div>
+        <section class="card col-span-6" id="recommendationsSection">
+          <div class="card-header"><h3 class="card-title"><i class="fa-solid fa-book-bookmark" aria-hidden="true"></i> Material Recommendations</h3><span class="card-badge">RAG-Based</span></div>
+          <div class="analytics-rec-list" id="aiRecommendations"><div class="evaluation-empty-state">Loading recommendations...</div></div>
         </section>
       </div>
     </div>
@@ -154,16 +132,13 @@
     const API = window.config?.apiBase || '/api';
     const TOKEN = window.auth?.token || localStorage.getItem('token');
     if (!TOKEN) window.location.href = '/views/login.html';
-
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const role = String(user.role || 'student').toLowerCase();
     const userId = user.id || user._id || '';
+    const isTeacherView = role === 'teacher' || role === 'admin';
     const authHeaders = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
     const $ = (id) => document.getElementById(id);
-
-    let trendChart = null;
-    let studyChart = null;
-    let latestAnalytics = null;
+    const state = { trendChart: null, studyChart: null, currentMode: isTeacherView ? 'teacher' : 'student', latestStudentAnalytics: null, latestTeacherAnalytics: null };
 
     function logoutUser() {
       if (window.auth?.logout) return window.auth.logout();
@@ -171,62 +146,38 @@
       window.location.href = '/views/login.html';
     }
 
+    function redirectToLogin() {
+      if (window.auth?.logout) return window.auth.logout();
+      localStorage.removeItem('token');
+      window.location.href = '/views/login.html';
+    }
+
     function updateUserShell() {
-      const name = user.name || user.email || 'Student';
-      const role = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+      const name = user.name || user.email || 'User';
+      const prettyRole = String(user.role || 'student').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
       $('userName').textContent = name;
-      $('userLevel').textContent = role;
-      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'S';
-      $('analyticsSubtitle').textContent = `${name}'s performance dashboard`;
+      $('userLevel').textContent = prettyRole;
+      $('userAvatar').textContent = String(name).trim().charAt(0).toUpperCase() || 'U';
+      $('analyticsSubtitle').textContent = isTeacherView ? `${name}'s class analytics dashboard` : `${name}'s learning analytics dashboard`;
     }
 
     function getThemePalette() {
       const styles = getComputedStyle(document.documentElement);
-      return {
-        accent: styles.getPropertyValue('--accent').trim() || '#19c37d',
-        warning: styles.getPropertyValue('--warning').trim() || '#f59e0b',
-        danger: styles.getPropertyValue('--danger').trim() || '#ef4444',
-        textMuted: styles.getPropertyValue('--text-muted').trim() || '#6b7280',
-        border: styles.getPropertyValue('--border').trim() || 'rgba(120,120,120,0.2)',
-        grid: styles.getPropertyValue('--border-dim').trim() || 'rgba(120,120,120,0.16)'
-      };
+      return { accent: styles.getPropertyValue('--accent').trim() || '#19c37d', textMuted: styles.getPropertyValue('--text-muted').trim() || '#6b7280', grid: styles.getPropertyValue('--border-dim').trim() || 'rgba(120,120,120,0.16)' };
     }
 
     function alphaColor(color, alpha) {
       const value = String(color || '').trim();
-      if (value.startsWith('rgba(')) return value.replace(/rgba\(([^)]+),\s*[^)]+\)/, `rgba($1, ${alpha})`);
       if (value.startsWith('rgb(')) return value.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
       if (/^#([0-9a-f]{6})$/i.test(value)) {
         const hex = value.slice(1);
-        const r = parseInt(hex.slice(0, 2), 16);
-        const g = parseInt(hex.slice(2, 4), 16);
-        const b = parseInt(hex.slice(4, 6), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      }
-      if (/^#([0-9a-f]{3})$/i.test(value)) {
-        const hex = value.slice(1);
-        const r = parseInt(hex[0] + hex[0], 16);
-        const g = parseInt(hex[1] + hex[1], 16);
-        const b = parseInt(hex[2] + hex[2], 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        return `rgba(${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}, ${alpha})`;
       }
       return value;
     }
 
-    function destroyCharts() {
-      if (trendChart) trendChart.destroy();
-      if (studyChart) studyChart.destroy();
-      trendChart = null;
-      studyChart = null;
-    }
-
     function escapeHtml(value = '') {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+      return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function normalizeEnvelope(payload) {
@@ -258,20 +209,277 @@
       return 'bad';
     }
 
-    function renderCharts(analytics) {
+    function setSectionVisibility(id, visible) {
+      const el = $(id);
+      if (el) el.hidden = !visible;
+    }
+
+    function setChartEmpty(shellId, emptyId, message) {
+      const shell = $(shellId);
+      const empty = $(emptyId);
+      if (shell) shell.hidden = true;
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = message;
+      }
+    }
+
+    function showChartShell(shellId, emptyId) {
+      const shell = $(shellId);
+      const empty = $(emptyId);
+      if (shell) shell.hidden = false;
+      if (empty) empty.hidden = true;
+    }
+
+    function destroyCharts() {
+      if (state.trendChart) state.trendChart.destroy();
+      if (state.studyChart) state.studyChart.destroy();
+      state.trendChart = null;
+      state.studyChart = null;
+    }
+
+    function updateHeroStat(prefix, label, value, subtext) {
+      $(`stat${prefix}Label`).textContent = label;
+      $(`stat${prefix}`).textContent = value;
+      $(`stat${prefix}Sub`).textContent = subtext;
+    }
+
+    async function requestJson(name, endpoint, options = {}) {
+      try {
+        const response = await fetch(`${API}${endpoint}`, { headers: authHeaders, ...options });
+        if (response.status === 401) {
+          console.error(`[analytics] ${name} unauthorized`);
+          redirectToLogin();
+          return { ok: false, status: 401, data: null, error: 'Unauthorized' };
+        }
+        const rawText = await response.text();
+        let payload = null;
+        if (rawText) {
+          try {
+            payload = JSON.parse(rawText);
+          } catch (parseError) {
+            console.error(`[analytics] ${name} returned invalid JSON`, parseError);
+          }
+        }
+        if (!response.ok) {
+          const detail = payload?.detail || payload?.error || `Request failed (${response.status})`;
+          console.error(`[analytics] ${name} failed`, { endpoint, status: response.status, detail });
+          return { ok: false, status: response.status, data: payload, error: detail };
+        }
+        return { ok: true, status: response.status, data: payload, error: '' };
+      } catch (error) {
+        console.error(`[analytics] ${name} network error`, error);
+        return { ok: false, status: 0, data: null, error: error?.message || 'Network error' };
+      }
+    }
+
+    function renderWeakSubjects(items, mode = 'student', message = '') {
+      if (message) {
+        $('weakSubjects').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const rows = Array.isArray(items) ? items : [];
+      if (!rows.length) {
+        $('weakSubjects').innerHTML = `<div class="evaluation-empty-state">${mode === 'teacher' ? 'No weak topics found for this class yet.' : 'No weak areas detected. Keep the momentum going.'}</div>`;
+        return;
+      }
+      if (mode === 'teacher') {
+        $('weakSubjects').innerHTML = rows.map((item) => `
+          <div class="analytics-weak-item">
+            <div class="analytics-weak-copy">
+              <strong>${escapeHtml(item.question || 'Topic')}</strong>
+              <span>${Number(item.total_attempts) || 0} attempt${Number(item.total_attempts) === 1 ? '' : 's'}</span>
+            </div>
+            <div class="analytics-progress">
+              <div class="analytics-progress-fill tone-${scoreTone(100 - (Number(item.wrong_pct) || 0))}" style="width:${Math.max(6, Math.min(100, Number(item.wrong_pct) || 0))}%"></div>
+            </div>
+            <span class="analytics-weak-score">${Number(item.wrong_pct || 0).toFixed(1)}% wrong</span>
+          </div>
+        `).join('');
+        return;
+      }
+      $('weakSubjects').innerHTML = rows.map((item) => `
+        <div class="analytics-weak-item">
+          <div class="analytics-weak-copy">
+            <strong>${escapeHtml(item.subject || 'General')}</strong>
+            <span>${Number(item.count) || 0} quiz attempt${Number(item.count) === 1 ? '' : 's'}</span>
+          </div>
+          <div class="analytics-progress">
+            <div class="analytics-progress-fill tone-${scoreTone(Number(item.average) || 0)}" style="width:${Math.max(6, Math.min(100, Number(item.average) || 0))}%"></div>
+          </div>
+          <span class="analytics-weak-score">${Number(item.average || 0).toFixed(1)}%</span>
+        </div>
+      `).join('');
+    }
+
+    function renderAttendance(records, message = '') {
+      if (message) {
+        $('attendanceStats').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const rows = normalizeArray(records);
+      if (!rows.length) {
+        $('attendanceStats').innerHTML = '<div class="evaluation-empty-state">No attendance records yet.</div>';
+        return;
+      }
+      const total = rows.length;
+      const present = rows.filter((row) => String(row.status || '').toLowerCase() === 'present').length;
+      const pct = total ? Math.round((present / total) * 100) : 0;
+      $('attendanceStats').innerHTML = `
+        <div class="analytics-attendance-value tone-${scoreTone(pct)}">${pct}%</div>
+        <div class="analytics-attendance-copy">${present} present out of ${total} tracked classes</div>
+        <div class="analytics-progress"><div class="analytics-progress-fill tone-${scoreTone(pct)}" style="width:${pct}%"></div></div>
+      `;
+    }
+
+    function renderTeacherAttendance(summary, message = '') {
+      if (message) {
+        $('attendanceStats').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const stats = normalizeObject(summary);
+      const rows = normalizeArray(stats.student_stats);
+      if (!rows.length) {
+        $('attendanceStats').innerHTML = '<div class="evaluation-empty-state">No class attendance summary is available yet.</div>';
+        return;
+      }
+      const average = rows.reduce((sum, row) => sum + (Number(row.percentage) || 0), 0) / rows.length;
+      const tracked = Number(stats.days_tracked) || 0;
+      const active = rows.filter((row) => Number(row.total) > 0).length;
+      $('attendanceStats').innerHTML = `
+        <div class="analytics-attendance-value tone-${scoreTone(average)}">${average.toFixed(1)}%</div>
+        <div class="analytics-attendance-copy">${active} students tracked across ${tracked} class day${tracked === 1 ? '' : 's'}</div>
+        <div class="analytics-progress"><div class="analytics-progress-fill tone-${scoreTone(average)}" style="width:${Math.max(4, Math.min(100, average))}%"></div></div>
+      `;
+    }
+
+    function renderBadges(data, message = '') {
+      if (message) {
+        $('badgeGrid').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const stats = normalizeObject(data);
+      const badges = Array.isArray(stats.badges) ? stats.badges : [];
+      updateHeroStat('Points', 'Points earned', String(Number(stats.total_points) || 0), 'Gamification total');
+      updateHeroStat('Badges', 'Badges unlocked', String(Number(stats.badge_count) || badges.length || 0), 'Achievements earned so far');
+      if (!badges.length) {
+        $('badgeGrid').innerHTML = '<div class="evaluation-empty-state">No badges earned yet. Keep participating and they will show up here.</div>';
+        return;
+      }
+      $('badgeGrid').innerHTML = badges.slice(0, 6).map((badge) => `
+        <article class="analytics-badge-card">
+          <div class="analytics-badge-emoji">${escapeHtml(badge.emoji || '🏅')}</div>
+          <div class="analytics-badge-name">${escapeHtml(badge.name || badge.badge_id || 'Badge')}</div>
+          <div class="analytics-badge-desc">${escapeHtml(badge.desc || 'Achievement unlocked')}</div>
+        </article>
+      `).join('');
+    }
+
+    function renderLeaderboard(entries, message = '') {
+      if (message) {
+        $('leaderboard').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const rows = normalizeArray(entries);
+      if (!rows.length) {
+        $('leaderboard').innerHTML = '<div class="evaluation-empty-state">No leaderboard data yet.</div>';
+        return;
+      }
+      $('leaderboard').innerHTML = rows.map((entry) => `
+        <div class="analytics-lb-row ${String(entry.user_id) === String(userId) ? 'me' : ''}">
+          <div class="analytics-lb-rank">${entry.rank <= 3 ? ['🥇', '🥈', '🥉'][entry.rank - 1] : `#${entry.rank}`}</div>
+          <div class="analytics-lb-name">${escapeHtml(entry.name || 'Anonymous')}</div>
+          <div class="analytics-lb-points">${Number(entry.total_points) || 0} pts</div>
+          <div class="analytics-lb-badges">${Number(entry.badge_count) || 0} badges</div>
+        </div>
+      `).join('');
+    }
+
+    function renderStudentBreakdown(entries, message = '') {
+      if (message) {
+        $('leaderboard').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const rows = normalizeArray(entries);
+      if (!rows.length) {
+        $('leaderboard').innerHTML = '<div class="evaluation-empty-state">No student performance data is available yet.</div>';
+        return;
+      }
+      $('leaderboard').innerHTML = rows.map((entry, index) => `
+        <div class="analytics-lb-row">
+          <div class="analytics-lb-rank">#${index + 1}</div>
+          <div class="analytics-lb-name">
+            ${escapeHtml(entry.name || 'Student')}
+            <div style="font-size:12px;color:var(--text-muted);">${escapeHtml(entry.email || '')}</div>
+          </div>
+          <div class="analytics-lb-points">${entry.avg_quiz_score == null ? '--' : `${Number(entry.avg_quiz_score).toFixed(1)}%`}</div>
+          <div class="analytics-lb-badges">${entry.attendance_pct == null ? '--' : `${Number(entry.attendance_pct).toFixed(1)}% att.`}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderCoachSuggestions(items, message = '') {
+      if (message) {
+        $('aiSuggestions').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const suggestions = Array.isArray(items) ? items : [];
+      if (!suggestions.length) {
+        $('aiSuggestions').innerHTML = '<div class="evaluation-empty-state">No coaching suggestions yet. More recent activity will improve this feed.</div>';
+        return;
+      }
+      $('aiSuggestions').innerHTML = suggestions.slice(0, 5).map((item) => {
+        const title = typeof item === 'string' ? 'Suggestion' : (item.category || 'Suggestion');
+        const text = typeof item === 'string' ? item : (item.suggestion || item.text || '');
+        return `
+          <div class="analytics-rec-card">
+            <div class="analytics-rec-title">${escapeHtml(String(title).replace(/_/g, ' '))}</div>
+            <div class="analytics-rec-copy">${escapeHtml(text)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMaterialRecommendations(items, message = '') {
+      if (message) {
+        $('aiRecommendations').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
+        return;
+      }
+      const recs = Array.isArray(items) ? items : [];
+      if (!recs.length) {
+        $('aiRecommendations').innerHTML = '<div class="evaluation-empty-state">No material recommendations yet.</div>';
+        return;
+      }
+      $('aiRecommendations').innerHTML = recs.slice(0, 5).map((item) => `
+        <div class="analytics-rec-card">
+          <div class="analytics-rec-title">${escapeHtml(item.subject || item.title || 'Recommended material')}</div>
+          <div class="analytics-rec-copy">${escapeHtml(item.text || item.detail || item.title || '')}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderStudentCharts(analytics, errorMessage = '') {
       destroyCharts();
+      if (errorMessage) {
+        setChartEmpty('trendChartShell', 'trendEmpty', errorMessage);
+        setChartEmpty('studyChartShell', 'studyEmpty', errorMessage);
+        return;
+      }
+      if (typeof window.Chart !== 'function') {
+        setChartEmpty('trendChartShell', 'trendEmpty', 'Chart view is unavailable right now, but your analytics data is still loaded below.');
+        setChartEmpty('studyChartShell', 'studyEmpty', 'Chart view is unavailable right now, but your analytics data is still loaded below.');
+        return;
+      }
       const palette = getThemePalette();
       const trend = Array.isArray(analytics.performance_trend) ? analytics.performance_trend : [];
-      const trendCanvas = $('trendChart');
-      const studyCanvas = $('studyChart');
+      const studySeries = normalizeObject(analytics.study_time_series);
+      const studyDays = Object.keys(studySeries).sort().slice(-7);
 
       if (!trend.length) {
-        trendCanvas.parentElement.hidden = true;
-        $('trendEmpty').hidden = false;
+        setChartEmpty('trendChartShell', 'trendEmpty', 'Take a few quizzes to start seeing your score trend.');
       } else {
-        trendCanvas.parentElement.hidden = false;
-        $('trendEmpty').hidden = true;
-        trendChart = new Chart(trendCanvas.getContext('2d'), {
+        showChartShell('trendChartShell', 'trendEmpty');
+        state.trendChart = new Chart($('trendChart').getContext('2d'), {
           type: 'line',
           data: {
             labels: trend.map((item) => item.date),
@@ -298,14 +506,59 @@
         });
       }
 
-      const studySeries = normalizeObject(analytics.study_time_series);
-      const studyDays = Object.keys(studySeries).sort().slice(-7);
-      studyChart = new Chart(studyCanvas.getContext('2d'), {
+      if (!studyDays.length) {
+        setChartEmpty('studyChartShell', 'studyEmpty', 'Study-time data will appear once activity is logged.');
+      } else {
+        showChartShell('studyChartShell', 'studyEmpty');
+        state.studyChart = new Chart($('studyChart').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: studyDays,
+            datasets: [{
+              data: studyDays.map((day) => Number(studySeries[day]) || 0),
+              backgroundColor: alphaColor(palette.accent, 0.34),
+              borderColor: palette.accent,
+              borderWidth: 1.5,
+              borderRadius: 10,
+              maxBarThickness: 44
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ticks: { color: palette.textMuted }, grid: { color: palette.grid } },
+              x: { ticks: { color: palette.textMuted }, grid: { display: false } }
+            }
+          }
+        });
+      }
+    }
+
+    function renderTeacherChart(stats, errorMessage = '') {
+      destroyCharts();
+      if (errorMessage) {
+        setChartEmpty('trendChartShell', 'trendEmpty', errorMessage);
+        return;
+      }
+      if (typeof window.Chart !== 'function') {
+        setChartEmpty('trendChartShell', 'trendEmpty', 'Chart view is unavailable right now, but class metrics are still loaded below.');
+        return;
+      }
+      const rows = normalizeArray(stats.quiz_stats);
+      if (!rows.length) {
+        setChartEmpty('trendChartShell', 'trendEmpty', 'Quiz averages will appear here after students start submitting quizzes.');
+        return;
+      }
+      showChartShell('trendChartShell', 'trendEmpty');
+      const palette = getThemePalette();
+      state.trendChart = new Chart($('trendChart').getContext('2d'), {
         type: 'bar',
         data: {
-          labels: studyDays.length ? studyDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          labels: rows.map((item) => item.title || 'Quiz'),
           datasets: [{
-            data: studyDays.length ? studyDays.map((day) => Number(studySeries[day]) || 0) : [0, 0, 0, 0, 0, 0, 0],
+            data: rows.map((item) => Number(item.avg_score) || 0),
             backgroundColor: alphaColor(palette.accent, 0.34),
             borderColor: palette.accent,
             borderWidth: 1.5,
@@ -318,171 +571,188 @@
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { ticks: { color: palette.textMuted }, grid: { color: palette.grid } },
+            y: { min: 0, max: 100, ticks: { color: palette.textMuted, callback: (v) => `${v}%` }, grid: { color: palette.grid } },
             x: { ticks: { color: palette.textMuted }, grid: { display: false } }
           }
         }
       });
     }
 
-    function renderWeakSubjects(items) {
-      const weak = Array.isArray(items) ? items : [];
-      if (!weak.length) {
-        $('weakSubjects').innerHTML = '<div class="evaluation-empty-state">No weak areas detected. Keep the momentum going.</div>';
-        return;
-      }
-      $('weakSubjects').innerHTML = weak.map((item) => `
-        <div class="analytics-weak-item">
-          <div class="analytics-weak-copy">
-            <strong>${escapeHtml(item.subject || 'General')}</strong>
-            <span>${Number(item.count) || 0} quiz attempt${Number(item.count) === 1 ? '' : 's'}</span>
-          </div>
-          <div class="analytics-progress">
-            <div class="analytics-progress-fill tone-${scoreTone(Number(item.average) || 0)}" style="width:${Math.max(6, Math.min(100, Number(item.average) || 0))}%"></div>
-          </div>
-          <span class="analytics-weak-score">${Number(item.average || 0).toFixed(1)}%</span>
-        </div>
-      `).join('');
+    function applyStudentLayout() {
+      state.currentMode = 'student';
+      $('analyticsHeroKicker').innerHTML = '<i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Performance intelligence';
+      $('analyticsHeroTitle').innerHTML = '<i class="fa-regular fa-chart-bar" aria-hidden="true"></i> Learning Analytics';
+      $('analyticsHeroMode').textContent = 'Learning pulse';
+      $('analyticsHeroSummary').textContent = 'See study patterns, performance, attendance, and next-step recommendations in one place.';
+      $('trendTitle').innerHTML = '<i class="fa-solid fa-chart-line" aria-hidden="true"></i> Performance Trend';
+      $('trendBadge').textContent = 'Last 7 Days';
+      $('weakTitle').innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Areas to Improve';
+      $('weakBadge').textContent = 'Weakest Subjects';
+      $('studyTitle').innerHTML = '<i class="fa-solid fa-clock" aria-hidden="true"></i> Study Time';
+      $('studyBadge').textContent = 'Daily Breakdown';
+      $('attendanceTitle').innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Attendance Overview';
+      $('attendanceBadge').textContent = 'Student View';
+      $('leaderboardTitle').innerHTML = '<i class="fa-solid fa-trophy" aria-hidden="true"></i> Global Leaderboard';
+      $('leaderboardBadge').textContent = 'Top 10';
+      updateHeroStat('AvgScore', 'Average quiz score', '--%', 'Across recent completed quizzes');
+      updateHeroStat('StudyTime', 'Study time', '--', 'Tracked over the active window');
+      updateHeroStat('Points', 'Points earned', '--', 'Gamification total');
+      updateHeroStat('Badges', 'Badges unlocked', '--', 'Achievements earned so far');
+      setSectionVisibility('classSelectorWrap', false);
+      setSectionVisibility('studySection', true);
+      setSectionVisibility('badgesSection', true);
+      setSectionVisibility('leaderboardSection', true);
+      setSectionVisibility('suggestionsSection', true);
+      setSectionVisibility('recommendationsSection', true);
     }
 
-    function renderAttendance(records, message = '') {
-      if (message) {
-        $('attendanceStats').innerHTML = `<div class="evaluation-empty-state">${escapeHtml(message)}</div>`;
-        return;
-      }
-      const rows = normalizeArray(records);
-      if (!rows.length) {
-        $('attendanceStats').innerHTML = '<div class="evaluation-empty-state">No attendance records yet.</div>';
-        return;
-      }
-      const total = rows.length;
-      const present = rows.filter((row) => String(row.status || '').toLowerCase() === 'present').length;
-      const pct = Math.round((present / total) * 100);
-      $('attendanceStats').innerHTML = `
-        <div class="analytics-attendance-value tone-${scoreTone(pct)}">${pct}%</div>
-        <div class="analytics-attendance-copy">${present} present out of ${total} tracked classes</div>
-        <div class="analytics-progress"><div class="analytics-progress-fill tone-${scoreTone(pct)}" style="width:${pct}%"></div></div>
-      `;
+    function applyTeacherLayout(className = '') {
+      state.currentMode = 'teacher';
+      $('analyticsHeroKicker').innerHTML = '<i class="fa-solid fa-school" aria-hidden="true"></i> Class intelligence';
+      $('analyticsHeroTitle').innerHTML = '<i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i> Class Analytics';
+      $('analyticsHeroMode').textContent = className ? `Class view: ${className}` : 'Class view';
+      $('analyticsHeroSummary').textContent = 'Track class performance, weak topics, attendance, and student engagement from one shared screen.';
+      $('trendTitle').innerHTML = '<i class="fa-solid fa-chart-column" aria-hidden="true"></i> Quiz Performance';
+      $('trendBadge').textContent = 'Class Average';
+      $('weakTitle').innerHTML = '<i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Areas to Improve';
+      $('weakBadge').textContent = 'Weak Topics';
+      $('attendanceTitle').innerHTML = '<i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Attendance Overview';
+      $('attendanceBadge').textContent = 'Class View';
+      $('leaderboardTitle').innerHTML = '<i class="fa-solid fa-users" aria-hidden="true"></i> Student Performance';
+      $('leaderboardBadge').textContent = 'By Student';
+      updateHeroStat('AvgScore', 'Class average score', '--%', 'Across submitted quizzes');
+      updateHeroStat('StudyTime', 'Engagement rate', '--%', 'Attendance, tests, and activity');
+      updateHeroStat('Points', 'Total students', '--', 'Enrolled in this class');
+      updateHeroStat('Badges', 'Active students', '--', 'Active in the last window');
+      setSectionVisibility('classSelectorWrap', true);
+      setSectionVisibility('studySection', false);
+      setSectionVisibility('badgesSection', false);
+      setSectionVisibility('suggestionsSection', false);
+      setSectionVisibility('recommendationsSection', false);
     }
 
-    function renderBadges(data) {
-      const badges = Array.isArray(data.badges) ? data.badges : [];
-      $('statPoints').textContent = String(Number(data.total_points) || 0);
-      $('statBadges').textContent = String(Number(data.badge_count) || badges.length || 0);
-      if (!badges.length) {
-        $('badgeGrid').innerHTML = '<div class="evaluation-empty-state">No badges earned yet. Keep participating and they will show up here.</div>';
-        return;
-      }
-      $('badgeGrid').innerHTML = badges.slice(0, 6).map((badge) => `
-        <article class="analytics-badge-card">
-          <div class="analytics-badge-emoji">${escapeHtml(badge.emoji || '🏅')}</div>
-          <div class="analytics-badge-name">${escapeHtml(badge.name || badge.badge_id || 'Badge')}</div>
-          <div class="analytics-badge-desc">${escapeHtml(badge.desc || 'Achievement unlocked')}</div>
-        </article>
-      `).join('');
+    function renderTeacherEmptyState(message) {
+      applyTeacherLayout('');
+      renderTeacherChart({}, message);
+      renderWeakSubjects([], 'teacher', message);
+      renderTeacherAttendance({}, message);
+      renderStudentBreakdown([], message);
     }
 
-    function renderLeaderboard(entries) {
-      const rows = normalizeArray(entries);
-      if (!rows.length) {
-        $('leaderboard').innerHTML = '<div class="evaluation-empty-state">No leaderboard data yet.</div>';
-        return;
-      }
-      $('leaderboard').innerHTML = rows.map((entry) => `
-        <div class="analytics-lb-row ${String(entry.user_id) === String(userId) ? 'me' : ''}">
-          <div class="analytics-lb-rank">${entry.rank <= 3 ? ['🥇', '🥈', '🥉'][entry.rank - 1] : `#${entry.rank}`}</div>
-          <div class="analytics-lb-name">${escapeHtml(entry.name || 'Anonymous')}</div>
-          <div class="analytics-lb-points">${Number(entry.total_points) || 0} pts</div>
-          <div class="analytics-lb-badges">${Number(entry.badge_count) || 0} badges</div>
-        </div>
-      `).join('');
+    async function loadStudentAnalytics() {
+      applyStudentLayout();
+      const [analyticsRes, gamRes, leaderboardRes, attendanceRes] = await Promise.all([
+        requestJson('student analytics', '/analytics/student'),
+        requestJson('gamification stats', '/gamification/my-stats'),
+        requestJson('leaderboard', '/gamification/leaderboard?limit=10'),
+        requestJson('student attendance', '/lms/students/me/attendance')
+      ]);
+
+      const analyticsPayload = analyticsRes.ok ? normalizeObject(analyticsRes.data) : {};
+      const analytics = normalizeObject(analyticsPayload.analytics);
+      state.latestStudentAnalytics = analytics;
+
+      updateHeroStat('AvgScore', 'Average quiz score', `${Number(analytics.avg_score || 0).toFixed(1)}%`, analyticsRes.ok ? 'Across recent completed quizzes' : 'Analytics currently unavailable');
+      updateHeroStat('StudyTime', 'Study time', formatDuration(analytics.total_study_minutes || 0), 'Tracked over the active window');
+      renderStudentCharts(analytics, analyticsRes.ok ? '' : 'Performance charts are temporarily unavailable.');
+      renderWeakSubjects(analytics.weak_subjects, 'student', analyticsRes.ok ? '' : 'Weak-subject analysis is temporarily unavailable.');
+      renderCoachSuggestions(analyticsPayload.suggestions, analyticsRes.ok ? '' : 'Coaching suggestions are temporarily unavailable.');
+      renderMaterialRecommendations(analyticsPayload.recommendations, analyticsRes.ok ? '' : 'Material recommendations are temporarily unavailable.');
+
+      if (gamRes.ok) renderBadges(gamRes.data);
+      else renderBadges({}, 'Gamification data is temporarily unavailable.');
+
+      if (leaderboardRes.ok) renderLeaderboard(leaderboardRes.data);
+      else renderLeaderboard([], 'Leaderboard data is temporarily unavailable.');
+
+      if (attendanceRes.ok) renderAttendance(attendanceRes.data);
+      else renderAttendance([], 'Attendance data is temporarily unavailable.');
     }
 
-    function renderCoachSuggestions(items) {
-      const suggestions = Array.isArray(items) ? items : [];
-      if (!suggestions.length) {
-        $('aiSuggestions').innerHTML = '<div class="evaluation-empty-state">No coaching suggestions yet. More recent activity will improve this feed.</div>';
-        return;
-      }
-      $('aiSuggestions').innerHTML = suggestions.slice(0, 5).map((item) => {
-        const title = typeof item === 'string' ? 'Suggestion' : (item.category || 'Suggestion');
-        const text = typeof item === 'string' ? item : (item.suggestion || item.text || '');
-        return `
-          <div class="analytics-rec-card">
-            <div class="analytics-rec-title">${escapeHtml(String(title).replace(/_/g, ' '))}</div>
-            <div class="analytics-rec-copy">${escapeHtml(text)}</div>
-          </div>
-        `;
+    function getTeacherStorageKey() {
+      return `analytics_selected_class_${userId || 'current'}`;
+    }
+
+    function resolveSelectedClass(classes) {
+      const items = normalizeArray(classes);
+      const queryClassId = new URLSearchParams(window.location.search).get('class_id');
+      const storedClassId = localStorage.getItem(getTeacherStorageKey());
+      const validIds = new Set(items.map((item) => item.id || item.class_id).filter(Boolean));
+      if (queryClassId && validIds.has(queryClassId)) return queryClassId;
+      if (storedClassId && validIds.has(storedClassId)) return storedClassId;
+      return items[0]?.id || items[0]?.class_id || '';
+    }
+
+    function populateClassSelector(classes, selectedId) {
+      const select = $('classSelector');
+      const items = normalizeArray(classes);
+      select.innerHTML = items.map((item) => {
+        const classId = item.id || item.class_id;
+        const label = item.name || item.subject || classId || 'Class';
+        return `<option value="${escapeHtml(classId)}">${escapeHtml(label)}</option>`;
       }).join('');
+      select.value = selectedId;
     }
 
-    function renderMaterialRecommendations(items) {
-      const recs = Array.isArray(items) ? items : [];
-      if (!recs.length) {
-        $('aiRecommendations').innerHTML = '<div class="evaluation-empty-state">No material recommendations yet.</div>';
+    async function loadTeacherAnalytics(selectedId = '') {
+      const classesRes = await requestJson('teacher classes', '/lms/classes');
+      const classes = normalizeArray(classesRes.data);
+      if (!classesRes.ok || !classes.length) {
+        $('classSelectorWrap').hidden = false;
+        $('classSelector').innerHTML = '';
+        renderTeacherEmptyState(classesRes.ok ? 'No classes available yet. Create or select a class to see analytics here.' : 'Unable to load your classes right now.');
         return;
       }
-      $('aiRecommendations').innerHTML = recs.slice(0, 5).map((item) => `
-        <div class="analytics-rec-card">
-          <div class="analytics-rec-title">${escapeHtml(item.subject || item.title || 'Recommended material')}</div>
-          <div class="analytics-rec-copy">${escapeHtml(item.text || item.detail || item.title || '')}</div>
-        </div>
-      `).join('');
+
+      const classId = selectedId || resolveSelectedClass(classes);
+      const selectedClass = classes.find((item) => (item.id || item.class_id) === classId) || classes[0];
+      const effectiveClassId = selectedClass?.id || selectedClass?.class_id || '';
+      const className = selectedClass?.name || selectedClass?.subject || 'Selected class';
+      localStorage.setItem(getTeacherStorageKey(), effectiveClassId);
+      populateClassSelector(classes, effectiveClassId);
+      applyTeacherLayout(className);
+
+      const [summaryRes, studentsRes, weakRes, attendanceRes] = await Promise.all([
+        requestJson('teacher summary', `/analytics/teacher/${effectiveClassId}`),
+        requestJson('class students', `/analytics/class/${effectiveClassId}/students`),
+        requestJson('class weak topics', `/analytics/class/${effectiveClassId}/weak-topics`),
+        requestJson('class attendance summary', `/lms/classes/${effectiveClassId}/attendance/summary`)
+      ]);
+
+      const summary = normalizeObject(summaryRes.data);
+      state.latestTeacherAnalytics = summary;
+      updateHeroStat('AvgScore', 'Class average score', `${Number(summary.avg_score || 0).toFixed(1)}%`, summaryRes.ok ? 'Across submitted quizzes' : 'Summary temporarily unavailable');
+      updateHeroStat('StudyTime', 'Engagement rate', `${Number(summary.engagement_rate || 0).toFixed(1)}%`, 'Attendance, tests, and activity');
+      updateHeroStat('Points', 'Total students', String(Number(summary.total_students) || 0), 'Enrolled in this class');
+      updateHeroStat('Badges', 'Active students', String(Number(summary.active_students_count) || 0), 'Active in the last window');
+
+      renderTeacherChart(summary, summaryRes.ok ? '' : 'Quiz performance is temporarily unavailable.');
+      renderWeakSubjects(weakRes.ok ? weakRes.data : [], 'teacher', weakRes.ok ? '' : 'Weak-topic analysis is temporarily unavailable.');
+      renderTeacherAttendance(attendanceRes.ok ? attendanceRes.data : {}, attendanceRes.ok ? '' : 'Attendance summary is temporarily unavailable.');
+      renderStudentBreakdown(studentsRes.ok ? studentsRes.data : [], studentsRes.ok ? '' : 'Student breakdown is temporarily unavailable.');
     }
 
-    async function loadAll() {
-      try {
-        const [analyticsRes, gamRes, leaderboardRes, attendanceRes] = await Promise.all([
-          fetch(`${API}/analytics/student`, { headers: authHeaders }),
-          fetch(`${API}/gamification/my-stats`, { headers: authHeaders }),
-          fetch(`${API}/gamification/leaderboard?limit=10`, { headers: authHeaders }),
-          role === 'student'
-            ? fetch(`${API}/lms/students/me/attendance`, { headers: { Authorization: `Bearer ${TOKEN}` } })
-            : Promise.resolve(null)
-        ]);
-
-        const analyticsPayload = analyticsRes.ok ? normalizeObject(await analyticsRes.json()) : {};
-        latestAnalytics = normalizeObject(analyticsPayload.analytics);
-        $('statAvgScore').textContent = `${Number(latestAnalytics.avg_score || 0).toFixed(1)}%`;
-        $('statStudyTime').textContent = formatDuration(latestAnalytics.total_study_minutes || 0);
-        renderCharts(latestAnalytics);
-        renderWeakSubjects(latestAnalytics.weak_subjects);
-        renderCoachSuggestions(analyticsPayload.suggestions);
-        renderMaterialRecommendations(analyticsPayload.recommendations);
-
-        if (gamRes.ok) renderBadges(normalizeObject(await gamRes.json()));
-        else renderBadges({});
-
-        if (leaderboardRes.ok) renderLeaderboard(await leaderboardRes.json());
-        else renderLeaderboard([]);
-
-        if (role !== 'student') {
-          renderAttendance([], 'Attendance overview is available on student accounts.');
-        } else if (attendanceRes?.ok) {
-          renderAttendance(await attendanceRes.json());
-        } else {
-          renderAttendance([]);
-        }
-      } catch (error) {
-        console.error(error);
-        $('weakSubjects').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
-        $('aiSuggestions').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
-        $('aiRecommendations').innerHTML = '<div class="evaluation-empty-state">Analytics failed to load.</div>';
-        if (role !== 'student') {
-          renderAttendance([], 'Attendance overview is available on student accounts.');
-        } else {
-          renderAttendance([]);
-        }
-      }
+    function rerenderForTheme() {
+      if (state.currentMode === 'teacher') renderTeacherChart(state.latestTeacherAnalytics || {}, '');
+      else renderStudentCharts(state.latestStudentAnalytics || {}, '');
     }
 
-    document.addEventListener('lms:themechange', () => {
-      if (latestAnalytics) renderCharts(latestAnalytics);
-    });
+    function bindEvents() {
+      $('classSelector').addEventListener('change', () => {
+        const nextId = $('classSelector').value;
+        if (nextId) loadTeacherAnalytics(nextId);
+      });
+      document.addEventListener('lms:themechange', rerenderForTheme);
+    }
 
-    updateUserShell();
-    loadAll();
+    async function initAnalyticsPage() {
+      updateUserShell();
+      bindEvents();
+      if (isTeacherView) await loadTeacherAnalytics();
+      else await loadStudentAnalytics();
+    }
+
+    initAnalyticsPage();
   </script>
 </body>
 </html>
-

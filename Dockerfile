@@ -28,8 +28,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy backend, frontend, and core application files
 COPY backend /app/backend
 COPY frontend /app/frontend
+COPY data /app/data
 COPY run.py /app/
-COPY .env /app/
+
+RUN mkdir -p /app/uploads /app/chroma_data
 
 # Expose port 8000
 EXPOSE 8000
@@ -37,5 +39,5 @@ EXPOSE 8000
 # Set Python path so `backend` module can be discovered
 ENV PYTHONPATH=/app
 
-# Run the FastAPI server using Uvicorn directly
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run through the repo entrypoint so env-driven host/port settings stay consistent.
+CMD ["python", "run.py"]

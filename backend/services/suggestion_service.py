@@ -2,7 +2,7 @@ import logging
 import uuid
 import asyncio
 import json
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from bson import ObjectId
@@ -14,6 +14,32 @@ logger = logging.getLogger(__name__)
 
 def _make_id():
     return str(uuid.uuid4())
+
+
+UTC_MIN = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _coerce_utc_dt(value: Any) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _coerce_utc_dt_or_min(value: Any) -> datetime:
+    return _coerce_utc_dt(value) or UTC_MIN
 
 
 def _serialize_suggestion_doc(doc: dict) -> dict:
@@ -49,8 +75,13 @@ async def _collect_user_context(db, user_id: str) -> dict:
     cursor = db.quiz_attempts.find({
         "student_id": user_id,
         "is_complete": True
-    }).sort("submitted_at", -1).limit(10)
+    })
     attempts = await cursor.to_list(None)
+    attempts = sorted(
+        attempts,
+        key=lambda attempt: _coerce_utc_dt_or_min(attempt.get("submitted_at")),
+        reverse=True,
+    )[:10]
 
     # Aggregate by category
     totals: dict = {
@@ -166,18 +197,31 @@ async def generate_suggestions(
     # --- NEW: RAG-BASED RECOMMENDATIONS ---
     recommendations = []
     if analytics.get("weak_subjects"):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         for ws in analytics["weak_subjects"]:
             subject_name = ws["subject"]
             query = f"Study materials and key concepts for {subject_name}"
-            # Search knowledge base for this subject
-            chunks = await loop.run_in_executor(None, search_engine.search, user_id, subject_name, query, 3, None)
-            
+            try:
+                chunks = await loop.run_in_executor(
+                    None,
+                    search_engine.search,
+                    user_id,
+                    subject_name,
+                    query,
+                    3,
+                    None,
+                )
+            except Exception as e:
+                logger.warning("Material recommendation search failed for %s: %s", subject_name, e)
+                recommendations = []
+                break
+
             for c in chunks:
+                text = str(c.get("text") or "")
                 recommendations.append({
                     "subject": subject_name,
                     "title": c.get("metadata", {}).get("source", "Reference Material"),
-                    "text": c.get("text", "")[:200] + "...",
+                    "text": f"{text[:200]}..." if text else "",
                     "score": c.get("score")
                 })
     
@@ -190,7 +234,7 @@ async def generate_suggestions(
                 "category": s.get("category", "general"),
                 "suggestion": s["suggestion"],
                 "is_read": False,
-                "generated_at": datetime.utcnow()
+                "generated_at": datetime.now(timezone.utc)
             }
             docs.append(doc)
         if docs:

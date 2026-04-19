@@ -1,16 +1,84 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 def _make_id():
     return str(uuid.uuid4())
 
+
+UTC_MIN = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _coerce_utc_dt(value: Any) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _coerce_utc_dt_or_min(value: Any) -> datetime:
+    return _coerce_utc_dt(value) or UTC_MIN
+
+
+def _coerce_date_key(value: Any) -> str:
+    dt = _coerce_utc_dt(value)
+    if dt:
+        return dt.strftime("%Y-%m-%d")
+
+    text = str(value or "").strip()
+    if len(text) >= 10:
+        return text[:10]
+    return text or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+async def _build_lms_quiz_subject_lookup(db, quiz_ids: List[str]) -> Dict[str, Dict[str, str]]:
+    if not quiz_ids:
+        return {}
+
+    quizzes = await db.lms_quizzes.find({"id": {"$in": quiz_ids}}).to_list(None)
+    class_ids = list({q.get("class_id") for q in quizzes if q.get("class_id")})
+    classes = await db.classes.find({"id": {"$in": class_ids}}).to_list(None) if class_ids else []
+    class_lookup = {cls["id"]: cls for cls in classes if cls.get("id")}
+
+    lookup: Dict[str, Dict[str, str]] = {}
+    for quiz in quizzes:
+        cls = class_lookup.get(quiz.get("class_id"))
+        subject = "General"
+        if cls:
+            subject = cls.get("subject") or cls.get("name") or "General"
+        lookup[quiz["id"]] = {
+            "subject": subject,
+            "title": quiz.get("title", "Quiz"),
+        }
+    return lookup
+
+
 async def get_student_analytics(db, user_id: str, days: int = 7) -> Dict[str, Any]:
     """
     Aggregate student performance and engagement data.
     """
-    now = datetime.utcnow()
-    start_date = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+    now = datetime.now(timezone.utc)
+    start_dt = now - timedelta(days=days)
+    start_date = start_dt.strftime("%Y-%m-%d")
 
     # 1. Study Time (from activity logs)
     study_logs_cursor = db.activity_logs.find({
@@ -23,8 +91,8 @@ async def get_student_analytics(db, user_id: str, days: int = 7) -> Dict[str, An
     study_time_by_day = {}
     total_study_min = 0
     for log in study_logs:
-        d = log.get("date")
-        duration = int(log.get("data", {}).get("duration_min", 0))
+        d = _coerce_date_key(log.get("date") or log.get("logged_at"))
+        duration = int(log.get("data", {}).get("duration_min", 0) or 0)
         study_time_by_day[d] = study_time_by_day.get(d, 0) + duration
         total_study_min += duration
 
@@ -32,26 +100,39 @@ async def get_student_analytics(db, user_id: str, days: int = 7) -> Dict[str, An
     quiz_attempts_cursor = db.quiz_attempts.find({
         "student_id": user_id,
         "is_complete": True,
-        "submitted_at": {"$gte": now - timedelta(days=days)}
-    }).sort("submitted_at", 1)
+    })
     attempts = await quiz_attempts_cursor.to_list(None)
+    quiz_lookup = await _build_lms_quiz_subject_lookup(
+        db,
+        list({attempt.get("quiz_id") for attempt in attempts if attempt.get("quiz_id")}),
+    )
 
     performance_trend = []
     subject_performance = {} # {subject: [scores]}
     
     for attempt in attempts:
-        score_pct = float(attempt.get("percentage") or 0)
-        performance_trend.append({
-            "date": attempt["submitted_at"].strftime("%Y-%m-%d"),
-            "score": score_pct,
-            "quiz_id": attempt.get("quiz_id")
-        })
-        
-        # Track by subject
-        subject = attempt.get("subject") or "General"
-        if subject not in subject_performance:
-            subject_performance[subject] = []
-        subject_performance[subject].append(score_pct)
+        try:
+            submitted_at = _coerce_utc_dt(attempt.get("submitted_at"))
+            if not submitted_at or submitted_at < start_dt:
+                continue
+
+            score_pct = _safe_float(attempt.get("percentage"), 0.0)
+            quiz_meta = quiz_lookup.get(attempt.get("quiz_id"), {})
+            subject = quiz_meta.get("subject") or attempt.get("subject") or "General"
+
+            performance_trend.append({
+                "date": submitted_at.strftime("%Y-%m-%d"),
+                "score": score_pct,
+                "quiz_id": attempt.get("quiz_id")
+            })
+
+            if subject not in subject_performance:
+                subject_performance[subject] = []
+            subject_performance[subject].append(score_pct)
+        except Exception:
+            continue
+
+    performance_trend.sort(key=lambda item: (item.get("date") or "", item.get("quiz_id") or ""))
 
     # 3. Identify Weak Subjects
     weak_subjects = []

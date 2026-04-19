@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     mongodb_uri: str = "mongodb://127.0.0.1:27017"
     database_name: str = "rag_ai_tutor"
     
-    jwt_secret_key: str = "secret"
+    jwt_secret_key: Optional[str] = None
     secret_key: str = "secret"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     embedding_model: str = "all-MiniLM-L6-v2"
     
-    # Use the safest model tag
-    llm_model: str = "gemini-1.5-flash" 
-    temperature: float = 0.7
+    # Use a strong grounded-generation default, but keep it configurable.
+    llm_model: str = "gemini-2.5-flash"
+    temperature: float = 0.3
     max_tokens: int = 2048
     
     upload_dir: str = "uploads"
@@ -38,11 +38,11 @@ class Settings(BaseSettings):
     chroma_database: str = "default_database"
     chunk_size: int = 600
     chunk_overlap: int = 100
-    top_k_retrieval: int = 6
+    top_k_retrieval: int = 8
     min_similarity_score: float = 0.5
     use_hybrid_search: bool = True
-    bm25_weight: float = 0.5
-    dense_weight: float = 0.5
+    bm25_weight: float = 0.35
+    dense_weight: float = 0.65
 
     log_level: str = "INFO"
     log_file: str = "rag-ai-backend.log"
@@ -62,6 +62,22 @@ class Settings(BaseSettings):
         if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
             return False
         return bool(value)
+
+    @model_validator(mode="after")
+    def sync_secret_fields(self):
+        # Keep auth working when deployments only set SECRET_KEY.
+        if not self.jwt_secret_key:
+            self.jwt_secret_key = self.secret_key
+        return self
+
+    @property
+    def cors_origins(self) -> list[str]:
+        raw_value = str(self.allowed_origins or "").strip()
+        if not raw_value:
+            return []
+        if raw_value == "*":
+            return ["*"]
+        return [origin.strip().rstrip("/") for origin in raw_value.split(",") if origin.strip()]
 
     # Ignore extra .env vars
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

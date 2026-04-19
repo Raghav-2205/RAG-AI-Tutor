@@ -85,6 +85,10 @@ class CreateClassIn(BaseModel):
 class EnrollIn(BaseModel):
     join_code: str
 
+class InviteStudentIn(BaseModel):
+    student_email: str
+    student_name: Optional[str] = None
+
 class RemoveStudentIn(BaseModel):
     student_id: str
 
@@ -142,7 +146,7 @@ class SubmitQuizIn(BaseModel):
 
 class AttendanceRecordIn(BaseModel):
     student_id: str
-    status: str # 'present' or 'absent'
+    status: str
 
 class MarkAttendanceIn(BaseModel):
     date: str # YYYY-MM-DD
@@ -331,6 +335,57 @@ async def enroll_by_email(
     return maybe_envelope(
         request,
         {"message": "Student enrolled successfully.", "student_id": student_id, "student_name": student.get("name", "")},
+    )
+
+
+@router.post("/classes/{class_id}/students/invite", summary="Teacher: invite a student securely by email")
+async def invite_student(
+    request: Request,
+    class_id: str,
+    body: InviteStudentIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    await _authorize_class_staff_access(db, class_id, current_user)
+    email = body.student_email.lower().strip()
+    existing = await db.users.find_one({"email": email})
+
+    if existing:
+        student_id = str(existing["_id"])
+        cls = await db.classes.find_one({"id": class_id})
+        if not cls:
+            raise HTTPException(status_code=404, detail="Class not found.")
+        if student_id not in (cls.get("students") or []):
+            await db.classes.update_one({"id": class_id}, {"$push": {"students": student_id}})
+        return maybe_envelope(
+            request,
+            {
+                "message": "Existing student enrolled directly.",
+                "mode": "enrolled_existing",
+                "student_id": student_id,
+                "student_email": email,
+            },
+        )
+
+    invitation = await lms_service.create_student_invitation(
+        db,
+        class_id,
+        str(current_user["_id"]),
+        email,
+        body.student_name,
+    )
+    invite_url = f"/views/signup.html?invite_token={invitation['invite_token']}&class_id={class_id}&email={email}"
+    return maybe_envelope(
+        request,
+        {
+            "message": "Invitation created. Share the invite link with the student.",
+            "mode": "invited",
+            "class_id": class_id,
+            "student_email": email,
+            "invite_token": invitation["invite_token"],
+            "invite_url": invite_url,
+            "expires_at": invitation["expires_at"],
+        },
     )
 
 from fastapi import UploadFile, File
@@ -549,7 +604,9 @@ async def class_analytics(
     att_cursor = db.attendance_records.find({"class_id": class_id})
     att_records = await att_cursor.to_list(None)
     total_att = len(att_records)
-    present_count = sum(1 for r in att_records if r.get("status") == "present")
+    present_count = sum(
+        1 for r in att_records if str(r.get("status", "")).strip().lower() in lms_service.PRESENT_ATTENDANCE_STATUSES
+    )
     att_pct = round(present_count / total_att * 100, 1) if total_att > 0 else 0
 
     payload = {
@@ -563,6 +620,21 @@ async def class_analytics(
         "engagement_rate": teacher_stats.get("engagement_rate", 0),
         "quiz_stats": teacher_stats.get("quiz_stats", []),
     }
+    return maybe_envelope(request, payload)
+
+
+@router.get("/classes/{class_id}/gradebook", summary="Teacher: normalized class gradebook")
+async def class_gradebook(
+    request: Request,
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    await _authorize_class_staff_access(db, class_id, current_user)
+    try:
+        payload = await lms_service.get_class_gradebook(db, class_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     return maybe_envelope(request, payload)
 
 # ─── Curriculum & Materials ───────────────────────────────────────────────────
@@ -620,6 +692,7 @@ async def get_attendance_stats(
     """Returns overall and per-date attendance for the current student in a class."""
     await _authorize_class_access(db, class_id, current_user)
     user_id = str(current_user["_id"])
+    status_breakdown = {}
 
     # Fetch all attendance records for this student in this class
     cursor = db.attendance_records.find({
@@ -636,12 +709,24 @@ async def get_attendance_stats(
         for doc in docs:
             for r in doc.get("records", []):
                 if r.get("student_id") == user_id:
+                    status = str(r.get("status", "absent")).strip().lower()
+                    status_breakdown[status] = status_breakdown.get(status, 0) + 1
                     total += 1
-                    if r.get("status") == "present":
+                    if status in lms_service.PRESENT_ATTENDANCE_STATUSES:
                         present += 1
     else:
-        total = len(records)
-        present = sum(1 for r in records if r.get("status") == "present")
+        total = sum(
+            1 for r in records
+            if str(r.get("status", "")).strip().lower() in lms_service.COUNTED_ATTENDANCE_STATUSES
+        )
+        present = sum(
+            1 for r in records
+            if str(r.get("status", "")).strip().lower() in lms_service.PRESENT_ATTENDANCE_STATUSES
+        )
+        status_breakdown = {}
+        for row in records:
+            status = str(row.get("status", "absent")).strip().lower()
+            status_breakdown[status] = status_breakdown.get(status, 0) + 1
 
     percentage = round(present / total * 100, 1) if total > 0 else None
     return maybe_envelope(request, {
@@ -651,7 +736,23 @@ async def get_attendance_stats(
         "absent": total - present,
         "overall_percentage": percentage,  # student portal reads this field
         "attendance_percentage": percentage, # fallback alias
+        "status_breakdown": status_breakdown,
     })
+
+
+@router.get("/students/me/timetable", summary="Student: view today's timetable through LMS")
+async def my_timetable(
+    request: Request,
+    db = Depends(get_db),
+    current_user=Depends(require_role("student")),
+):
+    today_name = datetime.now().strftime("%A")
+    slots = await db.timetable.find({"day_of_week": today_name}).to_list(length=20)
+    payload = []
+    for slot in slots:
+        slot["_id"] = str(slot.get("_id", ""))
+        payload.append(slot)
+    return maybe_envelope(request, {"today": today_name, "classes": payload})
 
 
 
@@ -1084,6 +1185,23 @@ async def take_attendance(
     await lms_service.mark_attendance(db, class_id, body.date, records)
     return maybe_envelope(request, {"message": "Attendance marked successfully."})
 
+
+@router.put("/classes/{class_id}/attendance/{attendance_date}", summary="Teacher: correct attendance for a specific date")
+async def update_attendance_for_date(
+    request: Request,
+    class_id: str,
+    attendance_date: str,
+    body: MarkAttendanceIn,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    await _authorize_class_staff_access(db, class_id, current_user)
+    effective_date = body.date or attendance_date
+    if effective_date != attendance_date:
+        raise HTTPException(status_code=400, detail="Attendance date in body must match the route date.")
+    await lms_service.mark_attendance(db, class_id, attendance_date, [record.dict() for record in body.records])
+    return maybe_envelope(request, {"message": "Attendance updated successfully.", "date": attendance_date})
+
 @router.get("/students/me/attendance", summary="Student: view own attendance")
 async def my_attendance(
     request: Request,
@@ -1093,6 +1211,17 @@ async def my_attendance(
 ):
     results = await lms_service.get_student_attendance(db, str(current_user["_id"]), class_id)
     return maybe_envelope(request, results)
+
+@router.get("/classes/{class_id}/attendance/dates", summary="Teacher: list attendance sessions by date")
+async def list_attendance_dates(
+    request: Request,
+    class_id: str,
+    db = Depends(get_db),
+    current_user=Depends(require_role("teacher", "admin")),
+):
+    await _authorize_class_staff_access(db, class_id, current_user)
+    payload = await lms_service.get_class_attendance_dates(db, class_id)
+    return maybe_envelope(request, payload)
 
 @router.get("/classes/{class_id}/attendance/summary", summary="Teacher: view class stats")
 async def class_attendance_stats(

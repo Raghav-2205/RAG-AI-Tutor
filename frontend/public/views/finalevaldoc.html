@@ -311,6 +311,13 @@
       const coverage = normalizeCoverage(raw, chunkTexts);
       const evaluationSource = String(raw.evaluation_source || (raw.user_id === 'benchmark_runner' ? 'benchmark' : 'live')).toLowerCase();
       const benchmarkMetricsAvailable = Boolean(raw.benchmark_metrics_available || evaluationSource === 'benchmark');
+      const multiDoc = raw.multi_document_metrics || {};
+      const rawStatus = String(raw.validation_status || 'UNKNOWN').trim().toUpperCase();
+      const validationStatus = rawStatus === 'VERIFIED'
+        ? 'VERIFIED'
+        : rawStatus === 'REJECTED'
+          ? 'REJECTED'
+          : 'UNKNOWN';
       return {
         raw,
         id: String(raw._id || raw.id || fallbackId || 'N/A'),
@@ -320,7 +327,7 @@
         chatId: raw.chat_id || null,
         documentId: raw.document_id || null,
         documentName: raw.document_name || raw.document || null,
-        validationStatus: raw.validation_status || 'UNKNOWN',
+        validationStatus,
         evaluationSource,
         benchmarkMetricsAvailable,
         reason: raw.reason || '',
@@ -339,7 +346,16 @@
         unsupported,
         chunkTexts,
         chunkIds,
-        usedIndices: normalizeUsedIndices(raw)
+        usedIndices: normalizeUsedIndices(raw),
+        multiDocument: {
+          uploaded: Number(multiDoc.uploaded_document_count || 0),
+          covered: Number(multiDoc.covered_document_count || 0),
+          unsupported: normalizeArray(multiDoc.unsupported_documents),
+          missing: normalizeArray(multiDoc.missing_document_names),
+          balance: normalizeScore(multiDoc.document_coverage_balance),
+          comparisonMode: Boolean(multiDoc.comparison_mode),
+          map: Array.isArray(multiDoc.document_coverage_map) ? multiDoc.document_coverage_map : []
+        }
       };
     }
 
@@ -486,8 +502,19 @@
 
     function renderFaithfulness(report) {
       const container = $('faithfulnessContent');
+      const multiDocNotes = report.multiDocument.uploaded ? [
+        report.multiDocument.map.length
+          ? `<div class="evaluation-note ${report.multiDocument.missing.length ? 'warn' : 'good'}"><span class="evaluation-note-icon"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i></span><div>${report.multiDocument.map.map((entry) => `${escapeHtml(entry.name || 'Document')}: ${entry.supported ? 'covered' : 'unsupported for query'}`).join(' | ')}</div></div>`
+          : '',
+        report.multiDocument.missing.length
+          ? `<div class="evaluation-note warn"><span class="evaluation-note-icon"><i class="fa-solid fa-file-circle-xmark" aria-hidden="true"></i></span><div>Missing document coverage: ${report.multiDocument.missing.map((item) => escapeHtml(item)).join(', ')}</div></div>`
+          : '',
+        report.multiDocument.unsupported.length
+          ? `<div class="evaluation-note muted"><span class="evaluation-note-icon"><i class="fa-solid fa-file-circle-question" aria-hidden="true"></i></span><div>Explicitly unsupported for this query: ${report.multiDocument.unsupported.map((item) => escapeHtml(item)).join(', ')}</div></div>`
+          : ''
+      ].filter(Boolean).join('') : '';
       if (report.faithfulness === 1 && !report.unsupported.length) {
-        container.innerHTML = '<div class="evaluation-note good"><span class="evaluation-note-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div>Answer is fully grounded in the provided context.</div></div>';
+        container.innerHTML = '<div class="evaluation-note good"><span class="evaluation-note-icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div>Answer is fully grounded in the provided context.</div></div>' + multiDocNotes;
         return;
       }
       const notes = report.unsupported.length
@@ -497,6 +524,7 @@
         <div class="evaldoc-faithfulness-score">Faithfulness score <strong>${report.faithfulness.toFixed(2)}</strong></div>
         ${report.reason ? `<p class="evaldoc-faithfulness-reason">${escapeHtml(report.reason)}</p>` : ''}
         ${notes}
+        ${multiDocNotes}
       `;
     }
 
@@ -524,7 +552,7 @@
     }
 
     function renderMeta(report) {
-      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'WARNING' ? 'warn' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
+      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
       $('mainStatusBadge').textContent = report.validationStatus.replace(/_/g, ' ');
       $('mainStatusBadge').className = `card-badge evaluation-badge tone-${statusTone}`;
       $('heroTitle').textContent = report.documentName || report.question || 'Evaluation detail';
@@ -540,6 +568,7 @@
         <div class="evaldoc-meta-item"><span>Subject</span><strong>${escapeHtml(String(report.subject || 'general').replace(/_/g, ' '))}</strong></div>
         <div class="evaldoc-meta-item"><span>Source</span><strong>${escapeHtml(report.evaluationSource.replace(/_/g, ' '))}</strong></div>
         <div class="evaldoc-meta-item"><span>Chat session</span><strong>${escapeHtml(report.chatId || 'Unavailable')}</strong></div>
+        ${report.multiDocument.uploaded ? `<div class="evaldoc-meta-item"><span>Document coverage</span><strong>${report.multiDocument.covered}/${report.multiDocument.uploaded}</strong></div>` : ''}
       `;
     }
 
@@ -567,6 +596,9 @@
         renderMetricRow('Hallucination Rate', report.hallucination, true),
         renderMetricRow('Final RAG Score', report.rag)
       ].join('');
+      if (report.multiDocument.uploaded) {
+        $('metricsContainer').insertAdjacentHTML('beforeend', renderMetricRow('Document Coverage', report.multiDocument.covered / report.multiDocument.uploaded));
+      }
 
       $('val-confidence').textContent = report.retrievalConfidence.toFixed(2);
       $('bar-confidence').style.width = `${(report.retrievalConfidence * 100).toFixed(0)}%`;

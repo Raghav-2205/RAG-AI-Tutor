@@ -275,6 +275,7 @@
     const params = new URLSearchParams(window.location.search);
     const quizId = params.get('quiz_id');
     const classId = params.get('class_id') || '';
+    const previewMode = Boolean(quizId && role !== 'student');
 
     let quizData = null;
     let questions = [];
@@ -389,6 +390,16 @@
     function updateLiveFacts() {
       const answered = Object.keys(answers).length;
       const unanswered = Math.max(questions.length - answered, 0);
+      if (previewMode) {
+        const facts = [
+          { label: 'Questions', value: `${questions.length}` },
+          { label: 'Viewing', value: `Q${currentQ + 1}` },
+          { label: 'Mode', value: 'Preview' }
+        ];
+        document.getElementById('liveQuizFacts').innerHTML = buildFactList(facts);
+        document.getElementById('answeredCount').textContent = `${currentQ + 1} / ${questions.length}`;
+        return;
+      }
       const facts = [
         { label: 'Answered', value: `${answered}/${questions.length}` },
         { label: 'Remaining', value: `${unanswered}` },
@@ -499,7 +510,9 @@
 
     function updateProgress() {
       const answered = Object.keys(answers).length;
-      const pct = questions.length ? (answered / questions.length) * 100 : 0;
+      const pct = previewMode
+        ? (questions.length ? ((currentQ + 1) / questions.length) * 100 : 0)
+        : (questions.length ? (answered / questions.length) * 100 : 0);
       document.getElementById('progressBar').style.width = `${pct}%`;
       updateLiveFacts();
     }
@@ -510,7 +523,7 @@
         if (!dot) return;
         dot.className = 'q-dot';
         if (index === currentQ) dot.classList.add('current');
-        if (answers[question.id]) dot.classList.add('answered');
+        if (!previewMode && answers[question.id]) dot.classList.add('answered');
       });
     }
 
@@ -526,6 +539,34 @@
     }
 
     function renderQuestion(question, index) {
+      if (previewMode) {
+        const previewOptions = (question.options || []).map((option, optIndex) => {
+          const label = option.label || String.fromCharCode(65 + optIndex);
+          const text = option.text || option;
+          const isCorrect = !!option.is_correct;
+          return `
+            <div class="review-option ${isCorrect ? 'correct' : ''}">
+              <span class="review-option-label">${label}</span>
+              <span class="review-option-copy">${escHtml(String(text))}</span>
+              <span class="review-option-state">${isCorrect ? 'Answer key' : ''}</span>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('questionArea').innerHTML = `
+          <article class="question-card">
+            <div class="question-card-head">
+              <div class="question-number">Question ${index + 1} of ${questions.length}</div>
+              <span class="badge badge-info">${question.points || 1} pt${Number(question.points || 1) === 1 ? '' : 's'}</span>
+            </div>
+            <div class="question-text">${escHtml(question.question)}</div>
+            <div class="review-options">${previewOptions}</div>
+            ${question.explanation ? `<div class="review-explanation"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> ${escHtml(question.explanation)}</div>` : ''}
+          </article>
+        `;
+        return;
+      }
+
       const labels = ['A', 'B', 'C', 'D', 'E'];
       const options = (question.options || []).map((option, optIndex) => {
         const label = option.label || labels[optIndex] || String.fromCharCode(65 + optIndex);
@@ -552,6 +593,7 @@
     }
 
     function selectAnswer(questionId, label, clickedBtn) {
+      if (previewMode) return;
       answers[questionId] = label;
       const allBtns = clickedBtn.closest('.options-grid').querySelectorAll('.option-btn');
       allBtns.forEach((btn) => btn.classList.toggle('selected', btn.dataset.label === label));
@@ -560,6 +602,7 @@
     }
 
     function confirmSubmit() {
+      if (previewMode) return;
       const unanswered = questions.length - Object.keys(answers).length;
       if (unanswered > 0 && !confirm(`You still have ${unanswered} unanswered question${unanswered === 1 ? '' : 's'}. Submit anyway?`)) {
         return;
@@ -569,6 +612,7 @@
     }
 
     async function doSubmit() {
+      if (previewMode) return;
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Submitting';

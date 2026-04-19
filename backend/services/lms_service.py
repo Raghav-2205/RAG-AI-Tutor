@@ -1,7 +1,8 @@
 import random
+import secrets
 import string
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 def _generate_join_code(length: int = 8) -> str:
@@ -13,6 +14,11 @@ def _make_id():
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+VALID_ATTENDANCE_STATUSES = {"present", "absent", "late", "excused", "medical", "holiday"}
+PRESENT_ATTENDANCE_STATUSES = {"present", "late"}
+COUNTED_ATTENDANCE_STATUSES = {"present", "absent", "late", "excused", "medical"}
 
 
 async def _log_activity(
@@ -35,6 +41,37 @@ async def _log_activity(
             "logged_at": _utcnow(),
         }
     )
+
+
+def _normalize_attendance_status(status: Optional[str]) -> str:
+    normalized = str(status or "absent").strip().lower()
+    return normalized if normalized in VALID_ATTENDANCE_STATUSES else "absent"
+
+
+def _build_attendance_summary_rows(rows: List[dict]) -> dict:
+    stats = {}
+    for row in rows:
+        student_id = row.get("student_id")
+        if not student_id:
+            continue
+
+        status = _normalize_attendance_status(row.get("status"))
+        student_stats = stats.setdefault(
+            student_id,
+            {
+                "present": 0,
+                "total": 0,
+                "status_breakdown": {key: 0 for key in sorted(VALID_ATTENDANCE_STATUSES)},
+            },
+        )
+        student_stats["status_breakdown"][status] = student_stats["status_breakdown"].get(status, 0) + 1
+
+        if status in COUNTED_ATTENDANCE_STATUSES:
+            student_stats["total"] += 1
+        if status in PRESENT_ATTENDANCE_STATUSES:
+            student_stats["present"] += 1
+
+    return stats
 
 # ─── Class Management ─────────────────────────────────────────────────────────
 
@@ -84,6 +121,35 @@ async def enroll_student(db, join_code: str, student_id: str) -> dict:
         {"$push": {"students": student_id}}
     )
     return {"class_id": cls["id"], "student_id": student_id}
+
+
+async def create_student_invitation(
+    db,
+    class_id: str,
+    invited_by: str,
+    student_email: str,
+    student_name: Optional[str] = None,
+    expires_in_days: int = 7,
+) -> dict:
+    token = secrets.token_urlsafe(24)
+    invitation = {
+        "id": _make_id(),
+        "class_id": class_id,
+        "student_email": student_email.lower().strip(),
+        "student_name": (student_name or "").strip() or None,
+        "invited_by": invited_by,
+        "invite_token": token,
+        "status": "pending",
+        "created_at": _utcnow(),
+    }
+    invitation["expires_at"] = invitation["created_at"] + timedelta(days=expires_in_days)
+
+    await db.class_invitations.update_one(
+        {"class_id": class_id, "student_email": invitation["student_email"], "status": "pending"},
+        {"$set": invitation},
+        upsert=True,
+    )
+    return invitation
 
 async def remove_student(db, class_id: str, student_id: str) -> bool:
     res = await db.classes.update_one(
@@ -445,14 +511,23 @@ async def mark_attendance(
     db,
     class_id: str,
     date_str: str,
-    records: List[dict], # [{student_id, status: 'present'|'absent'}]
+    records: List[dict], # [{student_id, status}]
 ) -> dict:
     attendance_id = _make_id()
+    normalized_records = []
+    for rec in records:
+        student_id = rec.get("student_id")
+        if not student_id:
+            continue
+        normalized_records.append({
+            "student_id": student_id,
+            "status": _normalize_attendance_status(rec.get("status")),
+        })
     doc = {
         "id": attendance_id,
         "class_id": class_id,
         "date": date_str,
-        "records": records,
+        "records": normalized_records,
         "created_at": _utcnow()
     }
     # Upsert: one nested doc per class per day (for bulk queries)
@@ -463,9 +538,9 @@ async def mark_attendance(
     )
     # CRITICAL FIX: Also sync flat per-student records into attendance_records
     # This collection is what the student stats endpoint reads from.
-    for rec in records:
+    for rec in normalized_records:
         student_id = rec.get("student_id")
-        status = rec.get("status", "absent")
+        status = _normalize_attendance_status(rec.get("status"))
         if not student_id:
             continue
         await db.attendance_records.update_one(
@@ -487,53 +562,212 @@ async def mark_attendance(
             teacher_id,
             "attendance_marked",
             class_id=class_id,
-            data={"date": date_str, "records": len(records)},
+            data={"date": date_str, "records": len(normalized_records)},
         )
     return doc
 
 async def get_student_attendance(db, student_id: str, class_id: Optional[str] = None) -> list:
+    flat_query = {"student_id": student_id}
+    if class_id:
+        flat_query["class_id"] = class_id
+
+    flat_records = await db.attendance_records.find(flat_query).sort("date", -1).to_list(None)
+    if flat_records:
+        return [
+            {
+                "date": row.get("date"),
+                "class_id": row.get("class_id"),
+                "status": _normalize_attendance_status(row.get("status")),
+            }
+            for row in flat_records
+        ]
+
     query = {"records.student_id": student_id}
     if class_id:
         query["class_id"] = class_id
-    
+
     cursor = db.attendance.find(query).sort("date", -1)
     results = await cursor.to_list(None)
-    
+
     output = []
     for r in results:
         status = next((record["status"] for record in r["records"] if record["student_id"] == student_id), "unknown")
         output.append({
             "date": r["date"],
             "class_id": r["class_id"],
-            "status": status
+            "status": _normalize_attendance_status(status),
         })
     return output
 
 async def get_class_attendance_stats(db, class_id: str) -> dict:
-    cursor = db.attendance.find({"class_id": class_id})
-    records = await cursor.to_list(None)
-    
-    stats = {} # {student_id: {present: X, total: Y}}
-    for r in records:
-        for rec in r["records"]:
-            sid = rec["student_id"]
-            if sid not in stats:
-                stats[sid] = {"present": 0, "total": 0}
-            stats[sid]["total"] += 1
-            if rec["status"] == "present":
-                stats[sid]["present"] += 1
-                
-    # Format for UI
+    flat_rows = await db.attendance_records.find({"class_id": class_id}).to_list(None)
+    if flat_rows:
+        stats = _build_attendance_summary_rows(flat_rows)
+        days_tracked = len({row.get("date") for row in flat_rows if row.get("date")})
+    else:
+        cursor = db.attendance.find({"class_id": class_id})
+        records = await cursor.to_list(None)
+        flattened = []
+        for record in records:
+            for rec in record.get("records", []):
+                flattened.append({
+                    "student_id": rec.get("student_id"),
+                    "status": rec.get("status"),
+                    "date": record.get("date"),
+                })
+        stats = _build_attendance_summary_rows(flattened)
+        days_tracked = len(records)
+
     return {
         "class_id": class_id,
-        "days_tracked": len(records),
+        "days_tracked": days_tracked,
         "student_stats": [
             {
                 "student_id": sid,
                 "present": s["present"],
                 "total": s["total"],
-                "percentage": round((s["present"] / s["total"] * 100), 2) if s["total"] > 0 else 0
+                "percentage": round((s["present"] / s["total"] * 100), 2) if s["total"] > 0 else 0,
+                "status_breakdown": s["status_breakdown"],
             }
             for sid, s in stats.items()
         ]
+    }
+
+
+async def get_class_attendance_dates(db, class_id: str) -> list:
+    sessions = await db.attendance.find({"class_id": class_id}).sort("date", -1).to_list(None)
+    output = []
+    for session in sessions:
+        counts = {key: 0 for key in sorted(VALID_ATTENDANCE_STATUSES)}
+        for rec in session.get("records", []):
+            status = _normalize_attendance_status(rec.get("status"))
+            counts[status] = counts.get(status, 0) + 1
+        output.append({
+            "date": session.get("date"),
+            "record_count": len(session.get("records", [])),
+            "status_breakdown": counts,
+        })
+    return output
+
+
+async def get_class_gradebook(db, class_id: str) -> dict:
+    cls = await db.classes.find_one({"id": class_id})
+    if not cls:
+        raise ValueError("Class not found.")
+
+    student_ids = cls.get("students", []) or []
+    users = []
+    if student_ids:
+        from bson import ObjectId
+        users = await db.users.find({"_id": {"$in": [ObjectId(student_id) for student_id in student_ids]}}).to_list(None)
+    user_map = {str(user["_id"]): user for user in users}
+
+    assignments = await db.assignments.find({"class_id": class_id}).sort("due_date", 1).to_list(None)
+    assignment_ids = [assignment["id"] for assignment in assignments]
+    submissions = await db.submissions.find({"assignment_id": {"$in": assignment_ids}}).to_list(None) if assignment_ids else []
+    submission_map = {(submission.get("student_id"), submission.get("assignment_id")): submission for submission in submissions}
+
+    quizzes = await db.lms_quizzes.find({"class_id": class_id}).sort("created_at", 1).to_list(None)
+    quiz_ids = [quiz["id"] for quiz in quizzes]
+    question_docs = await db.quiz_questions.find({"quiz_id": {"$in": quiz_ids}}).to_list(None) if quiz_ids else []
+    quiz_max_scores = {}
+    for question in question_docs:
+        quiz_id = question.get("quiz_id")
+        quiz_max_scores[quiz_id] = quiz_max_scores.get(quiz_id, 0.0) + float(question.get("points", 1) or 0)
+
+    attempts = await db.quiz_attempts.find(
+        {"class_id": class_id, "quiz_id": {"$in": quiz_ids}, "is_complete": True}
+    ).sort("submitted_at", -1).to_list(None) if quiz_ids else []
+    latest_attempt_map = {}
+    for attempt in attempts:
+        key = (attempt.get("student_id"), attempt.get("quiz_id"))
+        if key not in latest_attempt_map:
+            latest_attempt_map[key] = attempt
+
+    attendance_rows = await db.attendance_records.find({"class_id": class_id}).to_list(None)
+    attendance_stats = _build_attendance_summary_rows(attendance_rows)
+
+    students = []
+    for student_id in student_ids:
+        assignment_points_earned = 0.0
+        assignment_points_possible = 0.0
+        quiz_points_earned = 0.0
+        quiz_points_possible = 0.0
+
+        assignment_scores = {}
+        for assignment in assignments:
+            submission = submission_map.get((student_id, assignment["id"]))
+            points_earned = submission.get("points_earned") if submission else None
+            assignment_scores[assignment["id"]] = {
+                "title": assignment.get("title"),
+                "points_earned": points_earned,
+                "max_points": float(assignment.get("max_points") or 0),
+                "status": submission.get("status") if submission else None,
+                "submitted_at": submission.get("submitted_at") if submission else None,
+            }
+            if points_earned is not None:
+                assignment_points_earned += float(points_earned)
+                assignment_points_possible += float(assignment.get("max_points") or 0)
+
+        quiz_scores = {}
+        for quiz in quizzes:
+            attempt = latest_attempt_map.get((student_id, quiz["id"]))
+            max_score = float(quiz_max_scores.get(quiz["id"], 0) or 0)
+            quiz_scores[quiz["id"]] = {
+                "title": quiz.get("title"),
+                "score": attempt.get("score") if attempt else None,
+                "percentage": attempt.get("percentage") if attempt else None,
+                "max_score": max_score,
+                "submitted_at": attempt.get("submitted_at") if attempt else None,
+            }
+            if attempt:
+                quiz_points_earned += float(attempt.get("score") or 0)
+                quiz_points_possible += float(attempt.get("max_score") or max_score or 0)
+
+        attendance = attendance_stats.get(student_id, {"present": 0, "total": 0, "status_breakdown": {}})
+        overall_possible = assignment_points_possible + quiz_points_possible
+        overall_earned = assignment_points_earned + quiz_points_earned
+
+        user = user_map.get(student_id, {})
+        students.append(
+            {
+                "student_id": student_id,
+                "name": user.get("name") or user.get("email") or "Unknown",
+                "email": user.get("email", ""),
+                "roll_number": user.get("roll_number", ""),
+                "assignment_scores": assignment_scores,
+                "quiz_scores": quiz_scores,
+                "assignment_average": round((assignment_points_earned / assignment_points_possible) * 100, 1) if assignment_points_possible else None,
+                "quiz_average": round((quiz_points_earned / quiz_points_possible) * 100, 1) if quiz_points_possible else None,
+                "overall_percentage": round((overall_earned / overall_possible) * 100, 1) if overall_possible else None,
+                "attendance_percentage": round((attendance["present"] / attendance["total"]) * 100, 1) if attendance["total"] else None,
+                "attendance_status_breakdown": attendance.get("status_breakdown", {}),
+                "graded_assignments": sum(1 for score in assignment_scores.values() if score["points_earned"] is not None),
+                "completed_quizzes": sum(1 for score in quiz_scores.values() if score["percentage"] is not None),
+            }
+        )
+
+    return {
+        "class_id": class_id,
+        "class_name": cls.get("name"),
+        "subject": cls.get("subject"),
+        "assignments": [
+            {
+                "id": assignment["id"],
+                "title": assignment.get("title"),
+                "max_points": float(assignment.get("max_points") or 0),
+                "due_date": assignment.get("due_date"),
+            }
+            for assignment in assignments
+        ],
+        "quizzes": [
+            {
+                "id": quiz["id"],
+                "title": quiz.get("title"),
+                "max_score": float(quiz_max_scores.get(quiz["id"], 0) or 0),
+                "end_time": quiz.get("end_time"),
+            }
+            for quiz in quizzes
+        ],
+        "students": students,
     }

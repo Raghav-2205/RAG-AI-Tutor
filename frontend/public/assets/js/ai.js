@@ -222,7 +222,142 @@ class AIManager {
 
     /* ================= UTILITIES ================= */
 
+    extractChunkCitationNumbers(rawText) {
+        const text = String(rawText || '');
+        const numbers = [];
+        const leading = text.match(/CHUNK\s+(\d+)/i);
+        if (leading) {
+            numbers.push(leading[1]);
+        }
+        for (const match of text.matchAll(/,\s*(\d+)\b/g)) {
+            if (!numbers.includes(match[1])) {
+                numbers.push(match[1]);
+            }
+        }
+        return numbers;
+    }
+
+    buildCanonicalChunkRefs(numbers) {
+        const unique = [];
+        for (const number of numbers || []) {
+            const cleaned = String(number || '').trim();
+            if (cleaned && !unique.includes(cleaned)) {
+                unique.push(cleaned);
+            }
+        }
+        return unique.map((number) => `[CHUNK ${number}]`).join('');
+    }
+
+    normalizeChunkCitationText(text) {
+        let normalized = String(text || '');
+        if (!normalized.trim()) {
+            return normalized;
+        }
+
+        normalized = normalized.replace(/\[[^\]]*CHUNK[^\]]*\]/gi, (match) => {
+            return this.buildCanonicalChunkRefs(this.extractChunkCitationNumbers(match)) || match;
+        });
+        normalized = normalized.replace(/\([^)]*CHUNK[^)]*\)/gi, (match) => {
+            return this.buildCanonicalChunkRefs(this.extractChunkCitationNumbers(match)) || match;
+        });
+        normalized = normalized.replace(/\bCHUNK\s+(\d+)\s*(?=(?:Source|Page|Type)\s*:)/gi, '[CHUNK $1]');
+        normalized = normalized.replace(/\bCHUNK\s+(\d+(?:\s*,\s*\d+)+)\b/gi, (match, group) => {
+            return this.buildCanonicalChunkRefs(group.split(',').map((item) => item.trim())) || match;
+        });
+        normalized = normalized.replace(/(^|\n)\s*(?:Source|Page|Type)\s*:\s*[^\n]*/gi, '$1');
+        normalized = normalized.replace(/\s*(?:Source|Page|Type)\s*:\s*[^\[\]\n]+/gi, '');
+        normalized = normalized.replace(/(^|[^\[])\bCHUNK\s+(\d+)\b/gi, '$1[CHUNK $2]');
+        normalized = normalized.replace(/(\[CHUNK \d+\])\s*,\s*(?=\[CHUNK \d+\])/g, '$1');
+        normalized = normalized.replace(/(\[CHUNK \d+\])\s+(?=\[CHUNK \d+\])/g, '$1');
+        normalized = normalized.replace(/\n{3,}/g, '\n\n');
+        return normalized.trim();
+    }
+
+    renderCitationSpan(chunkNum, chunks = []) {
+        const chunk = chunks[chunkNum - 1];
+        if (chunk && chunk.metadata) {
+            const source = chunk.metadata.source || 'Unknown source';
+            const preview = chunk.text ? chunk.text.substring(0, 100) + '...' : '';
+            const chunkId = chunk.id || chunk.metadata.id || '';
+            return `<span class="citation" onclick="event.stopPropagation(); window.ai.viewCitation('${chunkId}')" title="Click to view context">
+                        CHUNK ${chunkNum}
+                        <span class="citation-tooltip">
+                            <strong>Source:</strong> ${this.escapeHtml(source)}<br/>
+                            <strong>Page:</strong> ${chunk.metadata.page || 'N/A'}<br/>
+                            <strong>Type:</strong> ${this.escapeHtml(chunk.metadata.type || 'N/A')}<br/>
+                            <em>${this.escapeHtml(preview)}</em>
+                        </span>
+                    </span>`;
+        }
+        return `<span class="citation">CHUNK ${chunkNum}</span>`;
+    }
+
+    stripLeakedCitationMetadata(html) {
+        const protectedSegments = [];
+        let sanitized = String(html || '').replace(/<span class="citation"[\s\S]*?<\/span>\s*<\/span>/gi, (match) => {
+            const token = `__CITATION_SEGMENT_${protectedSegments.length}__`;
+            protectedSegments.push(match);
+            return token;
+        });
+        sanitized = sanitized.replace(/(?:Source|Page|Type):\s*[^<\n]+/gi, '');
+        sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+        protectedSegments.forEach((segment, index) => {
+            sanitized = sanitized.replace(`__CITATION_SEGMENT_${index}__`, segment);
+        });
+        return sanitized;
+    }
+
+    containsMathDelimiters(text) {
+        const value = String(text || '');
+        return /(^|[^\\])\$(?!\s)[\s\S]*?(^|[^\\])\$|\\\(|\\\)|\\\[|\\\]/m.test(value);
+    }
+
+    renderMathHtml(html, rawText = '') {
+        if (!html || !this.containsMathDelimiters(rawText || html) || typeof document === 'undefined') {
+            return html;
+        }
+
+        if (typeof renderMathInElement === 'undefined') {
+            return html;
+        }
+
+        const protectedSegments = [];
+        const htmlWithPlaceholders = String(html).replace(/<span class="citation"[\s\S]*?<\/span>\s*<\/span>/gi, (match) => {
+            const token = `__CITATION_SEGMENT_${protectedSegments.length}__`;
+            protectedSegments.push(match);
+            return token;
+        });
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = htmlWithPlaceholders;
+
+        try {
+            renderMathInElement(wrapper, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false }
+                ],
+                throwOnError: false,
+                ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                strict: 'ignore'
+            });
+        } catch (error) {
+            console.warn('KaTeX render failed:', error);
+            return html;
+        }
+
+        let rendered = wrapper.innerHTML;
+        protectedSegments.forEach((segment, index) => {
+            rendered = rendered.replace(`__CITATION_SEGMENT_${index}__`, segment);
+        });
+        return rendered;
+    }
+
     formatMessage(text, chunks = []) {
+        const normalizedText = this.normalizeChunkCitationText(text);
+
         // Use marked.js for markdown parsing if available
         if (typeof marked !== 'undefined') {
             // Configure marked for safe HTML
@@ -234,42 +369,26 @@ class AIManager {
             });
 
             // Parse markdown
-            let html = marked.parse(text);
+            let html = marked.parse(normalizedText);
 
-            // Convert citation patterns like (CHUNK 1), (CHUNK 2) to interactive elements
-            // Match patterns: (CHUNK N) or [CHUNK N]
-            html = html.replace(/\(CHUNK (\d+)\)|\[CHUNK (\d+)\]/gi, (match, num1, num2) => {
-                const chunkNum = parseInt(num1 || num2);
-                const chunk = chunks[chunkNum - 1]; // chunks array is 0-indexed
-
-                if (chunk && chunk.metadata) {
-                    const source = chunk.metadata.source || 'Unknown source';
-                    const preview = chunk.text ? chunk.text.substring(0, 100) + '...' : '';
-                    const chunkId = chunk.id || chunk.metadata.id; // Ensure we get an ID
-
-                    return `<span class="citation" onclick="event.stopPropagation(); window.ai.viewCitation('${chunkId}')" title="Click to view context">
-                        CHUNK ${chunkNum}
-                        <span class="citation-tooltip">
-                            <strong>Source:</strong> ${this.escapeHtml(source)}<br/>
-                            <strong>Page:</strong> ${chunk.metadata.page || 'N/A'}<br/>
-                            <strong>Type:</strong> ${this.escapeHtml(chunk.metadata.type || 'N/A')}<br/>
-                            <em>${this.escapeHtml(preview)}</em>
-                        </span>
-                    </span>`;
-                } else {
-                    // Fallback if chunk data not available
-                    return `<span class="citation">CHUNK ${chunkNum}</span>`;
-                }
+            html = html.replace(/\[CHUNK (\d+)\]/gi, (match, num) => {
+                const chunkNum = parseInt(num, 10);
+                return this.renderCitationSpan(chunkNum, chunks);
             });
+
+            html = this.stripLeakedCitationMetadata(html);
+            html = this.renderMathHtml(html, normalizedText);
 
             return html;
         }
 
         // Fallback if marked.js not available
-        return text
+        const fallbackHtml = normalizedText
             .replace(/\n/g, "<br>")
             .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-            .replace(/\*(.*?)\*/g, "<em>$1</em>");
+            .replace(/\*(.*?)\*/g, "<em>$1</em>")
+            .replace(/\[CHUNK (\d+)\]/gi, (match, num) => this.renderCitationSpan(parseInt(num, 10), chunks));
+        return this.renderMathHtml(fallbackHtml, normalizedText);
     }
 
     escapeHtml(text) {

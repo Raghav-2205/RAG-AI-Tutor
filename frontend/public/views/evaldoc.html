@@ -308,6 +308,12 @@
       const chunkIds = normalizeChunkIds(raw, chunkTexts.length);
       const unsupported = normalizeArray(raw.unsupported_sentences || raw.unsupported || raw.grounding_issues);
       const coverage = normalizeCoverage(raw, chunkTexts);
+      const rawStatus = String(raw.validation_status || 'UNKNOWN').trim().toUpperCase();
+      const validationStatus = rawStatus === 'VERIFIED'
+        ? 'VERIFIED'
+        : rawStatus === 'REJECTED'
+          ? 'REJECTED'
+          : 'UNKNOWN';
       return {
         raw,
         id: String(raw._id || raw.id || fallbackId || 'N/A'),
@@ -317,7 +323,7 @@
         chatId: raw.chat_id || null,
         documentId: raw.document_id || null,
         documentName: raw.document_name || raw.document || null,
-        validationStatus: raw.validation_status || 'UNKNOWN',
+        validationStatus,
         reason: raw.reason || '',
         timestamp: raw.timestamp || null,
         faithfulness: normalizeScore(raw.faithfulness_score),
@@ -508,7 +514,7 @@
     }
 
     function renderMeta(report) {
-      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'WARNING' ? 'warn' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
+      const statusTone = report.validationStatus === 'VERIFIED' ? 'good' : report.validationStatus === 'UNKNOWN' ? 'muted' : 'bad';
       $('mainStatusBadge').textContent = report.validationStatus.replace(/_/g, ' ');
       $('mainStatusBadge').className = `card-badge evaluation-badge tone-${statusTone}`;
       $('heroTitle').textContent = report.documentName || report.question || 'Evaluation detail';

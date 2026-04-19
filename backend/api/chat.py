@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from backend.utils.db import get_db, db_manager
 from backend.api.auth import get_current_user
-from backend.rag_tutor import answer_query_with_rag, retrieve_chunks_for_streaming
+from backend.rag_tutor import answer_query_with_rag, retrieve_chunks_for_streaming, _validate_generated_answer
 from backend.utils.helpers import doc_to_dict
 from backend.core.feedback_analyzer import FeedbackAnalyzer
 from backend.core.llm_interface import llm_client, SOCRATIC_SYSTEM_PROMPT
@@ -43,6 +43,7 @@ class ChatRequest(BaseModel):
     message: str
     subject: Optional[str] = "general"
     chat_id: Optional[str] = None  # Optional chat session ID
+    document_id: Optional[str] = None  # Backward-compatible document bootstrap alias
     class_id: Optional[str] = None  # NEW: link to LMS class
 
 
@@ -53,6 +54,13 @@ class ChatResponse(BaseModel):
     session_id: Optional[str] = None  # For backward compatibility
     validation: Optional[Dict] = None # Validation summary
     source_mode: Optional[str] = None  # NEW: Track answer source (document/knowledge_base/gemini_fallback)
+    feedback_reference_id: Optional[str] = None
+    graph_used: Optional[bool] = None
+    multi_document_mode: Optional[bool] = None
+    comparison_mode: Optional[bool] = None
+    document_coverage: Optional[Dict] = None
+    document_coverage_map: Optional[List[Dict]] = None
+    unsupported_documents: Optional[List[str]] = None
 
 
 class ChatSessionSummary(BaseModel):
@@ -60,8 +68,9 @@ class ChatSessionSummary(BaseModel):
     title: str
     updated_at: str
     message_count: int
-    document_id: Optional[str] = None   # NEW
-    document_name: Optional[str] = None # NEW
+    document_id: Optional[str] = None
+    document_name: Optional[str] = None
+    document_names: Optional[List[str]] = None  # multi-doc names
 
 
 class ChatSessionDetail(BaseModel):
@@ -71,8 +80,9 @@ class ChatSessionDetail(BaseModel):
     messages: List[Dict]
     created_at: str
     updated_at: str
-    document_id: Optional[str] = None   # NEW
-    document_name: Optional[str] = None # NEW
+    document_id: Optional[str] = None
+    document_name: Optional[str] = None
+    document_names: Optional[List[str]] = None  # multi-doc names
 
 
 # ===== HELPER FUNCTIONS =====
@@ -90,6 +100,120 @@ def generate_title(first_message: str) -> str:
     
     # Truncate with ellipsis
     return first_message[:47] + "..."
+
+
+def _new_response_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _resolve_session_scope(session: Dict) -> str:
+    doc_ids = _get_session_document_ids(session)
+    explicit = str(session.get("scope_mode") or "").strip().lower()
+    if doc_ids:
+        return "document_scoped"
+    if explicit in {"system_only", "document_scoped"}:
+        return explicit
+    return "system_only"
+
+
+def _get_session_document_ids(session: Dict) -> List[str]:
+    doc_ids = [str(item or "").strip() for item in (session.get("document_ids") or []) if str(item or "").strip()]
+    legacy_doc_id = str(session.get("document_id") or "").strip()
+    if legacy_doc_id and legacy_doc_id not in doc_ids:
+        doc_ids.append(legacy_doc_id)
+    return doc_ids
+
+
+def _get_session_document_names(session: Dict, doc_ids: Optional[List[str]] = None) -> List[str]:
+    doc_names = [str(item or "").strip() for item in (session.get("document_names") or []) if str(item or "").strip()]
+    doc_ids = doc_ids or _get_session_document_ids(session)
+    legacy_name = str(session.get("document_name") or "").strip()
+    if legacy_name and len(doc_names) < len(doc_ids):
+        doc_names.append(legacy_name)
+    return doc_names
+
+
+def _resolve_session_rag_args(session: Dict) -> Dict[str, object]:
+    doc_ids = _get_session_document_ids(session)
+    return {
+        "document_ids": doc_ids,
+        "file_count": max(int(session.get("file_count") or 0), len(doc_ids)),
+        "scope_mode": _resolve_session_scope(session),
+    }
+
+
+async def _load_requested_document(db, current_user, document_id: Optional[str]) -> Optional[Dict]:
+    normalized_id = str(document_id or "").strip()
+    if not normalized_id:
+        return None
+    document = await db.documents.find_one({"doc_id": normalized_id, "user_id": current_user["_id"]})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
+
+
+def _build_new_session(
+    user_id: str,
+    request: ChatRequest,
+    document: Optional[Dict] = None,
+) -> Dict[str, object]:
+    document_id = str((document or {}).get("doc_id") or request.document_id or "").strip()
+    document_name = str((document or {}).get("filename") or "").strip()
+    document_ids = [document_id] if document_id else []
+    document_names = [document_name] if document_name else []
+    file_count = len(document_ids)
+
+    return {
+        "chat_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "subject": request.subject,
+        "class_id": request.class_id,
+        "scope_mode": "document_scoped" if document_ids else "system_only",
+        "document_ids": document_ids,
+        "document_names": document_names,
+        "file_count": file_count,
+        "document_id": document_id or None,
+        "document_name": document_name or None,
+        "title": generate_title(request.message) if not document_name else f"Chat about {document_name}",
+        "messages": [],
+        "created_at": _utcnow(),
+        "updated_at": _utcnow(),
+    }
+
+
+def _build_assistant_message(
+    answer_text: str,
+    rag_result: Dict,
+    feedback_reference_id: str,
+    feedback_adjusted: bool,
+    validation_data: Optional[Dict],
+    penalties_applied: bool,
+) -> Dict[str, object]:
+    return {
+        "role": "assistant",
+        "content": answer_text,
+        "timestamp": _utcnow(),
+        "citations": rag_result.get("citations", []),
+        "chunks": rag_result.get("chunks", []),
+        "response_id": feedback_reference_id,
+        "feedback_reference_id": feedback_reference_id,
+        "feedback_adjusted": feedback_adjusted,
+        "validation_result": validation_data,
+        "regenerated": bool(rag_result.get("repaired")),
+        "repaired": bool(rag_result.get("repaired")),
+        "abstained": bool(rag_result.get("abstained")),
+        "source_mode": rag_result.get("source_mode"),
+        "retrieval_confidence": rag_result.get("retrieval_confidence"),
+        "chunk_ids": rag_result.get("chunk_ids", []),
+        "chunk_sources": rag_result.get("chunk_sources", []),
+        "feedback_penalties_applied": penalties_applied,
+        "graph_used": bool(rag_result.get("graph_used")),
+        "multi_document_mode": bool(rag_result.get("multi_document_mode")),
+        "comparison_mode": bool(rag_result.get("comparison_mode")),
+        "document_coverage": rag_result.get("document_coverage", {}),
+        "document_coverage_map": rag_result.get("document_coverage_map", []),
+        "unsupported_documents": rag_result.get("unsupported_documents", []),
+    }
 
 
 # ===== ENDPOINTS =====
@@ -118,18 +242,9 @@ async def chat(
         
         logger.info(f"[CHAT] Appending to existing session {chat_id}")
     else:
-        # Create new session
-        chat_id = str(uuid.uuid4())
-        session = {
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "subject": request.subject,
-            "class_id": request.class_id,  # NEW: store LMS class context
-            "title": generate_title(request.message),
-            "messages": [],
-            "created_at": _utcnow(),
-            "updated_at": _utcnow()
-        }
+        requested_document = await _load_requested_document(db, current_user, request.document_id)
+        session = _build_new_session(user_id, request, requested_document)
+        chat_id = str(session["chat_id"])
         await db.chat_sessions.insert_one(session)
         logger.info(f"[CHAT] Created new session {chat_id}")
     
@@ -152,10 +267,7 @@ async def chat(
         feedback_adjusted = True
         logger.info(f"[FEEDBACK] Adjusting prompt for user {user_id}: {reason}")
     
-    doc_ids = session.get("document_ids", [])
-    if session.get("document_id") and session.get("document_id") not in doc_ids:
-        doc_ids.append(session.get("document_id"))
-    file_count = session.get("file_count", len(doc_ids))
+    rag_args = _resolve_session_rag_args(session)
 
     # --- STEP 4: CALL RAG PIPELINE (ASYNC) ---
     rag_result = await answer_query_with_rag(
@@ -164,41 +276,21 @@ async def chat(
         subject=request.subject,
         history=chat_history,
         feedback_context=feedback_context,
-        strict_mode=False,
-        document_ids=doc_ids,  # PASS DOCUMENT SCOPE
-        file_count=file_count,
-        chat_id=chat_id
+        strict_mode=True,
+        document_ids=rag_args["document_ids"],
+        file_count=rag_args["file_count"],
+        chat_id=chat_id,
+        scope_mode=rag_args["scope_mode"],
     )
     
     # --- STEP 4.5: VALIDATE ANSWER (Handled in rag_tutor) ---
     validation_data = rag_result.get("validation")
-    
-    regenerated = False
-    
-    # REGENERATION LOGIC (ASYNC)
-    hallucination_rate = validation_data.get("hallucination_rate", 0.0) if validation_data else 0.0
-    
-    if hallucination_rate > 0.15:
-        logger.warning(f"[VALIDATION] High hallucination rate ({hallucination_rate:.2f}). Regenerating...")
-        
-        # Regenerate with strict mode
-        rag_result = await answer_query_with_rag(
-            user_id=user_id,
-            query=request.message,
-            subject=request.subject,
-            history=chat_history,
-            feedback_context=feedback_context,
-            strict_mode=True,
-            document_ids=doc_ids,
-            file_count=file_count,
-            chat_id=chat_id
-        )
-        validation_data = rag_result.get("validation")
-        regenerated = True
-        
-        # Optional: Validate again? 
-        # For performance, we might skip or just log. 
-        # Let's trust strict mode for this iteration to avoid double latency.
+    regenerated = bool(rag_result.get("repaired"))
+    feedback_reference_id = _new_response_id()
+    chunk_ids = rag_result.get("chunk_ids", [])
+    chunk_sources = rag_result.get("chunk_sources", [])
+    feedback_signals = rag_result.get("feedback_signals", {})
+    penalties_applied = bool(feedback_signals.get("chunk_ids") or feedback_signals.get("chunk_sources"))
     
     # --- STEP 5: APPEND MESSAGES TO SESSION ---
     user_message = {
@@ -207,16 +299,14 @@ async def chat(
         "timestamp": _utcnow()
     }
     
-    assistant_message = {
-        "role": "assistant",
-        "content": rag_result["answer"],
-        "timestamp": _utcnow(),
-        "citations": rag_result["citations"],
-        "chunks": rag_result.get("chunks", []),
-        "feedback_adjusted": feedback_adjusted,
-        "validation_result": validation_data, # Store validation metadata
-        "regenerated": regenerated
-    }
+    assistant_message = _build_assistant_message(
+        answer_text=rag_result["answer"],
+        rag_result=rag_result,
+        feedback_reference_id=feedback_reference_id,
+        feedback_adjusted=feedback_adjusted,
+        validation_data=validation_data,
+        penalties_applied=penalties_applied,
+    )
     
     await db.chat_sessions.update_one(
         {"chat_id": chat_id},
@@ -233,12 +323,34 @@ async def chat(
     )
     
     # --- STEP 6: LOG FEEDBACK INFLUENCE + ACTIVITY LOG ---
+    if rag_result.get("source_mode") in {"knowledge_base", "document"} and rag_result.get("answer"):
+        await feedback_analyzer.track_response_quality(
+            reference_id=feedback_reference_id,
+            chunk_sources=chunk_sources,
+            chunk_ids=chunk_ids,
+            user_id=user_id,
+            subject=request.subject,
+        )
+
     if feedback_adjusted:
         await feedback_analyzer.log_feedback_influence(
             user_id=user_id,
-            reference_id=chat_id,
+            reference_id=feedback_reference_id,
             adjustment_type="prompt_adjustment",
-            details={"reason": reason, "subject": request.subject}
+            details={"reason": reason, "subject": request.subject, "chat_id": chat_id}
+        )
+
+    if penalties_applied:
+        await feedback_analyzer.log_feedback_influence(
+            user_id=user_id,
+            reference_id=feedback_reference_id,
+            adjustment_type="retrieval_penalty",
+            details={
+                "subject": request.subject,
+                "chat_id": chat_id,
+                "chunk_ids": feedback_signals.get("chunk_ids", []),
+                "chunk_sources": feedback_signals.get("chunk_sources", []),
+            }
         )
 
     # Log chat interaction as activity (feeds engagement analytics)
@@ -259,7 +371,14 @@ async def chat(
         chat_id=chat_id,
         session_id=chat_id,  # For backward compatibility
         validation=validation_data,
-        source_mode=rag_result.get("source_mode")  # NEW: Pass source mode to frontend
+        source_mode=rag_result.get("source_mode"),  # NEW: Pass source mode to frontend
+        feedback_reference_id=feedback_reference_id,
+        graph_used=bool(rag_result.get("graph_used")),
+        multi_document_mode=bool(rag_result.get("multi_document_mode")),
+        comparison_mode=bool(rag_result.get("comparison_mode")),
+        document_coverage=rag_result.get("document_coverage", {}),
+        document_coverage_map=rag_result.get("document_coverage_map", []),
+        unsupported_documents=rag_result.get("unsupported_documents", []),
     )
     
     # Helper to attach validation info to response if needed by frontend
@@ -300,16 +419,9 @@ async def chat_stream(
         if not session:
             raise HTTPException(status_code=404, detail="Chat session not found")
     else:
-        chat_id = str(uuid.uuid4())
-        session = {
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "subject": request.subject,
-            "title": generate_title(request.message),
-            "messages": [],
-            "created_at": _utcnow(),
-            "updated_at": _utcnow()
-        }
+        requested_document = await _load_requested_document(db, current_user, request.document_id)
+        session = _build_new_session(user_id, request, requested_document)
+        chat_id = str(session["chat_id"])
         await db.chat_sessions.insert_one(session)
 
     # --- STEP 2: BUILD CHAT HISTORY ---
@@ -327,10 +439,7 @@ async def chat_stream(
         feedback_context = await feedback_analyzer.get_adaptive_context(user_id)
         feedback_adjusted = True
 
-    doc_ids = session.get("document_ids", [])
-    if session.get("document_id") and session.get("document_id") not in doc_ids:
-        doc_ids.append(session.get("document_id"))
-    file_count = session.get("file_count", len(doc_ids))
+    rag_args = _resolve_session_rag_args(session)
 
     # --- STEP 4: RAG RETRIEVAL (get chunks & build prompt, no LLM call yet) ---
     retrieval_result = await retrieve_chunks_for_streaming(
@@ -339,9 +448,10 @@ async def chat_stream(
         subject=request.subject,
         history=chat_history,
         feedback_context=feedback_context,
-        document_ids=doc_ids,
-        file_count=file_count,
-        chat_id=chat_id
+        document_ids=rag_args["document_ids"],
+        file_count=rag_args["file_count"],
+        chat_id=chat_id,
+        scope_mode=rag_args["scope_mode"],
     )
 
     chunks = retrieval_result["chunks"]
@@ -350,6 +460,12 @@ async def chat_stream(
     citations = retrieval_result["citations"]
     source_mode = retrieval_result["source_mode"]
     graph_context = retrieval_result.get("graph_context", "")
+    feedback_reference_id = _new_response_id()
+    chunk_ids = retrieval_result.get("chunk_ids", [])
+    chunk_sources = retrieval_result.get("chunk_sources", [])
+    feedback_signals = retrieval_result.get("feedback_signals", {})
+    penalties_applied = bool(feedback_signals.get("chunk_ids") or feedback_signals.get("chunk_sources"))
+    abstain_response = retrieval_result.get("abstain_response")
 
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -359,20 +475,31 @@ async def chat_stream(
             "chat_id": chat_id,
             "citations": citations,
             "chunks": chunks,
-            "source_mode": source_mode
+            "source_mode": source_mode,
+            "feedback_reference_id": feedback_reference_id,
+            "graph_used": bool(retrieval_result.get("graph_used")),
+            "multi_document_mode": bool(retrieval_result.get("multi_document_mode")),
+            "comparison_mode": bool(retrieval_result.get("comparison_mode")),
+            "document_coverage": retrieval_result.get("document_coverage", {}),
+            "document_coverage_map": retrieval_result.get("document_coverage_map", []),
+            "unsupported_documents": retrieval_result.get("unsupported_documents", []),
         })
         yield f"data: {meta_event}\n\n"
 
         full_answer = ""
         validation_payload = None
         try:
-            async for token in llm_client.async_stream_generate(
-                prompt=prompt,
-                system_prompt=system_prompt
-            ):
-                full_answer += token
-                token_event = json.dumps({"type": "token", "text": token})
-                yield f"data: {token_event}\n\n"
+            if abstain_response:
+                full_answer = abstain_response
+                yield f"data: {json.dumps({'type': 'token', 'text': abstain_response})}\n\n"
+            else:
+                async for token in llm_client.async_stream_generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                ):
+                    full_answer += token
+                    token_event = json.dumps({"type": "token", "text": token})
+                    yield f"data: {token_event}\n\n"
 
             # --- DONE: send immediately so UI renders the response ---
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -382,34 +509,31 @@ async def chat_stream(
             # so the frontend will still receive the validation event.
             if full_answer and chunks:
                 try:
-                    from backend.core.evaluation.validator import ValidationEngine
-                    if db_manager.db is not None:
-                        validator = ValidationEngine(db_manager.db)
-                        validation_result = await validator.validate_answer(
-                            question=request.message,
-                            answer=full_answer,
-                            retrieved_chunks=chunks,
-                            user_id=user_id,
-                            subject=request.subject or "general",
-                            chat_id=chat_id,
-                            graph_context=graph_context
-                        )
+                    validation_result = await _validate_generated_answer(
+                        question=request.message,
+                        answer=full_answer,
+                        chunks=chunks,
+                        user_id=user_id,
+                        subject=request.subject or "general",
+                        chat_id=chat_id,
+                        graph_payload=graph_context,
+                        source_mode=source_mode,
+                    )
 
-                        if validation_result:
-                            val_dict = validation_result.model_dump()
-                            if "_id" in val_dict and val_dict["_id"] is not None:
-                                val_dict["_id"] = str(val_dict["_id"])
-                            # Convert all datetime fields to ISO format
-                            for k, v in val_dict.items():
-                                if hasattr(v, "isoformat"):
-                                    val_dict[k] = v.isoformat()
-                            validation_payload = val_dict
-                            validation_event = json.dumps({
-                                "type": "validation",
-                                "data": val_dict
-                            })
-                            yield f"data: {validation_event}\n\n"
-                            logger.info(f"[STREAM] Validation emitted for session {chat_id}")
+                    if validation_result:
+                        val_dict = validation_result.model_dump()
+                        if "_id" in val_dict and val_dict["_id"] is not None:
+                            val_dict["_id"] = str(val_dict["_id"])
+                        for k, v in val_dict.items():
+                            if hasattr(v, "isoformat"):
+                                val_dict[k] = v.isoformat()
+                        validation_payload = val_dict
+                        validation_event = json.dumps({
+                            "type": "validation",
+                            "data": val_dict
+                        })
+                        yield f"data: {validation_event}\n\n"
+                        logger.info(f"[STREAM] Validation emitted for session {chat_id}")
                 except Exception as ve:
                     logger.warning(f"[STREAM] Validation skipped: {ve}")
 
@@ -426,16 +550,30 @@ async def chat_stream(
                     "content": request.message,
                     "timestamp": _utcnow()
                 }
-                assistant_msg = {
-                    "role": "assistant",
-                    "content": full_answer,
-                    "timestamp": _utcnow(),
+                stream_result = {
+                    "answer": full_answer,
                     "citations": citations,
                     "chunks": chunks,
-                    "validation_result": validation_payload,
-                    "feedback_adjusted": feedback_adjusted,
-                    "source_mode": source_mode
+                    "source_mode": source_mode,
+                    "chunk_ids": chunk_ids,
+                    "chunk_sources": chunk_sources,
+                    "retrieval_confidence": retrieval_result.get("retrieval_confidence"),
+                    "abstained": bool(abstain_response),
+                    "graph_used": bool(retrieval_result.get("graph_used")),
+                    "multi_document_mode": bool(retrieval_result.get("multi_document_mode")),
+                    "comparison_mode": bool(retrieval_result.get("comparison_mode")),
+                    "document_coverage": retrieval_result.get("document_coverage", {}),
+                    "document_coverage_map": retrieval_result.get("document_coverage_map", []),
+                    "unsupported_documents": retrieval_result.get("unsupported_documents", []),
                 }
+                assistant_msg = _build_assistant_message(
+                    answer_text=full_answer,
+                    rag_result=stream_result,
+                    feedback_reference_id=feedback_reference_id,
+                    feedback_adjusted=feedback_adjusted,
+                    validation_data=validation_payload,
+                    penalties_applied=penalties_applied,
+                )
                 await db.chat_sessions.update_one(
                     {"chat_id": chat_id},
                     {
@@ -445,12 +583,34 @@ async def chat_stream(
                 )
                 logger.info(f"[STREAM] Saved answer for session {chat_id}")
 
+                if source_mode in {"knowledge_base", "document"}:
+                    await feedback_analyzer.track_response_quality(
+                        reference_id=feedback_reference_id,
+                        chunk_sources=chunk_sources,
+                        chunk_ids=chunk_ids,
+                        user_id=user_id,
+                        subject=request.subject,
+                    )
+
                 if feedback_adjusted:
                     await feedback_analyzer.log_feedback_influence(
                         user_id=user_id,
-                        reference_id=chat_id,
+                        reference_id=feedback_reference_id,
                         adjustment_type="prompt_adjustment",
-                        details={"reason": reason, "subject": request.subject}
+                        details={"reason": reason, "subject": request.subject, "chat_id": chat_id}
+                    )
+
+                if penalties_applied:
+                    await feedback_analyzer.log_feedback_influence(
+                        user_id=user_id,
+                        reference_id=feedback_reference_id,
+                        adjustment_type="retrieval_penalty",
+                        details={
+                            "subject": request.subject,
+                            "chat_id": chat_id,
+                            "chunk_ids": feedback_signals.get("chunk_ids", []),
+                            "chunk_sources": feedback_signals.get("chunk_sources", []),
+                        }
                     )
 
     return StreamingResponse(
@@ -483,15 +643,22 @@ async def list_sessions(
     
     result = []
     for s in sessions:
-            result.append(ChatSessionSummary(
+        # Compute a human-readable document label:
+        # Prefer the multi-doc list, fall back to the old single-doc field.
+        doc_names: List[str] = s.get("document_names") or []
+        display_name: Optional[str] = s.get("document_name") or (
+            ", ".join(doc_names) if doc_names else None
+        )
+        result.append(ChatSessionSummary(
             chat_id=s["chat_id"],
             title=s["title"],
             updated_at=s["updated_at"].isoformat(),
             message_count=len(s.get("messages", [])),
-            document_id=s.get("document_id"),       # NEW
-            document_name=s.get("document_name")    # NEW
+            document_id=s.get("document_id"),
+            document_name=display_name,
+            document_names=doc_names or None,
         ))
-    
+
     return result
 
 
@@ -522,7 +689,15 @@ async def get_session(
             "content": msg["content"],
             "timestamp": msg["timestamp"].isoformat(),
             "citations": msg.get("citations", []),
-            "chunks": msg.get("chunks", [])
+            "chunks": msg.get("chunks", []),
+            "feedback_reference_id": msg.get("feedback_reference_id") or msg.get("response_id"),
+            "source_mode": msg.get("source_mode"),
+            "graph_used": msg.get("graph_used"),
+            "multi_document_mode": msg.get("multi_document_mode"),
+            "comparison_mode": msg.get("comparison_mode"),
+            "document_coverage": msg.get("document_coverage"),
+            "document_coverage_map": msg.get("document_coverage_map"),
+            "unsupported_documents": msg.get("unsupported_documents"),
         })
     
     return ChatSessionDetail(
@@ -532,8 +707,12 @@ async def get_session(
         messages=messages,
         created_at=session["created_at"].isoformat(),
         updated_at=session["updated_at"].isoformat(),
-        document_id=session.get("document_id"),       # NEW
-        document_name=session.get("document_name")    # NEW
+        document_id=session.get("document_id"),
+        document_name=session.get("document_name") or (
+            ", ".join(session.get("document_names") or [])
+            if session.get("document_names") else None
+        ),
+        document_names=session.get("document_names"),
     )
 
 

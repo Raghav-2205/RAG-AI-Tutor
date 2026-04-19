@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Any, Dict
 
@@ -8,6 +10,19 @@ from backend.services.suggestion_service import generate_suggestions
 from backend.core.llm_interface import llm_client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _empty_student_analytics(user_id: str) -> Dict[str, Any]:
+    return {
+        "user_id": user_id,
+        "period_days": 7,
+        "total_study_minutes": 0,
+        "study_time_series": {},
+        "performance_trend": [],
+        "weak_subjects": [],
+        "avg_score": 0.0,
+    }
 
 @router.get("/student", summary="Get personalized student analytics and recommendations")
 async def student_analytics(
@@ -15,11 +30,32 @@ async def student_analytics(
     current_user = Depends(get_current_user)
 ):
     user_id = str(current_user["_id"])
-    
-    # Get both analytics and suggestions (which includes recommendations)
-    suggestions_data = await generate_suggestions(db, user_id, llm_client=llm_client)
-    
-    return suggestions_data
+
+    analytics: Dict[str, Any] = _empty_student_analytics(user_id)
+    suggestions: list = []
+    recommendations: list = []
+
+    try:
+        analytics = await get_student_analytics(db, user_id)
+    except Exception:
+        logger.exception("Student analytics generation failed for user %s", user_id)
+
+    try:
+        suggestions_data = await generate_suggestions(db, user_id, llm_client=llm_client)
+        if isinstance(suggestions_data, dict):
+            generated_analytics = suggestions_data.get("analytics")
+            if isinstance(generated_analytics, dict) and generated_analytics:
+                analytics = generated_analytics
+            suggestions = suggestions_data.get("suggestions") or []
+            recommendations = suggestions_data.get("recommendations") or []
+    except Exception:
+        logger.exception("Student suggestion generation failed for user %s", user_id)
+
+    return {
+        "analytics": analytics,
+        "suggestions": suggestions,
+        "recommendations": recommendations,
+    }
 
 @router.get("/teacher/{class_id}", summary="Get class analytics for teachers")
 async def teacher_analytics(

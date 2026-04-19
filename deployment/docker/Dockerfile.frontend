@@ -1,0 +1,2 @@
+# Production deploys currently serve the frontend from FastAPI in the repo-root Dockerfile.
+# No separate frontend image is required for the current architecture.

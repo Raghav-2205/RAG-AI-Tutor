@@ -1,0 +1,2 @@
+# Production deploys currently use the repo-root Dockerfile.
+# This placeholder exists so the deployment folder does not imply a second backend image path.

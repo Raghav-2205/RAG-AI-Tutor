@@ -20,6 +20,35 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def _resolve_chat_feedback_reference(db, user_id: str, reference_id: str) -> tuple[str, Optional[str]]:
+    """
+    Accept both legacy chat_id values and response-level feedback ids.
+    Returns (resolved_reference_id, chat_id).
+    """
+    response_match = await db.response_chunks.find_one({
+        "reference_id": reference_id,
+        "user_id": user_id,
+    })
+    if response_match:
+        return reference_id, None
+
+    chat = await db.chat_sessions.find_one({
+        "chat_id": reference_id,
+        "user_id": user_id,
+    })
+    if not chat:
+        return reference_id, None
+
+    for message in reversed(chat.get("messages", [])):
+        if message.get("role") != "assistant":
+            continue
+        resolved = message.get("feedback_reference_id") or message.get("response_id")
+        if resolved:
+            return str(resolved), str(chat.get("chat_id"))
+
+    return reference_id, str(chat.get("chat_id"))
+
+
 class FeedbackSubmitRequest(BaseModel):
     source: str = Field(..., pattern="^(chat|quiz)$")  # Must be 'chat' or 'quiz'
     subject: str
@@ -50,14 +79,24 @@ async def submit_feedback(
         logger.info(f"[FEEDBACK SUBMIT] User={user_id}, Source={request.source}, RefID={request.reference_id}")
         
         # Validate reference exists and belongs to the user where feasible.
+        request_reference_id = request.reference_id
+        original_reference_id = request.reference_id
+
         if request.source == "chat":
-            chat = await db.chat_sessions.find_one({
-                "chat_id": request.reference_id,
-                "user_id": user_id
-            })
-            if not chat:
-                logger.warning(f"[FEEDBACK] Chat session {request.reference_id} not found for user {user_id}")
-        
+            resolved_reference_id, resolved_chat_id = await _resolve_chat_feedback_reference(
+                db,
+                user_id=user_id,
+                reference_id=request.reference_id,
+            )
+            if not resolved_chat_id and resolved_reference_id == request.reference_id:
+                chat = await db.chat_sessions.find_one({
+                    "chat_id": request.reference_id,
+                    "user_id": user_id
+                })
+                if not chat:
+                    logger.warning(f"[FEEDBACK] Chat session/response {request.reference_id} not found for user {user_id}")
+            request_reference_id = resolved_reference_id
+
         elif request.source == "quiz":
             # Accept either an LMS quiz id or a quiz attempt id for the current user.
             quiz = await db.lms_quizzes.find_one({"id": request.reference_id})
@@ -74,7 +113,8 @@ async def submit_feedback(
             "feedback_id": feedback_id,
             "user_id": user_id,
             "source": request.source,
-            "reference_id": request.reference_id,
+            "reference_id": request_reference_id,
+            "original_reference_id": original_reference_id,
             "subject": request.subject,
             "rating": request.rating,
             "comment": request.comment,

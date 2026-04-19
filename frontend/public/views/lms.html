@@ -65,7 +65,7 @@
           <button class="nav-icon-btn" id="notifBtn" title="Notifications">
             <i class="fa-regular fa-bell"></i><span class="nav-badge" id="notifBadge" style="display:none;">0</span>
           </button>
-          <a href="/views/dashboard.html" class="btn btn-primary btn-dashboard-link"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard</a>
+          <a href="/views/dashboard.html" id="workspaceHomeLink" class="btn btn-primary btn-dashboard-link"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard</a>
         </div>
       </div>
 
@@ -210,10 +210,26 @@
       window.location.href = url.toString();
     }
 
+    function getWorkspaceHomeConfig() {
+      if (ROLE === 'admin') {
+        return { href: '/views/admin_portal.html', icon: 'fa-solid fa-shield-halved', label: 'Admin Portal' };
+      }
+      if (ROLE === 'teacher') {
+        return { href: '/views/teacher_portal.html', icon: 'fa-solid fa-chalkboard-user', label: 'Teacher Portal' };
+      }
+      return { href: '/views/dashboard.html', icon: 'fa-solid fa-chart-line', label: 'Dashboard' };
+    }
+
     // Set user info
     document.getElementById('navUserName').textContent = user.name || 'User';
     document.getElementById('navUserRole').textContent = window.routeGuard?.displayRole(ROLE) || ROLE;
     document.getElementById('navAvatar').textContent = (user.name || 'U')[0].toUpperCase();
+    const workspaceHomeLink = document.getElementById('workspaceHomeLink');
+    if (workspaceHomeLink) {
+      const homeConfig = getWorkspaceHomeConfig();
+      workspaceHomeLink.href = homeConfig.href;
+      workspaceHomeLink.innerHTML = `<i class="${homeConfig.icon}" aria-hidden="true"></i> ${homeConfig.label}`;
+    }
 
     // ═══ SIDEBAR MENU (Role-based) ═══
     const menuConfig = [
@@ -932,21 +948,36 @@
       if (res?.ok) { toast('Class archived'); loadPage('classes'); } else { toast('Failed', 'error'); }
     }
 
-    async function viewStudents(classId) {
-      const res = await apiFetch(`/lms/classes/${classId}/students`);
-      const data = await res?.json() || {};
-      const rows = Array.isArray(data) ? data : (data.students || []);
-      openFormModal(`Students (${rows.length})`, `
-    <table class="lms-table" style="font-size:13px">
-      <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
-      <tbody>${rows.map(s => `<tr><td>${escHtml(s.name)}</td><td>${escHtml(s.email)}</td><td><button class="btn btn-sm btn-danger" onclick="removeStudent('${classId}','${s.id}')">Remove</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-muted">No students</td></tr>'}</tbody>
-    </table>`, () => closeFormModal());
-      document.getElementById('formModalSubmit').textContent = 'Close';
+    function getAnalyticsSelectionKey() {
+      return `analytics_selected_class_${String(user.id || user._id || 'current')}`;
+    }
+
+    function persistAnalyticsClassSelection(classId) {
+      if (!classId) return;
+      localStorage.setItem(getAnalyticsSelectionKey(), classId);
+    }
+
+    function openClassAnalytics(classId = '') {
+      const targetClassId = classId || activeClassId;
+      if (!targetClassId) {
+        toast('Select a class first.', 'error');
+        return;
+      }
+      persistAnalyticsClassSelection(targetClassId);
+      window.location.href = `/views/analytics.html?class_id=${encodeURIComponent(targetClassId)}`;
+    }
+
+    function viewStudents(classId) {
+      loadPage('students', { classId, updateUrl: true });
     }
 
     async function removeStudent(classId, studentId) {
       const res = await apiFetch(`/lms/classes/${classId}/students`, { method: 'DELETE', body: JSON.stringify({ student_id: studentId }) });
-      if (res?.ok) { toast('Removed'); viewStudents(classId); } else { toast('Failed', 'error'); }
+      if (!res?.ok) { toast('Failed', 'error'); return; }
+      toast('Student removed');
+      if (currentPage === 'students') {
+        await loadPage('students', { classId, updateUrl: true });
+      }
     }
 
     // ═══════════════════════════════════════════════════
@@ -1001,6 +1032,370 @@
     // ═══════════════════════════════════════════════════
     // PAGE: ASSIGNMENTS
     // ═══════════════════════════════════════════════════
+    function renderStudentSummaryCards(summary = {}, analyticsRows = [], rosterPayload = {}) {
+      const total = Number(summary.total_students ?? rosterPayload.count ?? rosterPayload.students?.length ?? 0) || 0;
+      const active = Number(summary.active_students_count ?? summary.active_students ?? analyticsRows.filter((item) => (item.quizzes_taken || 0) > 0 || item.attendance_pct != null).length ?? 0) || 0;
+      const avgScore = Number(summary.avg_score ?? 0) || 0;
+      const attendanceValues = analyticsRows.map((item) => Number(item.attendance_pct)).filter((value) => Number.isFinite(value));
+      const avgAttendance = attendanceValues.length ? (attendanceValues.reduce((sum, value) => sum + value, 0) / attendanceValues.length) : 0;
+
+      const setText = (id, value) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+      };
+
+      setText('studentStatTotal', String(total));
+      setText('studentStatActive', String(active));
+      setText('studentStatAvg', `${avgScore.toFixed(1).replace('.0', '')}%`);
+      setText('studentStatAttendance', `${avgAttendance.toFixed(1).replace('.0', '')}%`);
+      setText('studentStatTotalMeta', total ? `${total} learners enrolled right now` : 'No roster yet');
+      setText('studentStatActiveMeta', active ? `${active} learners have recent attendance or quiz activity` : 'No recent activity yet');
+      setText('studentStatAvgMeta', avgScore ? 'Updated from class quiz submissions' : 'No quiz submissions yet');
+      setText('studentStatAttendanceMeta', avgAttendance ? 'Average from attendance records' : 'No attendance recorded yet');
+    }
+
+    function renderStudentInviteResult(result = null, message = '') {
+      const mount = document.getElementById('studentInviteResult');
+      if (!mount) return;
+      if (!result && !message) {
+        mount.innerHTML = '';
+        return;
+      }
+
+      if (!result) {
+        mount.innerHTML = `<div class="lms-empty-copy" style="margin:0; padding:14px 16px; border-radius:16px; border:1px dashed var(--border); background:color-mix(in oklab, var(--bg-card) 86%, var(--accent) 14%);">${escHtml(message)}</div>`;
+        return;
+      }
+
+      const tone = result.mode === 'enrolled_existing' ? 'rgba(16,185,129,0.16)' : 'rgba(59,130,246,0.16)';
+      const title = result.mode === 'enrolled_existing' ? 'Student enrolled directly' : 'Invitation ready to share';
+      const inviteLink = result.invite_url
+        ? `<div style="display:grid; gap:10px; margin-top:12px;">
+            <div style="font-size:12px; color:var(--text-muted); word-break:break-all;">${escHtml(result.invite_url)}</div>
+            <button class="btn btn-secondary" onclick="copyStudentInviteLink('${escHtml(String(result.invite_url)).replace(/'/g, '&#39;')}')"><i class="fa-regular fa-copy"></i> Copy invite link</button>
+          </div>`
+        : '';
+
+      mount.innerHTML = `
+        <div style="padding:14px 16px; border-radius:18px; border:1px solid color-mix(in oklab, var(--accent) 32%, var(--border)); background:${tone};">
+          <div style="font-weight:700; color:var(--text);">${title}</div>
+          <div class="text-muted" style="margin-top:6px;">${escHtml(result.message || message || '')}</div>
+          ${inviteLink}
+        </div>`;
+    }
+
+    function renderStudentRosterEmptyState(message = 'No students are enrolled in this class yet.') {
+      const mount = document.getElementById('studentsRosterCardBody');
+      if (!mount) return;
+      mount.innerHTML = `
+        <div class="lms-empty-copy" style="padding:28px; border-radius:20px; border:1px dashed var(--border); background:color-mix(in oklab, var(--bg-card) 82%, var(--accent) 18%);">
+          <strong style="display:block; margin-bottom:6px; color:var(--text);">Build the class roster</strong>
+          ${escHtml(message)}
+        </div>`;
+    }
+
+    function renderStudentAnalyticsEmptyState(message = 'Analytics will appear after students start participating in this class.') {
+      const mount = document.getElementById('studentsAnalyticsBody');
+      if (!mount) return;
+      mount.innerHTML = `
+        <div class="lms-empty-copy" style="padding:28px; border-radius:20px; border:1px dashed var(--border); background:var(--bg-card);">
+          ${escHtml(message)}
+        </div>`;
+    }
+
+    function renderStudentRosterTable(rosterPayload, classId) {
+      const mount = document.getElementById('studentsRosterCardBody');
+      if (!mount) return;
+      const students = Array.isArray(rosterPayload.students) ? rosterPayload.students : [];
+
+      if (!students.length) {
+        renderStudentRosterEmptyState('No students are enrolled yet. Add a learner from the panel on the right to start tracking this class.');
+        return;
+      }
+
+      mount.innerHTML = `
+        <div class="lms-table-wrap">
+          <table class="lms-table" id="studentsRosterTable">
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Roll no.</th><th style="text-align:right;">Action</th></tr>
+            </thead>
+            <tbody>
+              ${students.map((student) => `
+                <tr>
+                  <td><strong>${escHtml(student.name || 'Unknown')}</strong></td>
+                  <td>${escHtml(student.email || '')}</td>
+                  <td>${escHtml(student.roll_number || '-')}</td>
+                  <td style="text-align:right;">
+                    <button class="btn btn-sm btn-secondary" onclick="removeStudent('${classId}', '${student.id}')">
+                      <i class="fa-regular fa-trash-can"></i> Remove
+                    </button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderStudentAnalyticsTable(students) {
+      const mount = document.getElementById('studentsAnalyticsBody');
+      if (!mount) return;
+      const rows = Array.isArray(students) ? students : [];
+
+      if (!rows.length) {
+        renderStudentAnalyticsEmptyState('Add students to this class to start seeing attendance and quiz performance here.');
+        return;
+      }
+
+      mount.innerHTML = `
+        <div class="lms-table-wrap">
+          <table class="lms-table" id="studentsAnalyticsTable">
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Attendance</th><th>Quizzes</th><th>Total quizzes</th><th>Average score</th></tr>
+            </thead>
+            <tbody>
+              ${rows.map((student) => `
+                <tr>
+                  <td><strong>${escHtml(student.name || 'Unknown')}</strong></td>
+                  <td>${escHtml(student.email || '')}</td>
+                  <td>${student.attendance_pct != null ? `${student.attendance_pct}%` : '-'}</td>
+                  <td>${student.quizzes_taken || 0}</td>
+                  <td>${student.total_quizzes || 0}</td>
+                  <td>${student.avg_quiz_score != null ? `${student.avg_quiz_score}%` : '-'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    async function loadStudentRosterWorkspace(classId, selectedClass = null) {
+      const rosterMount = document.getElementById('studentsRosterCardBody');
+      const analyticsMount = document.getElementById('studentsAnalyticsBody');
+      if (rosterMount) rosterMount.innerHTML = '<div class="skeleton skeleton-chart"></div>';
+      if (analyticsMount) analyticsMount.innerHTML = '<div class="skeleton skeleton-chart"></div>';
+      renderStudentInviteResult();
+
+      const [rosterRes, analyticsRes, summaryRes] = await Promise.all([
+        apiFetch(`/lms/classes/${classId}/students`),
+        apiFetch(`/lms/classes/${classId}/students/engagement`),
+        apiFetch(`/lms/classes/${classId}/analytics`)
+      ]);
+
+      const rosterRaw = rosterRes ? await rosterRes.json() : null;
+      const analyticsRaw = analyticsRes ? await analyticsRes.json() : null;
+      const summaryRaw = summaryRes ? await summaryRes.json() : null;
+
+      const rosterPayload = unwrapPayload(rosterRaw) || { class_id: classId, students: [], count: 0 };
+      const analyticsPayload = unwrapPayload(analyticsRaw);
+      const summaryPayload = unwrapPayload(summaryRaw) || summaryRaw || {};
+      const analyticsRows = Array.isArray(analyticsPayload?.students) ? analyticsPayload.students : (Array.isArray(analyticsPayload) ? analyticsPayload : []);
+
+      renderStudentSummaryCards(summaryPayload, analyticsRows, rosterPayload);
+      renderStudentRosterTable(rosterPayload, classId);
+      renderStudentAnalyticsTable(analyticsRows);
+
+      const resultHint = selectedClass?.name
+        ? `Adding a learner here updates the roster and analytics for ${selectedClass.name}.`
+        : 'Add a learner to enroll them or create a class invite.';
+      renderStudentInviteResult(null, resultHint);
+    }
+
+    async function submitStudentInvite() {
+      const classId = activeClassId || document.getElementById('studentClassPick')?.value || '';
+      if (!classId) {
+        toast('Select a class first.', 'error');
+        renderStudentInviteResult(null, 'Choose a class before adding students.');
+        return;
+      }
+
+      const emailInput = document.getElementById('studentInviteEmail');
+      const nameInput = document.getElementById('studentInviteName');
+      const submitBtn = document.getElementById('studentInviteBtn');
+      const student_email = (emailInput?.value || '').trim();
+      const student_name = (nameInput?.value || '').trim();
+
+      if (!student_email) {
+        toast('Student email is required.', 'error');
+        renderStudentInviteResult(null, 'Enter a student email to enroll an existing learner or create an invite link.');
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Working...';
+      }
+
+      try {
+        const response = await apiFetch(`/lms/classes/${classId}/students/invite`, {
+          method: 'POST',
+          body: JSON.stringify({ student_email, student_name })
+        });
+        const payload = response ? normalizeApiPayload(await response.json()) : { success: false, error: 'No response' };
+
+        if (!response?.ok || payload.success === false) {
+          throw new Error(payload.error || 'Unable to add student right now.');
+        }
+
+        const resultData = payload.data || payload;
+        if (emailInput) emailInput.value = '';
+        if (nameInput) nameInput.value = '';
+        toast(resultData.mode === 'enrolled_existing' ? 'Student enrolled successfully.' : 'Invite created successfully.');
+        const classPick = document.getElementById('studentClassPick');
+        const selectedClass = classPick ? { id: classId, name: classPick.options[classPick.selectedIndex]?.text || '' } : null;
+        await loadStudentRosterWorkspace(classId, selectedClass);
+        renderStudentInviteResult(resultData);
+      } catch (error) {
+        const message = error?.message || 'Unable to add student right now.';
+        renderStudentInviteResult(null, message);
+        toast(message, 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Add student';
+        }
+      }
+    }
+
+    async function copyStudentInviteLink(link) {
+      try {
+        await navigator.clipboard.writeText(link);
+        toast('Invite link copied.');
+      } catch (error) {
+        toast('Unable to copy invite link.', 'error');
+      }
+    }
+
+    async function renderStudents(area) {
+      if (!(ROLE === 'teacher' || ROLE === 'admin')) {
+        area.innerHTML = `
+      <div class="card" style="padding:28px;">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-user"></i>Students</div>
+        </div>
+        <p class="lms-empty-copy" style="margin:0;">Student roster management is available only for teachers and admins.</p>
+      </div>`;
+        return;
+      }
+
+      const classRes = await apiFetch('/lms/classes');
+      const classPayload = normalizeApiPayload(await classRes?.json());
+      const classes = Array.isArray(classPayload.data) ? classPayload.data : [];
+      const selectedClassId = activeClassId || classes[0]?.id || classes[0]?.class_id || '';
+      const selectedClass = classes.find((item) => (item.id || item.class_id) === selectedClassId) || classes[0] || null;
+
+      area.innerHTML = `
+    <section class="bento-grid" style="margin-bottom:24px;">
+      <article class="stat-card streak col-span-3">
+        <div class="stat-label">Total students</div>
+        <div class="stat-value" id="studentStatTotal">0</div>
+        <div class="stat-subtext" id="studentStatTotalMeta">Selected class roster</div>
+      </article>
+      <article class="stat-card questions col-span-3">
+        <div class="stat-label">Active students</div>
+        <div class="stat-value" id="studentStatActive">0</div>
+        <div class="stat-subtext" id="studentStatActiveMeta">Recently participating</div>
+      </article>
+      <article class="stat-card quiz col-span-3">
+        <div class="stat-label">Average quiz score</div>
+        <div class="stat-value" id="studentStatAvg">0%</div>
+        <div class="stat-subtext" id="studentStatAvgMeta">Across class submissions</div>
+      </article>
+      <article class="stat-card docs col-span-3">
+        <div class="stat-label">Average attendance</div>
+        <div class="stat-value" id="studentStatAttendance">0%</div>
+        <div class="stat-subtext" id="studentStatAttendanceMeta">Per enrolled learner</div>
+      </article>
+    </section>
+
+    <section class="bento-grid">
+      <article class="card col-span-8">
+        <div class="card-header" style="gap:16px; flex-wrap:wrap;">
+          <div>
+            <div class="card-title"><i class="fa-regular fa-address-book"></i>Student Roster</div>
+            <p class="text-muted" style="margin:6px 0 0;">Manage enrollment for one class and keep analytics aligned to that same roster.</p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; margin-left:auto; flex-wrap:wrap;">
+            <select id="studentClassPick" style="min-width:220px; padding:10px 14px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-family:var(--font); font-size:13px; box-shadow:var(--shadow);">
+              <option value="">Select class</option>
+              ${classes.map((c) => {
+                const value = c.id || c.class_id || '';
+                return `<option value="${escHtml(value)}" ${value === selectedClassId ? 'selected' : ''}>${escHtml(c.name || c.subject || 'Untitled class')}</option>`;
+              }).join('')}
+            </select>
+            <div class="table-search" style="min-width:240px;">
+              <span><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input id="studentRosterSearch" placeholder="Search roster..." oninput="filterTable('studentsRosterTable',this.value)">
+            </div>
+          </div>
+        </div>
+        <div id="studentsRosterCardBody"></div>
+      </article>
+
+      <article class="card col-span-4" style="border-color:color-mix(in oklab, var(--accent) 28%, var(--border));">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-user-plus"></i>Add Student</div>
+          <div class="card-badge">Invite or enroll</div>
+        </div>
+        <div style="display:grid; gap:14px;">
+          <label style="display:grid; gap:8px;">
+            <span class="text-muted" style="font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">Student email</span>
+            <input id="studentInviteEmail" type="email" placeholder="student@example.com" style="padding:12px 14px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-family:var(--font);">
+          </label>
+          <label style="display:grid; gap:8px;">
+            <span class="text-muted" style="font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">Student name</span>
+            <input id="studentInviteName" type="text" placeholder="Optional name for invite" style="padding:12px 14px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-family:var(--font);">
+          </label>
+          <button class="btn btn-primary" id="studentInviteBtn" onclick="submitStudentInvite()" style="justify-content:center;">
+            <i class="fa-solid fa-paper-plane"></i> Add student
+          </button>
+          <div id="studentInviteResult"></div>
+        </div>
+      </article>
+
+      <article class="card col-span-8">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-chart-bar"></i>Student Analytics</div>
+          <div class="card-badge">Attendance and quizzes</div>
+        </div>
+        <div id="studentsAnalyticsBody"></div>
+      </article>
+
+      <article class="card col-span-4">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-compass"></i>Quick Actions</div>
+          <div class="card-badge">Stay in sync</div>
+        </div>
+        <div style="display:grid; gap:12px;">
+          <button class="btn btn-primary" onclick="openClassAnalytics()"><i class="fa-solid fa-chart-line"></i> Open in Analytics</button>
+          <button class="btn btn-secondary" onclick="loadPage('attendance', { classId: activeClassId, updateUrl: true })"><i class="fa-regular fa-calendar-check"></i> Manage Attendance</button>
+          <button class="btn btn-secondary" onclick="loadPage('assignments', { classId: activeClassId, updateUrl: true })"><i class="fa-regular fa-pen-to-square"></i> Class Assignments</button>
+          <button class="btn btn-secondary" onclick="loadPage('quizzes', { classId: activeClassId, updateUrl: true })"><i class="fa-regular fa-circle-question"></i> Class Quizzes</button>
+        </div>
+      </article>
+    </section>`;
+
+      const classPick = document.getElementById('studentClassPick');
+      if (classPick) {
+        classPick.addEventListener('change', () => {
+          const nextId = classPick.value || '';
+          activeClassId = nextId;
+          if (nextId) persistAnalyticsClassSelection(nextId);
+          loadPage('students', { classId: nextId, updateUrl: true });
+        });
+      }
+
+      if (!selectedClassId) {
+        renderStudentSummaryCards();
+        renderStudentRosterEmptyState('Create or select a class to start managing your roster.');
+        renderStudentAnalyticsEmptyState('Analytics will appear here after you choose a class and learners begin participating.');
+        renderStudentInviteResult(null, 'Choose a class above before inviting students.');
+        return;
+      }
+
+      activeClassId = selectedClassId;
+      persistAnalyticsClassSelection(selectedClassId);
+      await loadStudentRosterWorkspace(selectedClassId, selectedClass);
+    }
+
     async function renderAssignments(area, classId = '') {
       const endpoint = classId ? `/lms/classes/${classId}/assignments` : '/lms/assignments';
       const res = await apiFetch(endpoint);
@@ -1170,13 +1565,16 @@
       if (!classId) { cont.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">Select a class.</p>'; return; }
       cont.innerHTML = '<div class="skeleton skeleton-chart"></div>';
 
-      // FIX A2: Use the correct per-class analytics endpoint
-      const res = await apiFetch(`/lms/classes/${classId}/analytics`);
-      const stats = unwrapPayload(await res?.json()) || {};
-
-      // Also load quiz stats from global quizzes endpoint
-      const qRes = await apiFetch(`/lms/classes/${classId}/quizzes`);
-      const quizzes = unwrapPayload(await qRes?.json().catch(() => [])) || [];
+      const [analyticsRes, gradebookRes] = await Promise.all([
+        apiFetch(`/lms/classes/${classId}/analytics`),
+        apiFetch(`/lms/classes/${classId}/gradebook`)
+      ]);
+      const stats = unwrapPayload(await analyticsRes?.json().catch(() => ({}))) || {};
+      const gradebook = unwrapPayload(await gradebookRes?.json().catch(() => ({}))) || {};
+      const students = Array.isArray(gradebook.students) ? gradebook.students : [];
+      const assignments = Array.isArray(gradebook.assignments) ? gradebook.assignments : [];
+      const quizzes = Array.isArray(gradebook.quizzes) ? gradebook.quizzes : [];
+      const formatPct = (value) => value == null ? 'N/A' : `${value}%`;
 
       cont.innerHTML = `
     <div class="stat-cards" style="margin-bottom:20px">
@@ -1185,18 +1583,134 @@
       <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-info"><div class="stat-value">${stats.avg_quiz_score || 0}%</div><div class="stat-label">Avg Quiz Score</div></div></div>
       <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-info"><div class="stat-value">${stats.attendance_pct || 0}%</div><div class="stat-label">Attendance</div></div></div>
     </div>
-    <h3 style="font-size:15px;font-weight:700;margin:16px 0 8px">Quizzes in this Class (${quizzes.length})</h3>
-    <table class="lms-table"><thead><tr><th>Quiz</th><th>Time Limit</th><th>Action</th></tr></thead>
-    <tbody>${(Array.isArray(quizzes) ? quizzes : []).map(q => `<tr><td>${escHtml(q.title)}</td><td>${q.time_limit ? q.time_limit + ' min' : 'None'}</td><td><button class="btn btn-sm btn-secondary" onclick="openLmsQuiz('${q.id}', '${classId}')">View Quiz</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-muted" style="text-align:center">No quizzes yet.</td></tr>'}</tbody></table>`;
+    <h3 style="font-size:15px;font-weight:700;margin:16px 0 8px">Class Gradebook (${students.length} students)</h3>
+    <table class="lms-table"><thead><tr><th>Student</th><th>Assignments</th><th>Quizzes</th><th>Overall</th><th>Attendance</th><th>Progress</th></tr></thead>
+    <tbody>${students.map(student => `<tr><td><strong>${escHtml(student.name || 'Unknown')}</strong><div class="text-muted" style="font-size:12px">${escHtml(student.email || '')}</div></td><td>${formatPct(student.assignment_average)}</td><td>${formatPct(student.quiz_average)}</td><td><span class="badge ${student.overall_percentage != null && student.overall_percentage >= 75 ? 'badge-success' : 'badge-info'}">${formatPct(student.overall_percentage)}</span></td><td>${formatPct(student.attendance_percentage)}</td><td class="text-muted" style="font-size:12px">${student.graded_assignments || 0}/${assignments.length} graded · ${student.completed_quizzes || 0}/${quizzes.length} quizzes</td></tr>`).join('') || '<tr><td colspan="6" class="text-muted" style="text-align:center">No graded work or quiz attempts yet.</td></tr>'}</tbody></table>`;
     }
 
     // ═══════════════════════════════════════════════════
     // PAGE: ATTENDANCE
     // ═══════════════════════════════════════════════════
+    async function renderResults(area, classId = '') {
+      const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+
+      if (isTeacher) {
+        const cr = await apiFetch('/lms/classes');
+        const cd = await cr?.json();
+        const cls = Array.isArray(unwrapPayload(cd)) ? unwrapPayload(cd) : [];
+        area.innerHTML = `
+      <div class="lms-card">
+        <div class="table-header">
+          <span class="lms-card-title">Results & Analytics</span>
+          <select id="resultsClassPick" onchange="loadClassResults(this.value)" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+            <option value="">Select class</option>
+            ${cls.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="resultsContent" class="text-muted" style="padding:40px;text-align:center">Select a class to view analytics.</div>
+      </div>`;
+        if (classId) {
+          const picker = document.getElementById('resultsClassPick');
+          if (picker) {
+            picker.value = classId;
+            await loadClassResults(classId);
+          }
+        }
+        return;
+      }
+
+      const [quizRes, submissionRes, assignmentRes, classRes] = await Promise.all([
+        apiFetch('/lms/quizzes'),
+        apiFetch('/lms/students/me/submissions'),
+        apiFetch('/lms/assignments'),
+        apiFetch('/lms/classes')
+      ]);
+
+      const quizzes = normalizeApiPayload(await quizRes?.json()).data || [];
+      const submissions = normalizeApiPayload(await submissionRes?.json()).data || [];
+      const assignments = normalizeApiPayload(await assignmentRes?.json()).data || [];
+      const classes = normalizeApiPayload(await classRes?.json()).data || [];
+      const submittedQuizzes = (Array.isArray(quizzes) ? quizzes : []).filter((quiz) => quiz.submitted);
+      const assignmentRows = Array.isArray(submissions) ? submissions : [];
+      const gradedSubmissions = assignmentRows.filter((submission) => submission.graded);
+      const assignmentMap = Object.fromEntries((Array.isArray(assignments) ? assignments : []).map((assignment) => [assignment.id || assignment.assignment_id, assignment]));
+      const classMap = Object.fromEntries((Array.isArray(classes) ? classes : []).map((cls) => [cls.id || cls.class_id, cls]));
+      const quizAverage = submittedQuizzes.length
+        ? submittedQuizzes.reduce((sum, quiz) => sum + Number(quiz.score || 0), 0) / submittedQuizzes.length
+        : null;
+      const assignmentAverage = gradedSubmissions.length
+        ? gradedSubmissions.reduce((sum, submission) => sum + Number(submission.points_earned || 0), 0) / gradedSubmissions.length
+        : null;
+
+      area.innerHTML = `
+    <section class="bento-grid" style="margin-bottom:24px;">
+      <article class="stat-card quiz col-span-4">
+        <div class="stat-label">Submitted quizzes</div>
+        <div class="stat-value">${submittedQuizzes.length}</div>
+        <div class="stat-sub">${quizAverage == null ? 'No quiz attempts yet' : `Average score ${quizAverage.toFixed(1)}%`}</div>
+      </article>
+      <article class="stat-card questions col-span-4">
+        <div class="stat-label">Assignment submissions</div>
+        <div class="stat-value">${assignmentRows.length}</div>
+        <div class="stat-sub">${gradedSubmissions.length} graded so far</div>
+      </article>
+      <article class="stat-card streak col-span-4">
+        <div class="stat-label">Assignment average</div>
+        <div class="stat-value">${assignmentAverage == null ? 'N/A' : `${assignmentAverage.toFixed(1)} pts`}</div>
+        <div class="stat-sub">From graded submissions only</div>
+      </article>
+    </section>
+
+    <div class="bento-grid">
+      <article class="card col-span-7">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-circle-question"></i>Quiz Results</div>
+          <div class="card-badge">${submittedQuizzes.length} recorded</div>
+        </div>
+        <div class="lms-table-wrap">
+          <table class="lms-table">
+            <thead><tr><th>Quiz</th><th>Class</th><th>Score</th><th>Status</th></tr></thead>
+            <tbody>
+              ${submittedQuizzes.map((quiz) => `
+                <tr>
+                  <td><strong>${escHtml(quiz.title || 'Quiz')}</strong></td>
+                  <td>${escHtml(classMap[quiz.class_id]?.name || quiz.class_id || '-')}</td>
+                  <td>${quiz.score == null ? 'N/A' : `${Number(quiz.score).toFixed(1)}%`}</td>
+                  <td><span class="badge ${Number(quiz.score || 0) >= 75 ? 'badge-success' : 'badge-info'}">Submitted</span></td>
+                </tr>`).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:40px">No LMS quiz attempts yet.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card col-span-5">
+        <div class="card-header">
+          <div class="card-title"><i class="fa-regular fa-file-lines"></i>Assignment Results</div>
+          <div class="card-badge">${assignmentRows.length} submissions</div>
+        </div>
+        <div style="display:grid; gap:12px;">
+          ${assignmentRows.map((submission) => {
+            const assignment = assignmentMap[submission.assignment_id] || {};
+            const classInfo = classMap[submission.class_id || assignment.class_id] || {};
+            return `
+              <div class="announcement-item">
+                <div class="ann-title">${escHtml(assignment.title || 'Assignment')}</div>
+                <div class="ann-body">${escHtml(classInfo.name || submission.class_id || 'Class not found')}</div>
+                <div class="ann-meta">
+                  <span>${submission.graded ? `Graded: ${Number(submission.points_earned || 0).toFixed(1)} pts` : 'Pending grading'}</span>
+                  <span>${submission.submitted_at ? formatRelativeTime(submission.submitted_at) : 'Recently submitted'}</span>
+                </div>
+              </div>`;
+          }).join('') || '<div class="lms-empty-copy" style="margin:0;">No LMS assignment submissions yet.</div>'}
+        </div>
+      </article>
+    </div>`;
+    }
+
     async function renderAttendance(area, classId = '') {
       const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
       const cr = await apiFetch('/lms/classes'); const cd = await cr?.json();
-      const cls = Array.isArray(cd) ? cd : [];
+      const cls = Array.isArray(unwrapPayload(cd)) ? unwrapPayload(cd) : [];
 
       if (isTeacher) {
         area.innerHTML = `
@@ -1208,10 +1722,11 @@
               <option value="">— Select class —</option>
               ${cls.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')}
             </select>
-            <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
+            <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}" onchange="if(document.getElementById('attClassPick').value){loadAttStudents(document.getElementById('attClassPick').value)}" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-family:var(--font);font-size:13px">
           </div>
         </div>
         <div id="attBody" class="text-muted" style="padding:40px;text-align:center">Select a class to mark attendance.</div>
+        <div id="attHistory" class="text-muted" style="padding:0 40px 24px">Recent attendance sessions will appear here.</div>
       </div>`;
         if (classId) {
           const picker = document.getElementById('attClassPick');
@@ -1259,6 +1774,7 @@
       const res = await apiFetch(`/lms/classes/${classId}/students`);
       const data = await res?.json();
       const students = Array.isArray(data) ? data : (data?.students || []);
+      await loadAttendanceHistory(classId);
 
       if (!students.length) { body.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">No students enrolled in this class.</p>'; return; }
 
@@ -1270,20 +1786,103 @@
       <td><select class="att-select" data-sid="${s.id || s.student_id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-size:13px">
         <option value="present" selected>✅ Present</option>
         <option value="absent">❌ Absent</option>
+        <option value="late">Late</option>
+        <option value="excused">Excused</option>
+        <option value="medical">Medical</option>
+        <option value="holiday">Holiday</option>
       </select></td>
     </tr>`).join('')}</tbody></table>
     <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-      <span class="text-muted" style="font-size:13px">${students.length} students</span>
+      <span class="text-muted" style="font-size:13px">${students.length} students Â· choose any date to create or correct attendance</span>
       <button class="btn btn-primary" onclick="submitAttendance('${classId}')">💾 Save Attendance</button>
     </div>`;
+    }
+
+    async function loadAttendanceHistory(classId) {
+      const history = document.getElementById('attHistory');
+      if (!history) return;
+      history.innerHTML = '<div class="skeleton skeleton-row"></div>';
+      const res = await apiFetch(`/lms/classes/${classId}/attendance/dates`);
+      const sessions = unwrapPayload(await res?.json().catch(() => [])) || [];
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        history.innerHTML = '<p class="text-muted" style="font-size:13px">No attendance sessions saved for this class yet.</p>';
+        return;
+      }
+      history.innerHTML = sessions.slice(0, 6).map(session => {
+        const breakdown = session.status_breakdown || {};
+        return `<div class="announcement-item" style="margin-top:10px">
+          <div class="ann-title">${escHtml(session.date || 'Unknown date')}</div>
+          <div class="ann-meta">Present: ${breakdown.present || 0} · Late: ${breakdown.late || 0} · Absent: ${breakdown.absent || 0} · Excused: ${breakdown.excused || 0}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function loadAttStudents(classId) {
+      const body = document.getElementById('attBody');
+      if (!classId) {
+        body.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">Select a class.</p>';
+        return;
+      }
+      body.innerHTML = '<div class="skeleton skeleton-row"></div>';
+
+      const res = await apiFetch(`/lms/classes/${classId}/students`);
+      const data = unwrapPayload(await res?.json());
+      const students = Array.isArray(data) ? data : (data?.students || []);
+      await loadAttendanceHistory(classId);
+
+      if (!students.length) {
+        body.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px">No students enrolled in this class.</p>';
+        return;
+      }
+
+      body.innerHTML = `
+    <table class="lms-table"><thead><tr><th>Student</th><th>Email</th><th style="width:120px">Status</th></tr></thead>
+    <tbody>${students.map(s => `<tr>
+      <td><strong>${escHtml(s.name || 'Unknown')}</strong></td>
+      <td class="text-muted" style="font-size:12px">${escHtml(s.email || '')}</td>
+      <td><select class="att-select" data-sid="${s.id || s.student_id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--lms-border);background:var(--lms-bg);color:var(--lms-text);font-size:13px">
+        <option value="present" selected>Present</option>
+        <option value="late">Late</option>
+        <option value="absent">Absent</option>
+        <option value="excused">Excused</option>
+        <option value="medical">Medical</option>
+        <option value="holiday">Holiday</option>
+      </select></td>
+    </tr>`).join('')}</tbody></table>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <span class="text-muted" style="font-size:13px">${students.length} students, choose any date to create or correct attendance</span>
+      <button class="btn btn-primary" onclick="submitAttendance('${classId}')">Save Attendance</button>
+    </div>`;
+    }
+
+    async function loadAttendanceHistory(classId) {
+      const history = document.getElementById('attHistory');
+      if (!history) return;
+      history.innerHTML = '<div class="skeleton skeleton-row"></div>';
+      const res = await apiFetch(`/lms/classes/${classId}/attendance/dates`);
+      const sessions = unwrapPayload(await res?.json().catch(() => [])) || [];
+      if (!Array.isArray(sessions) || sessions.length === 0) {
+        history.innerHTML = '<p class="text-muted" style="font-size:13px">No attendance sessions saved for this class yet.</p>';
+        return;
+      }
+      history.innerHTML = sessions.slice(0, 6).map(session => {
+        const breakdown = session.status_breakdown || {};
+        return `<div class="announcement-item" style="margin-top:10px">
+          <div class="ann-title">${escHtml(session.date || 'Unknown date')}</div>
+          <div class="ann-meta">Present: ${breakdown.present || 0}, Late: ${breakdown.late || 0}, Absent: ${breakdown.absent || 0}, Excused: ${breakdown.excused || 0}</div>
+        </div>`;
+      }).join('');
     }
 
     async function submitAttendance(classId) {
       const date = document.getElementById('attDate').value;
       const selects = document.querySelectorAll('.att-select');
       const records = Array.from(selects).map(s => ({ student_id: s.dataset.sid, status: s.value }));
-      const res = await apiFetch(`/lms/classes/${classId}/attendance`, { method: 'POST', body: JSON.stringify({ date, records }) });
-      if (res?.ok) { toast('Attendance saved!'); } else { toast('Failed to save', 'error'); }
+      const res = await apiFetch(`/lms/classes/${classId}/attendance/${date}`, { method: 'PUT', body: JSON.stringify({ date, records }) });
+      if (res?.ok) {
+        toast('Attendance saved!');
+        await loadAttendanceHistory(classId);
+      } else { toast('Failed to save', 'error'); }
     }
 
     // ═══════════════════════════════════════════════════

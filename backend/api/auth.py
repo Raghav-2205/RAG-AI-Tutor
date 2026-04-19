@@ -37,6 +37,34 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
     # 4. Insert into DB
     try:
         result = await db.users.insert_one(user_dict)
+
+        invited_email = user_in.email.lower()
+        pending_invites = await db.class_invitations.find(
+            {
+                "student_email": invited_email,
+                "status": "pending",
+                "expires_at": {"$gte": _utcnow()},
+            }
+        ).to_list(length=100)
+        for invite in pending_invites:
+            class_id = invite.get("class_id")
+            if not class_id:
+                continue
+
+            cls = await db.classes.find_one({"id": class_id})
+            if cls and str(result.inserted_id) not in (cls.get("students") or []):
+                await db.classes.update_one({"id": class_id}, {"$push": {"students": str(result.inserted_id)}})
+
+            await db.class_invitations.update_one(
+                {"id": invite.get("id")},
+                {
+                    "$set": {
+                        "status": "accepted",
+                        "accepted_at": _utcnow(),
+                        "accepted_user_id": str(result.inserted_id),
+                    }
+                },
+            )
         
         # 5. Return success
         return UserPublic(

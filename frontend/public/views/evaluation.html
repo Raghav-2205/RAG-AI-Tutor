@@ -12,6 +12,159 @@
   <link rel="stylesheet" href="/assets/css/theme.css" />
   <link rel="stylesheet" href="/assets/css/app-shell.css" />
   <script src="/assets/js/theme-controls.js"></script>
+  <style>
+    .evaluation-ops-grid {
+      display: grid;
+      gap: 24px;
+      margin: 28px 0 20px;
+    }
+
+    .evaluation-source-grid,
+    .evaluation-query-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .evaluation-source-card,
+    .evaluation-list-item {
+      background: linear-gradient(180deg, color-mix(in oklab, var(--card) 90%, var(--accent) 10%), var(--card));
+      border: 1px solid var(--accent-border-subtle);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+
+    .evaluation-source-card strong,
+    .evaluation-list-title {
+      display: block;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .evaluation-source-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .evaluation-source-meta,
+    .evaluation-list-meta,
+    .evaluation-filter-summary {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+
+    .evaluation-query-grid .evaluation-report-title {
+      margin-bottom: 10px;
+    }
+
+    .evaluation-stack-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .evaluation-list-item.empty {
+      border-style: dashed;
+      background: var(--card2);
+    }
+
+    .evaluation-toolbar {
+      position: sticky;
+      top: 18px;
+      z-index: 2;
+      background: color-mix(in oklab, var(--card) 92%, var(--accent) 8%);
+      border: 1px solid var(--accent-border-subtle);
+      border-radius: 18px;
+      padding: 12px;
+      margin-bottom: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .evaluation-toolbar-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .evaluation-toolbar-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .evaluation-question-shell {
+      display: grid;
+      gap: 5px;
+    }
+
+    .evaluation-question-title {
+      display: block;
+      color: var(--text-primary);
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .evaluation-question-subline {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .evaluation-table-footer {
+      margin-top: 14px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .evaluation-pagination {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .evaluation-pagination-note {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .evaluation-metric-trend.calm {
+      color: var(--accent);
+    }
+
+    .evaluation-inline-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--accent-border-subtle);
+      background: var(--accent-soft);
+      color: var(--text-secondary);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 920px) {
+      .evaluation-toolbar {
+        position: static;
+      }
+    }
+  </style>
 </head>
 <body class="page-layout">
   <aside class="sidebar">
@@ -71,6 +224,9 @@
             <span class="evaluation-chip"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Retrieval confidence</span>
           </div>
         </div>
+        <div class="evaluation-hero-badges" id="metricsBasisNote">
+          <span class="evaluation-chip">Primary score basis: waiting for data</span>
+        </div>
       </section>
 
       <section class="evaluation-metric-grid" aria-label="Evaluation summary metrics">
@@ -124,6 +280,61 @@
         </article>
       </section>
 
+      <section class="evaluation-ops-grid" aria-label="Evaluation operations overview">
+        <section class="card evaluation-panel">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-database" aria-hidden="true"></i> Data Sources</h3>
+            <span class="card-badge evaluation-badge tone-muted" id="dataSourcesBadge">Loading</span>
+          </div>
+          <div class="evaluation-source-grid" id="dataSourcesGrid">
+            <div class="evaluation-source-card"><strong>Loading sources</strong><div class="evaluation-source-meta">Preparing benchmark and live-window summaries.</div></div>
+          </div>
+          <div class="evaluation-filter-summary" id="activeFilterSummary">Preparing active filters and pagination summary.</div>
+        </section>
+
+        <section class="card evaluation-panel">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> Query Signals</h3>
+            <span class="card-badge evaluation-badge tone-muted" id="querySignalsBadge">Loading</span>
+          </div>
+          <div class="evaluation-query-grid">
+            <div>
+              <div class="evaluation-report-title">Recent live questions</div>
+              <div class="evaluation-stack-list" id="recentLiveQuestions">
+                <div class="evaluation-list-item empty">Loading live query history…</div>
+              </div>
+            </div>
+            <div>
+              <div class="evaluation-report-title">Recent benchmark questions</div>
+              <div class="evaluation-stack-list" id="recentBenchmarkQuestions">
+                <div class="evaluation-list-item empty">Loading benchmark query history…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card evaluation-panel">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Needs Attention</h3>
+            <span class="card-badge evaluation-badge tone-muted" id="attentionBadge">Loading</span>
+          </div>
+          <div class="evaluation-query-grid">
+            <div>
+              <div class="evaluation-report-title">Repeated low-score queries</div>
+              <div class="evaluation-stack-list" id="queryPatternsList">
+                <div class="evaluation-list-item empty">Looking for repeated weak spots…</div>
+              </div>
+            </div>
+            <div>
+              <div class="evaluation-report-title">Priority rows</div>
+              <div class="evaluation-stack-list" id="needsAttentionList">
+                <div class="evaluation-list-item empty">Scanning the latest validation rows…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <div class="bento-grid evaluation-grid">
         <section class="card col-span-12 evaluation-panel">
           <div class="card-header">
@@ -141,21 +352,47 @@
             <button class="btn btn-danger" type="button" onclick="clearData()"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Clear Data</button>
           </div>
           <div class="evaluation-toolbar">
-            <div class="evaluation-filter-pills" id="filterBar">
-              <button class="evaluation-filter-pill active" data-filter="ALL" onclick="setLogFilter('ALL')">All</button>
-              <button class="evaluation-filter-pill" data-filter="VERIFIED_ONLY" onclick="setLogFilter('VERIFIED_ONLY')">Verified</button>
-              <button class="evaluation-filter-pill" data-filter="HALLUCINATIONS" onclick="setLogFilter('HALLUCINATIONS')">Hallucinations</button>
-              <button class="evaluation-filter-pill" data-filter="LOW_RAG" onclick="setLogFilter('LOW_RAG')">Low RAG</button>
+            <div class="evaluation-toolbar-row">
+              <div class="evaluation-filter-pills" id="filterBar">
+                <button class="evaluation-filter-pill active" data-filter="ALL" onclick="setLogFilter('ALL')">All</button>
+                <button class="evaluation-filter-pill" data-filter="VERIFIED_ONLY" onclick="setLogFilter('VERIFIED_ONLY')">Verified</button>
+                <button class="evaluation-filter-pill" data-filter="REJECTED_ONLY" onclick="setLogFilter('REJECTED_ONLY')">Rejected</button>
+                <button class="evaluation-filter-pill" data-filter="NEEDS_ATTENTION" onclick="setLogFilter('NEEDS_ATTENTION')">Needs Attention</button>
+              </div>
+              <div class="evaluation-toolbar-controls">
+                <label class="evaluation-sort-wrap" for="sourceFilterSelect">Source
+                  <select class="theme-input" id="sourceFilterSelect" onchange="setLogSourceFilter(this.value)">
+                    <option value="ALL">All sources</option>
+                    <option value="BENCHMARK">Benchmark</option>
+                    <option value="LIVE">Live</option>
+                    <option value="SYNCED_HISTORY">Synced History</option>
+                  </select>
+                </label>
+                <label class="evaluation-sort-wrap" for="periodFilterSelect">Window
+                  <select class="theme-input" id="periodFilterSelect" onchange="setLogPeriod(this.value)">
+                    <option value="all">All time</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="24h">Last 24 hours</option>
+                  </select>
+                </label>
+                <label class="evaluation-sort-wrap" for="pageSizeSelect">Rows
+                  <select class="theme-input" id="pageSizeSelect" onchange="setPageSize(this.value)">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                  </select>
+                </label>
+                <label class="evaluation-sort-wrap" for="logSortSelect">Sort
+                  <select class="theme-input" id="logSortSelect" onchange="setLogSort(this.value)">
+                    <option value="NEWEST">Newest first</option>
+                    <option value="OLDEST">Oldest first</option>
+                    <option value="RAG_ASC">RAG score low to high</option>
+                    <option value="RAG_DESC">RAG score high to low</option>
+                    <option value="HALLUC_DESC">Hallucination high to low</option>
+                  </select>
+                </label>
+              </div>
             </div>
-            <label class="evaluation-sort-wrap" for="logSortSelect">Sort
-              <select class="theme-input" id="logSortSelect" onchange="setLogSort(this.value)">
-                <option value="NEWEST">Newest first</option>
-                <option value="OLDEST">Oldest first</option>
-                <option value="RAG_ASC">RAG score low to high</option>
-                <option value="RAG_DESC">RAG score high to low</option>
-                <option value="HALLUC_DESC">Hallucination high to low</option>
-              </select>
-            </label>
           </div>
           <div class="evaluation-table-shell">
             <table class="evaluation-log-table">
@@ -178,6 +415,13 @@
               </tbody>
             </table>
           </div>
+          <div class="evaluation-table-footer">
+            <div class="evaluation-pagination-note" id="logPaginationSummary">Preparing query window…</div>
+            <div class="evaluation-pagination">
+              <button class="btn btn-secondary" type="button" id="prevPageBtn" onclick="changeLogPage(-1)">Previous</button>
+              <button class="btn btn-secondary" type="button" id="nextPageBtn" onclick="changeLogPage(1)">Next</button>
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -190,8 +434,14 @@
     if (!token) window.location.href = '/views/login.html';
 
     let allLogs = [];
+    let latestMetricsPayload = null;
+    let latestLogMeta = null;
     let logFilter = 'ALL';
+    let logSourceFilter = 'ALL';
     let logSort = 'NEWEST';
+    let logPeriod = 'all';
+    let pageSize = 50;
+    let logSkip = 0;
 
     const $ = (id) => document.getElementById(id);
     const safeNum = (value, fallback = 0) => {
@@ -240,18 +490,26 @@
       return '<span class="evaluation-source user">Live</span>';
     }
 
+    function sourceLabel(source) {
+      if (source === 'benchmark') return 'Benchmark';
+      if (source === 'synced_history') return 'Synced History';
+      return 'Live';
+    }
+
     function normalizeSeverity(value) {
       return String(value || '').trim().toUpperCase();
     }
 
     function normalizeStatus(value) {
-      return String(value || 'UNKNOWN').trim().toUpperCase();
+      const normalized = String(value || 'UNKNOWN').trim().toUpperCase();
+      if (normalized === 'VERIFIED') return 'VERIFIED';
+      if (normalized === 'REJECTED') return 'REJECTED';
+      return normalized;
     }
 
     function getStatusTone(status) {
       const normalized = normalizeStatus(status);
       if (normalized === 'VERIFIED') return 'good';
-      if (normalized === 'WARNING' || normalized === 'INSUFFICIENT_CONTEXT') return 'warn';
       if (normalized === 'NO_DATA' || normalized === 'UNKNOWN') return 'muted';
       return 'bad';
     }
@@ -259,7 +517,6 @@
     function isGenerationErrorLog(log) {
       const sourceMode = String(log?.answer_source_mode || '').trim().toLowerCase();
       if (sourceMode === 'error') return true;
-      if (normalizeStatus(log?.validation_status) !== 'ERROR') return false;
       const answer = String(log?.answer || '').trim().toLowerCase();
       const reason = String(log?.reason || '').trim().toLowerCase();
       return answer.startsWith('llm async request failed')
@@ -338,10 +595,14 @@
       return { delta: windows.recent.length - windows.previous.length, label: windows.label === 'vs previous 7d' ? 'this week' : windows.label };
     }
 
-    function renderTrend(elementId, trend, inverse = false, isCount = false) {
+    function renderTrend(elementId, trend, options = {}) {
       const el = $(elementId);
       if (!el) return;
       el.className = 'evaluation-metric-trend';
+      const inverse = Boolean(options.inverse);
+      const isCount = Boolean(options.isCount);
+      const currentValue = Number(options.currentValue);
+      const target = Number(options.target);
       if (!trend || !Number.isFinite(Number(trend.delta))) {
         el.classList.add('flat');
         el.textContent = 'Not enough history';
@@ -355,76 +616,270 @@
         return;
       }
       const improved = inverse ? delta < 0 : delta > 0;
-      el.classList.add(improved ? 'up' : 'down');
+      const hasTarget = Number.isFinite(target) && Number.isFinite(currentValue);
+      const healthyNow = hasTarget ? (inverse ? currentValue <= target : currentValue >= target) : false;
+      const calmTrend = healthyNow && !improved && !isCount;
+      el.classList.add(calmTrend ? 'calm' : improved ? 'up' : 'down');
       if (isCount) {
         const rounded = Math.round(delta);
         el.textContent = `${rounded > 0 ? '+' : ''}${rounded} ${trend.label}`;
       } else {
-        el.textContent = `${delta > 0 ? '+' : '-'}${Math.abs(delta * 100).toFixed(1)} pts ${trend.label}`;
+        const deltaText = `${delta > 0 ? '+' : '-'}${Math.abs(delta * 100).toFixed(1)} pts`;
+        el.textContent = calmTrend ? `${deltaText} slightly below previous window` : `${deltaText} ${trend.label}`;
       }
     }
 
     function updateMetricTrends(logs) {
-      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log) && !['ERROR', 'INSUFFICIENT_CONTEXT'].includes(normalizeStatus(log.validation_status)));
+      const qualityLogs = logs.filter((log) => !isGenerationErrorLog(log));
       const benchmarkLogs = logs.filter((log) => getEvaluationSource(log) === 'benchmark');
-      renderTrend('trendFaithfulness', computeMetricTrend(qualityLogs, (log) => log.faithfulness_score));
-      renderTrend('trendHallucination', computeMetricTrend(qualityLogs, (log) => log.hallucination_rate), true);
-      renderTrend('trendBert', computeMetricTrend(qualityLogs, (log) => log.bert_score));
-      if (benchmarkLogs.length) renderTrend('trendRecall', computeMetricTrend(benchmarkLogs, (log) => log.recall_at_5));
+      renderTrend('trendFaithfulness', computeMetricTrend(qualityLogs, (log) => log.faithfulness_score), {
+        currentValue: safeNum($('avgFaithfulness').textContent, NaN),
+        target: 0.9,
+      });
+      renderTrend('trendHallucination', computeMetricTrend(qualityLogs, (log) => log.hallucination_rate), {
+        inverse: true,
+        currentValue: safeNum($('avgHallucination').textContent, NaN),
+        target: 0.15,
+      });
+      renderTrend('trendBert', computeMetricTrend(qualityLogs, (log) => log.bert_score), {
+        currentValue: safeNum($('avgBertScore').textContent, NaN),
+        target: 0.85,
+      });
+      if (benchmarkLogs.length) renderTrend('trendRecall', computeMetricTrend(benchmarkLogs, (log) => log.recall_at_5), {
+        currentValue: safeNum($('avgRecall').textContent, NaN),
+        target: 0.7,
+      });
       else {
         $('trendRecall').className = 'evaluation-metric-trend flat';
         $('trendRecall').textContent = 'Benchmark not run';
       }
-      renderTrend('trendCitation', computeMetricTrend(qualityLogs, (log) => log.citation_alignment_score));
-      renderTrend('trendRelevance', computeMetricTrend(qualityLogs, (log) => log.answer_relevance));
-      renderTrend('trendRag', computeMetricTrend(qualityLogs, (log) => log.final_rag_score));
-      renderTrend('trendTotal', computeCountTrend(logs), false, true);
-    }
-
-    function isHallucinationLog(log) {
-      const hallucination = safeNum(log.hallucination_rate);
-      const unsupported = Array.isArray(log.unsupported_sentences) ? log.unsupported_sentences.length : 0;
-      return hallucination >= 0.2 || unsupported > 0 || log.validation_status === 'REJECTED';
-    }
-
-    function logMatchesFilter(log) {
-      if (logFilter === 'VERIFIED_ONLY') return log.validation_status === 'VERIFIED';
-      if (logFilter === 'HALLUCINATIONS') return isHallucinationLog(log);
-      if (logFilter === 'LOW_RAG') return safeNum(log.final_rag_score) < 0.7;
-      return true;
-    }
-
-    function sortLogs(logs) {
-      const sorted = [...logs];
-      if (logSort === 'OLDEST') sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      else if (logSort === 'RAG_ASC') sorted.sort((a, b) => safeNum(a.final_rag_score) - safeNum(b.final_rag_score));
-      else if (logSort === 'RAG_DESC') sorted.sort((a, b) => safeNum(b.final_rag_score) - safeNum(a.final_rag_score));
-      else if (logSort === 'HALLUC_DESC') sorted.sort((a, b) => safeNum(b.hallucination_rate) - safeNum(a.hallucination_rate));
-      else sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      return sorted;
+      renderTrend('trendCitation', computeMetricTrend(qualityLogs, (log) => log.citation_alignment_score), {
+        currentValue: safeNum($('avgCitation').textContent, NaN),
+        target: 0.8,
+      });
+      renderTrend('trendRelevance', computeMetricTrend(qualityLogs, (log) => log.answer_relevance), {
+        currentValue: safeNum($('avgRelevance').textContent, NaN),
+        target: 0.8,
+      });
+      renderTrend('trendRag', computeMetricTrend(qualityLogs, (log) => log.final_rag_score), {
+        currentValue: safeNum($('avgRagScore').textContent, NaN),
+        target: 0.9,
+      });
+      renderTrend('trendTotal', computeCountTrend(logs), { isCount: true });
     }
 
     function setLogFilter(filterName) {
       logFilter = filterName;
       document.querySelectorAll('#filterBar .evaluation-filter-pill').forEach((btn) => btn.classList.toggle('active', btn.dataset.filter === filterName));
-      renderLogs();
+      logSkip = 0;
+      fetchLogs();
     }
 
     function setLogSort(sortName) {
       logSort = sortName;
-      renderLogs();
+      logSkip = 0;
+      fetchLogs();
+    }
+
+    function setLogSourceFilter(sourceName) {
+      logSourceFilter = sourceName;
+      logSkip = 0;
+      fetchLogs();
+    }
+
+    function setLogPeriod(periodValue) {
+      logPeriod = periodValue;
+      logSkip = 0;
+      fetchLogs();
+    }
+
+    function setPageSize(sizeValue) {
+      pageSize = safeNum(sizeValue, 50);
+      logSkip = 0;
+      fetchLogs();
+    }
+
+    function changeLogPage(direction) {
+      const total = safeNum(latestLogMeta?.pagination?.total_count);
+      const nextSkip = logSkip + (direction * pageSize);
+      if (nextSkip < 0) return;
+      if (direction > 0 && nextSkip >= total) return;
+      logSkip = nextSkip;
+      fetchLogs();
     }
 
     function renderStatusBreakdown(data) {
       const parts = [
         `<span class="evaluation-status-pill tone-good">Verified ${safeNum(data.verified_count)}</span>`,
-        `<span class="evaluation-status-pill tone-warn">Warning ${safeNum(data.warning_count)}</span>`,
         `<span class="evaluation-status-pill tone-bad">Rejected ${safeNum(data.rejected_count)}</span>`
       ];
-      if (safeNum(data.error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Error ${safeNum(data.error_count)}</span>`);
-      if (safeNum(data.insufficient_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Insufficient ${safeNum(data.insufficient_count)}</span>`);
-      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-warn">Generation ${safeNum(data.generation_error_count)}</span>`);
+      if (safeNum(data.generation_error_count) > 0) parts.push(`<span class="evaluation-status-pill tone-bad">Generation ${safeNum(data.generation_error_count)}</span>`);
       $('statusBreakdown').innerHTML = parts.join('');
+    }
+
+    function formatMetricsBasisLabel(basis) {
+      if (basis === 'benchmark') return 'Latest strict benchmark';
+      if (basis === 'live_window') return 'Recent live window';
+      return 'Historical evaluation mix';
+    }
+
+    function renderMetricsBasis(data) {
+      const container = $('metricsBasisNote');
+      if (!container) return;
+      const basis = String(data.primary_metrics_basis || 'historical').trim().toLowerCase();
+      const targets = data.quality_targets || {};
+      const secondaryBasis = String(data.secondary_metrics_basis || '').trim().toLowerCase();
+      const secondaryMetrics = data.secondary_metrics || {};
+      const chips = [
+        `<span class="evaluation-chip">Primary: ${escapeHtml(formatMetricsBasisLabel(basis))}</span>`
+      ];
+      if (basis === 'benchmark') {
+        chips.push(`<span class="evaluation-chip">${targets.benchmark_target_met ? 'Benchmark 90+ target met' : 'Benchmark below 90 target'}</span>`);
+      }
+      if (targets.live_window_target_active) {
+        const liveRag = hasFinite(secondaryMetrics.avg_final_rag_score)
+          ? Number(secondaryMetrics.avg_final_rag_score).toFixed(2)
+          : hasFinite((data.live_window_metrics || {}).avg_final_rag_score)
+            ? Number((data.live_window_metrics || {}).avg_final_rag_score).toFixed(2)
+            : '--';
+        chips.push(`<span class="evaluation-chip">Live window RAG ${escapeHtml(liveRag)}</span>`);
+        chips.push(`<span class="evaluation-chip">${targets.live_window_target_met ? 'Live window 90+ target met' : 'Live window below 90 target'}</span>`);
+      } else if (secondaryBasis === 'live_window' || (data.live_window_metrics || {}).answer_quality_count) {
+        chips.push('<span class="evaluation-chip">Live window data present</span>');
+      } else {
+        chips.push('<span class="evaluation-chip">No live-window data yet</span>');
+      }
+      container.innerHTML = chips.join('');
+    }
+
+    function renderList(containerId, items, emptyText, renderItem) {
+      const container = $(containerId);
+      if (!container) return;
+      if (!Array.isArray(items) || !items.length) {
+        container.innerHTML = `<div class="evaluation-list-item empty">${escapeHtml(emptyText)}</div>`;
+        return;
+      }
+      container.innerHTML = items.map(renderItem).join('');
+    }
+
+    function renderQuestionList(containerId, items, emptyText) {
+      renderList(containerId, items, emptyText, (item) => `
+        <div class="evaluation-list-item">
+          <span class="evaluation-list-title">${escapeHtml(item.question || 'Untitled question')}</span>
+          <div class="evaluation-list-meta">
+            <span class="evaluation-inline-chip">${escapeHtml(sourceLabel(item.source))}</span>
+            <span>${escapeHtml(normalizeStatus(item.validation_status))}</span>
+            <span>${hasFinite(item.final_rag_score) ? `RAG ${Number(item.final_rag_score).toFixed(2)}` : 'RAG --'}</span>
+          </div>
+        </div>
+      `);
+    }
+
+    function renderQueryPatterns(patterns) {
+      renderList('queryPatternsList', patterns, 'No repeated weak query patterns yet.', (item) => `
+        <div class="evaluation-list-item">
+          <span class="evaluation-list-title">${escapeHtml(item.question || 'Untitled query')}</span>
+          <div class="evaluation-list-meta">
+            <span class="evaluation-inline-chip">${safeNum(item.count)} repeats</span>
+            <span>${escapeHtml(sourceLabel(item.top_source))}</span>
+            <span>${hasFinite(item.avg_final_rag_score) ? `Avg RAG ${Number(item.avg_final_rag_score).toFixed(2)}` : 'Avg RAG --'}</span>
+          </div>
+        </div>
+      `);
+    }
+
+    function renderAttentionItems(items) {
+      renderList('needsAttentionList', items, 'No critical attention rows in the current filter window.', (item) => `
+        <div class="evaluation-list-item">
+          <span class="evaluation-list-title">${escapeHtml(item.question || 'Untitled query')}</span>
+          <div class="evaluation-list-meta">
+            <span class="evaluation-inline-chip">${escapeHtml(sourceLabel(item.source))}</span>
+            <span>${escapeHtml(normalizeStatus(item.validation_status))}</span>
+            <span>${hasFinite(item.final_rag_score) ? `RAG ${Number(item.final_rag_score).toFixed(2)}` : 'RAG --'}</span>
+          </div>
+        </div>
+      `);
+    }
+
+    function renderDataSourceCards() {
+      const metrics = latestMetricsPayload || {};
+      const logMeta = latestLogMeta || {};
+      const benchmark = metrics.latest_benchmark || {};
+      const liveWindow = metrics.live_window_metrics || {};
+      const synced = (metrics.source_breakdown || {}).synced_history || {};
+      const pagination = logMeta.pagination || {};
+      const badgeText = metrics.primary_metrics_basis === 'benchmark'
+        ? 'Benchmark primary'
+        : metrics.primary_metrics_basis === 'live_window'
+          ? 'Live window primary'
+          : 'Historical primary';
+
+      $('dataSourcesBadge').textContent = badgeText;
+      $('dataSourcesGrid').innerHTML = `
+        <div class="evaluation-source-card">
+          <strong>Latest benchmark</strong>
+          <div class="evaluation-source-value">${hasFinite(benchmark.avg_final_rag_score) ? Number(benchmark.avg_final_rag_score).toFixed(2) : '--'}</div>
+          <div class="evaluation-source-meta">${safeNum(metrics.benchmark_count)} rows, ${benchmark.generation_valid ? 'generation valid' : 'waiting for a fresh run'}</div>
+        </div>
+        <div class="evaluation-source-card">
+          <strong>Live window</strong>
+          <div class="evaluation-source-value">${hasFinite(liveWindow.avg_final_rag_score) ? Number(liveWindow.avg_final_rag_score).toFixed(2) : '--'}</div>
+          <div class="evaluation-source-meta">${safeNum(liveWindow.answer_quality_count)} recent quality rows</div>
+        </div>
+        <div class="evaluation-source-card">
+          <strong>Synced history</strong>
+          <div class="evaluation-source-value">${safeNum(metrics.synced_history_count)}</div>
+          <div class="evaluation-source-meta">${hasFinite(synced.avg_final_rag_score) ? `Avg RAG ${Number(synced.avg_final_rag_score).toFixed(2)}` : 'Waiting for synced evaluation history'}</div>
+        </div>
+        <div class="evaluation-source-card">
+          <strong>Loaded query set</strong>
+          <div class="evaluation-source-value">${safeNum(pagination.returned_count)}</div>
+          <div class="evaluation-source-meta">${safeNum(pagination.total_count)} rows match the current filter window</div>
+        </div>
+      `;
+    }
+
+    function renderActiveFilterSummary() {
+      const filters = latestLogMeta?.active_filters || {};
+      const pagination = latestLogMeta?.pagination || {};
+      $('activeFilterSummary').innerHTML = `
+        <span class="evaluation-inline-chip">Source ${escapeHtml(String(filters.source || 'ALL').replace(/_/g, ' '))}</span>
+        <span class="evaluation-inline-chip">Status ${escapeHtml(String(filters.status || 'ALL').replace(/_/g, ' '))}</span>
+        <span class="evaluation-inline-chip">Window ${escapeHtml(String(filters.period || 'all'))}</span>
+        <span class="evaluation-inline-chip">Sort ${escapeHtml(String(filters.sort || 'NEWEST').replace(/_/g, ' '))}</span>
+        ${filters.attention_only ? '<span class="evaluation-inline-chip">Attention only</span>' : ''}
+        <span class="evaluation-inline-chip">${safeNum(pagination.total_count)} matching rows</span>
+      `;
+    }
+
+    function renderSignalsPanels() {
+      const meta = latestLogMeta || {};
+      const recent = meta.recent_questions || {};
+      renderQuestionList('recentLiveQuestions', recent.live || [], 'No live questions yet in this filter window.');
+      renderQuestionList('recentBenchmarkQuestions', recent.benchmark || [], 'No benchmark questions yet in this filter window.');
+      renderQueryPatterns(meta.query_patterns || []);
+      renderAttentionItems(meta.needs_attention || []);
+      $('querySignalsBadge').textContent = `${safeNum((recent.live || []).length)} live / ${safeNum((recent.benchmark || []).length)} benchmark`;
+      $('attentionBadge').textContent = `${safeNum((meta.needs_attention || []).length)} rows`;
+    }
+
+    function renderPaginationSummary() {
+      const pagination = latestLogMeta?.pagination || {};
+      const total = safeNum(pagination.total_count);
+      const returned = safeNum(pagination.returned_count);
+      const upperBound = Math.min(total, logSkip + returned);
+      $('logPaginationSummary').textContent = total
+        ? `Showing ${logSkip + 1}-${upperBound} of ${total} rows (page ${safeNum(pagination.page, 1)})`
+        : 'No rows in the current filter window.';
+      $('prevPageBtn').disabled = logSkip <= 0;
+      $('nextPageBtn').disabled = !pagination.has_more;
+    }
+
+    function renderOperationsPanels() {
+      renderDataSourceCards();
+      renderActiveFilterSummary();
+      renderSignalsPanels();
+      renderPaginationSummary();
     }
 
     function navigateToDoc(log) {
@@ -440,19 +895,14 @@
         tbody.innerHTML = '<tr><td colspan="10" class="evaluation-empty-cell">No validation logs yet. Send a chat message or run a benchmark.</td></tr>';
         return;
       }
-      const logs = sortLogs(allLogs.filter(logMatchesFilter));
-      if (!logs.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="evaluation-empty-cell">No rows match this filter.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = logs.map((log) => {
+      tbody.innerHTML = allLogs.map((log) => {
         const time = log.timestamp && !Number.isNaN(new Date(log.timestamp).getTime())
           ? new Date(log.timestamp).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
           : '--';
         const source = sourceBadge(getEvaluationSource(log));
         const question = escapeHtml(log.question || 'Untitled question');
         const generationError = isGenerationErrorLog(log);
+        const sourceMode = escapeHtml(String(log.answer_source_mode || 'grounded').replace(/_/g, ' '));
         const scoreCell = (value, threshold, inverse = false) => {
           if (generationError) return '<span class="evaluation-score muted">--</span>';
           const n = safeNum(value);
@@ -463,7 +913,13 @@
           <tr class="evaluation-log-row" tabindex="0" role="link" data-id="${escapeAttr(log._id)}">
             <td class="evaluation-log-time">${time}</td>
             <td>${source}</td>
-            <td class="evaluation-question-cell" title="${escapeAttr(log.question || '')}">${question}<span class="evaluation-row-link">Open report</span></td>
+            <td class="evaluation-question-cell" title="${escapeAttr(log.question || '')}">
+              <div class="evaluation-question-shell">
+                <span class="evaluation-question-title">${question}</span>
+                <span class="evaluation-question-subline">${sourceMode} | ${escapeHtml(normalizeStatus(log.validation_status))}</span>
+              </div>
+              <span class="evaluation-row-link">Open report</span>
+            </td>
             <td>${scoreCell(log.faithfulness_score, 0.9)}</td>
             <td>${scoreCell(log.hallucination_rate, 0.15, true)}</td>
             <td>${scoreCell(log.bert_score, 0.85)}</td>
@@ -495,13 +951,15 @@
         const res = await authFetch(`${API_BASE}/metrics`);
         if (!res || !res.ok) return;
         const data = await res.json();
-        const faith = hasFinite(data.avg_faithfulness) ? Number(data.avg_faithfulness) : null;
-        const halluc = hasFinite(data.avg_hallucination) ? Number(data.avg_hallucination) : null;
-        const bert = hasFinite(data.avg_bert_score) ? Number(data.avg_bert_score) : null;
+        latestMetricsPayload = data;
+        const primary = data.primary_metrics || {};
+        const faith = hasFinite(primary.avg_faithfulness) ? Number(primary.avg_faithfulness) : null;
+        const halluc = hasFinite(primary.avg_hallucination) ? Number(primary.avg_hallucination) : null;
+        const bert = hasFinite(primary.avg_bert_score) ? Number(primary.avg_bert_score) : null;
         const recall = hasFinite(data.avg_recall_at_5) ? Number(data.avg_recall_at_5) : null;
-        const cite = hasFinite(data.avg_citation_alignment) ? Number(data.avg_citation_alignment) : null;
-        const relev = hasFinite(data.avg_answer_relevance) ? Number(data.avg_answer_relevance) : null;
-        const rag = hasFinite(data.avg_final_rag_score) ? Number(data.avg_final_rag_score) : null;
+        const cite = hasFinite(primary.avg_citation_alignment) ? Number(primary.avg_citation_alignment) : null;
+        const relev = hasFinite(primary.avg_answer_relevance) ? Number(primary.avg_answer_relevance) : null;
+        const rag = hasFinite(primary.avg_final_rag_score) ? Number(primary.avg_final_rag_score) : null;
 
         $('avgFaithfulness').textContent = faith == null ? '--' : faith.toFixed(2);
         $('avgHallucination').textContent = halluc == null ? '--' : halluc.toFixed(2);
@@ -513,6 +971,7 @@
         $('totalValidations').textContent = String(data.total_validations || 0);
 
         renderStatusBreakdown(data);
+        renderMetricsBasis(data);
         if (faith == null) resetCardTone('card-faithfulness'); else setCardTone('card-faithfulness', faith, 0.9);
         if (halluc == null) resetCardTone('card-hallucination'); else setCardTone('card-hallucination', halluc, 0.15, true);
         if (bert == null) resetCardTone('card-bertscore'); else setCardTone('card-bertscore', bert, 0.85);
@@ -525,6 +984,7 @@
         if (cite == null) resetCardTone('card-citation'); else setCardTone('card-citation', cite, 0.8);
         if (relev == null) resetCardTone('card-relevance'); else setCardTone('card-relevance', relev, 0.8);
         if (rag == null) resetCardTone('card-ragscore'); else setCardTone('card-ragscore', rag, 0.7);
+        renderOperationsPanels();
       } catch (error) {
         console.error('Metrics error:', error);
       }
@@ -532,11 +992,20 @@
 
     async function fetchLogs() {
       try {
-        const res = await authFetch(`${API_BASE}/logs?limit=200`);
+        const status = logFilter === 'VERIFIED_ONLY'
+          ? 'VERIFIED'
+          : logFilter === 'REJECTED_ONLY'
+            ? 'REJECTED'
+            : 'ALL';
+        const attentionOnly = logFilter === 'NEEDS_ATTENTION' ? 'true' : 'false';
+        const res = await authFetch(`${API_BASE}/logs?include_summary=true&limit=${pageSize}&skip=${logSkip}&period=${encodeURIComponent(logPeriod)}&source=${encodeURIComponent(logSourceFilter)}&status=${encodeURIComponent(status)}&sort=${encodeURIComponent(logSort)}&attention_only=${attentionOnly}`);
         if (!res || !res.ok) return;
-        allLogs = await res.json();
-        updateMetricTrends(allLogs);
+        const payload = await res.json();
+        latestLogMeta = payload;
+        allLogs = Array.isArray(payload.rows) ? payload.rows : [];
+        updateMetricTrends(Array.isArray(payload.trend_rows) ? payload.trend_rows : allLogs);
         renderLogs();
+        renderOperationsPanels();
       } catch (error) {
         console.error('Logs error:', error);
       }
@@ -642,7 +1111,7 @@
     }
 
     async function clearData() {
-      if (!window.confirm('This will delete all evaluation data. Continue?')) return;
+      if (!window.confirm('This will delete evaluation validations and benchmark runs only. Continue?')) return;
       try {
         const res = await authFetch(`${ACTION_BASE}/clear`, { method: 'DELETE' });
         if (!res || !res.ok) throw new Error('Failed to clear evaluation data');
@@ -661,7 +1130,10 @@
     }
 
     updateUserShell();
-    setLogFilter('ALL');
+    $('sourceFilterSelect').value = logSourceFilter;
+    $('logSortSelect').value = logSort;
+    $('periodFilterSelect').value = logPeriod;
+    $('pageSizeSelect').value = String(pageSize);
     refreshAll();
     setInterval(refreshAll, 20000);
   </script>

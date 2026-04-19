@@ -7,14 +7,20 @@ __pycache__/
 
 # Python Virtual Environments
 venv/
+venv312/
 env/
 ENV/
+.virtualenv-appdata/
 
 # Data and local storage (let Docker volumes handle these except for initializing if necessary)
 chroma_data/
 uploads/
 logs/
 database/
+tmp/
+.tmp-py/
+pytest-cache-files-*/
+__pycache__/
 *.db
 *.log
 output.txt
@@ -23,7 +29,9 @@ startup_log.txt
 
 # Ignore Git
 .git/
+.github/
+.agents/
 
 # Node (if used in frontend builds, although not strictly needed for this container)
 node_modules/
-ru
+.pytest_cache/

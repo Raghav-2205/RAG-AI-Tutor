@@ -1313,17 +1313,19 @@
             createValidationUI(validation) {
                 if (!validation) return '';
 
-                const statusColor = validation.validation_status === 'VERIFIED' ? '#00ff64'
-                    : validation.validation_status === 'WARNING' ? '#f59e0b'
-                    : '#ff4444';
                 const icon = validation.validation_status === 'VERIFIED' ? '✓'
-                    : validation.validation_status === 'WARNING' ? '⚠'
+                    : validation.validation_status === 'REJECTED' ? '✗'
                     : '✗';
                 
                 const docBadge = validation.document_id
                     ? `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid var(--accent-border-soft);">📄 DOC SCOPE: ACTIVE</span>`
                     : '';
                 
+                const normalizedStatus = String(validation.validation_status || 'REJECTED').toUpperCase() === 'VERIFIED'
+                    ? 'VERIFIED'
+                    : 'REJECTED';
+                const displayStatusColor = normalizedStatus === 'VERIFIED' ? '#00ff64' : '#ff4444';
+                const displayIcon = normalizedStatus === 'VERIFIED' ? '✓' : '✗';
                 const evalId = validation._id || validation.id || '';
                 
                 // 1. Hallucination Warning Block
@@ -1340,9 +1342,33 @@
                 }
 
                 // 2. Documents Used Badge
-                const usedSourcesCount = validation.chunk_usage && validation.chunk_usage.used_chunks ? validation.chunk_usage.used_chunks : 0;
+                const usedChunkIndices = Array.isArray(validation.chunk_usage?.used_chunk_indices)
+                    ? validation.chunk_usage.used_chunk_indices
+                    : [];
+                const usedSourcesCount = usedChunkIndices.length;
                 const sourceBadge = usedSourcesCount > 0 
                     ? `<span style="background:rgba(138,43,226,0.2);color:#d1a3ff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(138,43,226,0.3);">📚 ${usedSourcesCount} SOURCES USED</span>`
+                    : '';
+                const judgeBadge = validation.judge_fallback_used
+                    ? `<span style="background:rgba(245,158,11,0.18);color:#fcd34d;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(245,158,11,0.35);">JUDGE FALLBACK</span>`
+                    : '';
+                const multiDocBadge = validation.multi_document_metrics?.graph_used
+                    ? `<span style="background:rgba(59,130,246,0.18);color:#93c5fd;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(59,130,246,0.35);">MULTI-DOC</span>`
+                    : '';
+                const multiDoc = validation.multi_document_metrics || {};
+                const uploadedDocumentCount = Number(multiDoc.uploaded_document_count || 0);
+                const coveredDocumentCount = Number(multiDoc.covered_document_count || 0);
+                const unsupportedDocuments = Array.isArray(multiDoc.unsupported_documents) ? multiDoc.unsupported_documents : [];
+                const missingDocuments = Array.isArray(multiDoc.missing_document_names) ? multiDoc.missing_document_names : [];
+                const coverageBadge = uploadedDocumentCount > 0
+                    ? `<span style="background:rgba(16,185,129,0.15);color:#86efac;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(16,185,129,0.3);">DOCS ${coveredDocumentCount}/${uploadedDocumentCount}</span>`
+                    : '';
+                const coverageSummary = uploadedDocumentCount > 0
+                    ? `
+                        <li>Covered Documents: ${coveredDocumentCount}/${uploadedDocumentCount}</li>
+                        <li>Unsupported Documents: ${unsupportedDocuments.length ? unsupportedDocuments.map((name) => this.escapeHtml(name)).join(', ') : 'None'}</li>
+                        <li>Missing Documents: ${missingDocuments.length ? missingDocuments.map((name) => this.escapeHtml(name)).join(', ') : 'None'}</li>
+                      `
                     : '';
 
                 // Expand/Collapse Toggle JS
@@ -1355,7 +1381,10 @@
                             <div>
                                 ${docBadge}
                                 ${sourceBadge}
-                                <span style="font-weight:700;color:${statusColor};font-size:0.75rem;text-transform:uppercase;">${icon} ${validation.validation_status}</span>
+                                ${judgeBadge}
+                                ${multiDocBadge}
+                                ${coverageBadge}
+                                <span style="font-weight:700;color:${displayStatusColor};font-size:0.75rem;text-transform:uppercase;">${displayIcon} ${normalizedStatus}</span>
                             </div>
                             <div style="font-size:0.75rem;color:var(--text-muted);">
                                 <span>Details</span>
@@ -1389,9 +1418,13 @@
                                     <li>Semantic Overlap (BERTScore): ${(validation.bert_score || 0).toFixed(2)}</li>
                                     <li>Answer Relevance: ${(validation.answer_relevance || 0).toFixed(2)}</li>
                                     <li>Vector Similarity: ${(validation.cosine_similarity || 0).toFixed(2)}</li>
+                                    <li>Chunk Coverage: ${(validation.chunk_usage?.covered_ratio || 0).toFixed(2)}</li>
+                                    <li>Document Coverage Balance: ${(validation.multi_document_metrics?.document_coverage_balance || 0).toFixed(2)}</li>
+                                    <li>Judge Parse Failures: ${validation.judge_parse_failure_count || 0}</li>
+                                    ${coverageSummary}
                                 </ul>
                             </div>
-                            ${evalId ? `<a href="/views/evaldoc.html?id=${evalId}" class="action-link" onclick="event.stopPropagation()">Go to full Evaluation Report &rarr;</a>` : ''}
+                            ${evalId ? `<a href="/views/finalevaldoc.html?id=${evalId}" class="action-link" onclick="event.stopPropagation()">Go to full Evaluation Report &rarr;</a>` : ''}
                         </div>
                     </div>
                 `;
@@ -1820,12 +1853,17 @@
                 text,
                 'general',
                 chatHistory.activeChatId,
-                documentId,
+                null,  // documentId — scope is handled server-side from session
                 urlClassId,
                 {
                     onMeta(meta) {
                         metaInfo = meta;
                         resolvedChatId = meta.chat_id;
+                        // Fix race condition: set activeChatId immediately so
+                        // any rapid follow-up message appends to THIS session.
+                        if (!chatHistory.activeChatId && meta.chat_id) {
+                            chatHistory.activeChatId = meta.chat_id;
+                        }
                     },
 
                     onToken(token) {
@@ -1855,28 +1893,39 @@
 
                         const chunks = (meta || metaInfo)?.chunks || [];
                         const chatId = (meta || metaInfo)?.chat_id || resolvedChatId || chatHistory.activeChatId;
-                        const sessionId = chatId;
+                        const feedbackReferenceId = (meta || metaInfo)?.feedback_reference_id || chatId;
                         const validationHTML = chatHistory.createValidationUI(latestValidation);
+
+                        // --- Source mode badge ---
+                        const srcMode = (meta || metaInfo)?.source_mode || '';
+                        let sourceBadgeHTML = '';
+                        if (srcMode === 'knowledge_base') {
+                            sourceBadgeHTML = `<div style="font-size:0.75rem;color:var(--accent);margin-bottom:6px;opacity:0.8;">📚 Knowledge Base</div>`;
+                        } else if (srcMode === 'document') {
+                            sourceBadgeHTML = `<div style="font-size:0.75rem;color:#a78bfa;margin-bottom:6px;opacity:0.8;">📄 Document Scope</div>`;
+                        } else if (srcMode === 'gemini_fallback') {
+                            sourceBadgeHTML = `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;opacity:0.8;">🤖 General AI (no documents found)</div>`;
+                        }
 
                         // Apply markdown + citation formatting
                         const formattedAnswer = window.ai
                             ? window.ai.formatMessage(rawText, chunks)
                             : rawText.replace(/\n/g, '<br>');
 
-                        // Feedback UI (appended after validation card if present)
+                        // Feedback UI
                         const feedbackUI = `
-                            <div class="feedback-container" id="feedback-${sessionId}">
+                            <div class="feedback-container" id="feedback-${feedbackReferenceId}">
                                 <span class="feedback-label">Was this helpful?</span>
                                 <div class="feedback-buttons">
-                                    <button class="feedback-btn" data-rating="positive" onclick="handleFeedback('${sessionId}', 'positive')">👍</button>
-                                    <button class="feedback-btn" data-rating="negative" onclick="handleFeedback('${sessionId}', 'negative')">👎</button>
+                                    <button class="feedback-btn" data-rating="positive" onclick="handleFeedback('${feedbackReferenceId}', 'positive')">👍</button>
+                                    <button class="feedback-btn" data-rating="negative" onclick="handleFeedback('${feedbackReferenceId}', 'negative')">👎</button>
                                 </div>
                             </div>`;
 
                         finalizedAssistantMessageId = streamingMessageId;
                         aiBubble.outerHTML = renderAssistantMessageBubble({
                             messageId: streamingMessageId,
-                            answerHtml: formattedAnswer,
+                            answerHtml: sourceBadgeHTML + formattedAnswer,
                             validationHtml: validationHTML,
                             feedbackHtml: feedbackUI
                         });
@@ -2085,9 +2134,12 @@
 
     <!-- Markdown parser for beautiful formatting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 
     <script src="/assets/js/auth.js?v=9"></script>
-    <script src="/assets/js/ai.js?v=7"></script>
+    <script src="/assets/js/ai.js?v=8"></script>
 
     <script>
         // --- Notification Logic ---

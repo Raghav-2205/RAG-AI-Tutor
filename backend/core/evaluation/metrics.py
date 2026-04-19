@@ -33,6 +33,9 @@ JUDGE_FAILURE_PREFIXES = (
     "llm api error",
     "error: no gemini api key",
 )
+JUDGE_JSON_SYSTEM_PROMPT = (
+    "You are a deterministic evaluation bot. Return only one valid JSON object and no markdown."
+)
 
 # ──────────────────────────────────────────────
 #  Singleton embedding model (reused across calls)
@@ -76,6 +79,88 @@ def get_embedding_model():
     return _embedding_model
 
 
+def _strip_code_fences(text: str) -> str:
+    cleaned = str(text or "").strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    return cleaned.strip()
+
+
+def _strip_inline_chunk_citations(text: str) -> str:
+    cleaned = str(text or "")
+    cleaned = re.sub(r"\[CHUNK\s*\d+\]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
+    return cleaned.strip()
+
+
+def _extract_first_json_object(text: str) -> Optional[Dict[str, Any]]:
+    if not text:
+        return None
+
+    cleaned = _strip_code_fences(text)
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", cleaned):
+        start = match.start()
+        try:
+            payload, _ = decoder.raw_decode(cleaned[start:])
+            if isinstance(payload, dict):
+                return payload
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def _repair_nearly_valid_json(text: str) -> Optional[Dict[str, Any]]:
+    cleaned = _strip_code_fences(text)
+    if not cleaned:
+        return None
+    truncated = cleaned.strip()
+    if truncated.count("{") > truncated.count("}"):
+        truncated += "}" * (truncated.count("{") - truncated.count("}"))
+    payload = _extract_first_json_object(truncated)
+    if payload is not None:
+        return payload
+    for end_token in ('"]', '"]}', '"}', "]}", "}"):
+        idx = truncated.rfind(end_token)
+        if idx == -1:
+            continue
+        candidate = truncated[: idx + len(end_token)]
+        if candidate.count("{") > candidate.count("}"):
+            candidate += "}" * (candidate.count("{") - candidate.count("}"))
+        payload = _extract_first_json_object(candidate)
+        if payload is not None:
+            return payload
+    return None
+
+
+async def _run_json_judge(prompt: str) -> tuple[Optional[Dict[str, Any]], int]:
+    parse_failure_count = 0
+    for attempt in range(2):
+        response = await llm_client.async_generate(
+            prompt,
+            system_prompt=JUDGE_JSON_SYSTEM_PROMPT,
+            temperature=0.0,
+        )
+        payload = _extract_first_json_object(response)
+        if payload is not None:
+            return payload, parse_failure_count
+        repaired_payload = _repair_nearly_valid_json(response)
+        if repaired_payload is not None:
+            logger.warning(
+                "Judge returned truncated or noisy JSON on attempt %s; repaired payload successfully.",
+                attempt + 1,
+            )
+            return repaired_payload, parse_failure_count + 1
+        parse_failure_count += 1
+        logger.warning(
+            "Judge returned malformed JSON on attempt %s: %s",
+            attempt + 1,
+            _strip_code_fences(response)[:400],
+        )
+    return None, parse_failure_count
+
+
 # ═══════════════════════════════════════════════
 #  GROUP 1 — RETRIEVAL QUALITY
 # ═══════════════════════════════════════════════
@@ -116,7 +201,12 @@ def calculate_retrieval_metrics(
     return metrics
 
 
-def calculate_retrieval_confidence(chunks: List[Dict], has_graph_context: bool = False) -> float:
+def calculate_retrieval_confidence(
+    chunks: List[Dict],
+    has_graph_context: bool = False,
+    graph_support: float = 0.0,
+    document_coverage: float = 0.0,
+) -> float:
     """
     Calculate confidence based on retrieval scores (Rerank or RRF).
     Normalize to 0.0 - 1.0 range.
@@ -125,7 +215,9 @@ def calculate_retrieval_confidence(chunks: List[Dict], has_graph_context: bool =
         return 0.0
         
     # If we have graph context, it's a strong signal of relationship discovery
-    base_boost = 0.2 if has_graph_context else 0.0
+    base_boost = 0.1 if has_graph_context else 0.0
+    graph_bonus = min(0.2, max(0.0, graph_support) * 0.2)
+    document_bonus = min(0.15, max(0.0, document_coverage) * 0.15)
         
     scores = []
     for c in chunks:
@@ -141,43 +233,78 @@ def calculate_retrieval_confidence(chunks: List[Dict], has_graph_context: bool =
             scores.append(min(1.0, s * 5)) # Boost RRF scores
             
     if not scores:
-        return base_boost if has_graph_context else 0.0
+        return min(1.0, base_boost + graph_bonus + document_bonus) if has_graph_context else 0.0
         
-    return float(min(1.0, np.mean(scores) + base_boost))
+    return float(min(1.0, np.mean(scores) + base_boost + graph_bonus + document_bonus))
 
 
 
-def calculate_chunk_coverage(answer: str, chunks: List[Dict]) -> Dict[str, Any]:
+def calculate_chunk_coverage(
+    answer: str,
+    chunks: List[Dict],
+    graph_facts: Optional[List[str]] = None,
+    expected_sources: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     """
     Calculate what % of the answer is covered by the retrieved chunks.
     Metric: token overlap
     """
-    if not answer.strip() or not chunks:
-        return {"covered_ratio": 0.0, "used_chunks": []}
+    if not answer.strip() or (not chunks and not graph_facts):
+        return {
+            "covered_ratio": 0.0,
+            "used_chunk_indices": [],
+            "graph_fact_support_ratio": 0.0,
+            "document_coverage_balance": 0.0,
+        }
         
-    answer_tokens = set(answer.lower().split())
+    answer_tokens = set(re.findall(r"[a-z0-9_]+", answer.lower()))
     if not answer_tokens:
-        return {"covered_ratio": 0.0, "used_chunks": []}
+        return {
+            "covered_ratio": 0.0,
+            "used_chunk_indices": [],
+            "graph_fact_support_ratio": 0.0,
+            "document_coverage_balance": 0.0,
+        }
         
     total_tokens = len(answer_tokens)
     covered_tokens = set()
     used_indices = []
+    used_sources = set()
+    graph_tokens = set()
     
     for i, c in enumerate(chunks):
         chunk_text = c.get("text", "").lower()
-        chunk_tokens = set(chunk_text.split())
+        chunk_tokens = set(re.findall(r"[a-z0-9_]+", chunk_text))
         
         overlap = answer_tokens.intersection(chunk_tokens)
         if overlap:
             covered_tokens.update(overlap)
-            if len(overlap) > 2: # Heuristic: at least 3 common words to count as "used"
+            if len(overlap) > 2:
                 used_indices.append(i)
+                source_name = str((c.get("metadata") or {}).get("source") or "")
+                if source_name:
+                    used_sources.add(source_name)
+
+    for fact in graph_facts or []:
+        graph_tokens.update(set(re.findall(r"[a-z0-9_]+", str(fact).lower())))
+
+    graph_overlap = answer_tokens.intersection(graph_tokens)
+    expected_source_list = [source for source in (expected_sources or []) if source]
+    if expected_source_list:
+        source_balance = len(used_sources.intersection(expected_source_list)) / len(set(expected_source_list))
+    elif used_sources:
+        source_balance = 1.0
+    else:
+        source_balance = 0.0
                 
     ratio = len(covered_tokens) / total_tokens
+    graph_fact_support_ratio = len(graph_overlap) / total_tokens if total_tokens else 0.0
     
     return {
         "covered_ratio": round(ratio, 2),
-        "used_chunk_indices": used_indices
+        "used_chunk_indices": used_indices,
+        "graph_fact_support_ratio": round(graph_fact_support_ratio, 2),
+        "document_coverage_balance": round(source_balance, 2),
     }
 
 
@@ -196,6 +323,8 @@ async def calculate_faithfulness(answer: str, context: str) -> Dict[str, Any]:
             "reasoning": "No context provided for faithfulness check.",
             "unsupported_sentences": [],
             "judge_available": True,
+            "judge_fallback_used": False,
+            "parse_failure_count": 0,
         }
 
     answer_text = str(answer or "").strip().lower()
@@ -205,47 +334,51 @@ async def calculate_faithfulness(answer: str, context: str) -> Dict[str, Any]:
             "reasoning": "Answer generation failed before faithfulness judgment could be computed.",
             "unsupported_sentences": [],
             "judge_available": False,
+            "judge_fallback_used": True,
+            "parse_failure_count": 0,
         }
 
-    prompt = f"""You are a strict fact-checking judge.
-Review the following ANSWER and CONTEXT.
-Determine if every sentence in the ANSWER is supported by the CONTEXT.
+    answer_without_citations = _strip_inline_chunk_citations(answer)
+
+    prompt = f"""You are a strict grounded-answer judge.
+Review the ANSWER against the CONTEXT and grade only the support provided by the context.
+Ignore inline citation markers such as [CHUNK 1] and judge only the substantive claims.
 
 CONTEXT:
 {context}
 
 ANSWER:
-{answer}
+{answer_without_citations}
 
-INSTRUCTIONS:
-1. Break the answer into individual sentences.
-2. For each sentence, classify it as "Supported", "Contradicted", or "Unsupported" (information not found in context).
-3. Calculate score = number_of_supported_sentences / total_sentences.
-
-OUTPUT FORMAT (JSON only, no markdown):
+Return JSON only:
 {{
   "score": <float 0.0-1.0>,
   "total_sentences": <int>,
   "supported_count": <int>,
-  "reasoning": "<brief explanation>",
+  "reasoning": "<brief explanation, one sentence max>",
   "unsupported_sentences": ["<sentence 1>", "<sentence 2>"]
 }}
-JSON ONLY. NO MARKDOWN."""
+The score is supported_count / total_sentences."""
 
     try:
-        response = await llm_client.async_generate(
-            prompt,
-            system_prompt="You are a JSON-only evaluation bot. Return valid JSON with no markdown formatting.",
-            temperature=0.0
-        )
-        clean_resp = re.sub(r'```json\s*|\s*```', '', response).strip()
-        data = json.loads(clean_resp)
+        data, parse_failures = await _run_json_judge(prompt)
+        if data is None:
+            return {
+                "faithfulness_score": 0.5,
+                "reasoning": "Faithfulness judge returned malformed JSON.",
+                "unsupported_sentences": [],
+                "judge_available": False,
+                "judge_fallback_used": True,
+                "parse_failure_count": parse_failures,
+            }
 
         return {
             "faithfulness_score": float(data.get("score", 0.0)),
             "reasoning": data.get("reasoning", "No reasoning provided"),
             "unsupported_sentences": data.get("unsupported_sentences", []),
             "judge_available": True,
+            "judge_fallback_used": False,
+            "parse_failure_count": parse_failures,
         }
     except Exception as e:
         logger.error(f"Faithfulness check failed: {e}")
@@ -254,6 +387,8 @@ JSON ONLY. NO MARKDOWN."""
             "reasoning": f"Evaluation error: {str(e)}",
             "unsupported_sentences": [],
             "judge_available": False,
+            "judge_fallback_used": True,
+            "parse_failure_count": 0,
         }
 
 
@@ -324,61 +459,56 @@ def calculate_citation_alignment(
     Returns a score from 0.0 to 1.0.
     If no citations found in the answer, returns 1.0 (no citations to misalign).
     """
-    # Parse all [CHUNK N] references
     citation_pattern = re.compile(r'\[CHUNK\s*(\d+)\]', re.IGNORECASE)
     citations_found = citation_pattern.findall(answer)
 
     if not citations_found:
-        # No citations in answer — nothing to validate
         return 1.0
 
     if not retrieved_chunks:
-        # Citations exist but no chunks available — all invalid
         return 0.0
 
     model = get_embedding_model()
     if not model:
-        # Fallback: just check existence
         valid = sum(1 for c in citations_found if 1 <= int(c) <= len(retrieved_chunks))
         return valid / len(citations_found) if citations_found else 1.0
 
-    # Split answer into sentences for context-aware validation
     sentences = re.split(r'(?<=[.!?])\s+', answer)
 
     scores = []
-    for citation_num_str in citations_found:
-        chunk_idx = int(citation_num_str) - 1  # Convert 1-indexed to 0-indexed
+    for sentence in sentences:
+        sentence_citations = citation_pattern.findall(sentence)
+        if not sentence_citations:
+            continue
 
-        # Check if cited chunk exists
-        if chunk_idx < 0 or chunk_idx >= len(retrieved_chunks):
+        valid_chunk_texts: List[str] = []
+        valid_citation_count = 0
+        for citation_num_str in sentence_citations:
+            chunk_idx = int(citation_num_str) - 1
+            if 0 <= chunk_idx < len(retrieved_chunks):
+                chunk_text = str(retrieved_chunks[chunk_idx].get("text", "") or "").strip()
+                if chunk_text:
+                    valid_citation_count += 1
+                    valid_chunk_texts.append(chunk_text)
+
+        if not valid_chunk_texts:
             scores.append(0.0)
             continue
 
-        chunk_text = retrieved_chunks[chunk_idx].get("text", "")
-        if not chunk_text.strip():
-            scores.append(0.0)
+        substantive_sentence = _strip_inline_chunk_citations(sentence)
+        if not substantive_sentence:
+            scores.append(valid_citation_count / len(sentence_citations))
             continue
 
-        # Find the sentence containing this citation
-        citing_sentence = ""
-        citation_ref = f"[CHUNK {citation_num_str}]"
-        for sent in sentences:
-            if citation_ref.lower() in sent.lower() or f"chunk {citation_num_str}" in sent.lower():
-                citing_sentence = sent
-                break
-
-        if not citing_sentence:
-            # Citation exists, chunk exists — give partial credit
-            scores.append(0.7)
-            continue
-
-        # Semantic similarity between citing sentence and cited chunk
         try:
-            emb_sent = model.encode(citing_sentence, convert_to_tensor=True)
-            emb_chunk = model.encode(chunk_text, convert_to_tensor=True)
-            sim = float(util.pytorch_cos_sim(emb_sent, emb_chunk).item())
-            # Normalize: sim > 0.5 is good alignment
-            scores.append(min(1.0, max(0.0, sim)))
+            emb_sent = model.encode(substantive_sentence, convert_to_tensor=True)
+            similarities = []
+            for chunk_text in valid_chunk_texts:
+                emb_chunk = model.encode(chunk_text, convert_to_tensor=True)
+                similarities.append(float(util.pytorch_cos_sim(emb_sent, emb_chunk).item()))
+            support_score = max(similarities) if similarities else 0.0
+            validity_ratio = valid_citation_count / len(sentence_citations)
+            scores.append(min(1.0, max(0.0, support_score)) * validity_ratio)
         except Exception:
             scores.append(0.5)
 
@@ -389,23 +519,32 @@ def calculate_citation_alignment(
 #  GROUP 5 — ANSWER RELEVANCE (LLM-as-Judge)
 # ═══════════════════════════════════════════════
 
-async def calculate_answer_relevance(question: str, answer: str) -> float:
+async def calculate_answer_relevance(question: str, answer: str) -> Dict[str, Any]:
     """
     LLM-as-Judge: How well does the answer address the question?
     Returns a score from 0.0 to 1.0.
     """
     answer_text = str(answer or "").strip().lower()
     if any(answer_text.startswith(prefix) for prefix in JUDGE_FAILURE_PREFIXES):
-        return 0.0
+        return {
+            "relevance_score": 0.0,
+            "reasoning": "Answer generation failed before relevance evaluation.",
+            "judge_available": False,
+            "judge_fallback_used": True,
+            "parse_failure_count": 0,
+        }
+
+    answer_without_citations = _strip_inline_chunk_citations(answer)
 
     prompt = f"""You are a strict relevance judge.
 Rate how well the ANSWER addresses the QUESTION.
+Ignore inline citation markers such as [CHUNK 1] and judge only the substantive answer.
 
 QUESTION:
 {question}
 
 ANSWER:
-{answer}
+{answer_without_citations}
 
 SCORING CRITERIA:
 - 1.0: Answer fully and directly addresses the question with clear, accurate information
@@ -423,17 +562,31 @@ OUTPUT FORMAT (JSON only, no markdown):
 JSON ONLY. NO MARKDOWN."""
 
     try:
-        response = await llm_client.async_generate(
-            prompt,
-            system_prompt="You are a JSON-only evaluation bot. Return valid JSON with no markdown formatting.",
-            temperature=0.0
-        )
-        clean_resp = re.sub(r'```json\s*|\s*```', '', response).strip()
-        data = json.loads(clean_resp)
-        return float(data.get("relevance_score", 0.5))
+        data, parse_failures = await _run_json_judge(prompt)
+        if data is None:
+            return {
+                "relevance_score": 0.5,
+                "reasoning": "Relevance judge returned malformed JSON.",
+                "judge_available": False,
+                "judge_fallback_used": True,
+                "parse_failure_count": parse_failures,
+            }
+        return {
+            "relevance_score": float(data.get("relevance_score", 0.5)),
+            "reasoning": data.get("reasoning", "No reasoning provided"),
+            "judge_available": True,
+            "judge_fallback_used": False,
+            "parse_failure_count": parse_failures,
+        }
     except Exception as e:
         logger.error(f"Answer relevance check failed: {e}")
-        return 0.5
+        return {
+            "relevance_score": 0.5,
+            "reasoning": f"Evaluation error: {str(e)}",
+            "judge_available": False,
+            "judge_fallback_used": True,
+            "parse_failure_count": 0,
+        }
 
 
 # ═══════════════════════════════════════════════

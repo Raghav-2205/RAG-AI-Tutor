@@ -14,6 +14,7 @@ from typing import Any, List, Dict, Optional
 from fastapi import APIRouter, Depends
 from backend.utils.db import get_db
 from backend.api.auth import get_current_user
+from backend.core.evaluation.status_policy import normalize_validation_status
 import logging
 
 router = APIRouter()
@@ -356,7 +357,7 @@ async def get_quality(
 
     status_breakdown: Dict[str, int] = {}
     for v in validations:
-        status = v.get("validation_status", "UNKNOWN")
+        status = normalize_validation_status(v.get("validation_status"))
         status_breakdown[status] = status_breakdown.get(status, 0) + 1
 
     return {
@@ -433,7 +434,7 @@ async def get_recommendations(
             "title": "Take a Quiz",
             "detail": "You haven't taken a quiz in 7 days. Test your knowledge to track your progress.",
             "action": "Start a Quiz",
-            "action_url": "/views/quiz.html"
+            "action_url": "/views/lms.html?allow_student=1&page=quizzes"
         })
 
     # 3. Negative feedback pattern
@@ -471,7 +472,7 @@ async def get_recommendations(
     # 5. Low validation scores
     poor_validations = await db.rag_answer_validations.count_documents({
         "user_id": user_id,
-        "validation_status": {"$in": ["REJECTED", "WARNING"]},
+        "validation_status": "REJECTED",
         "timestamp": {"$gte": week_ago}
     })
     if poor_validations >= 3:

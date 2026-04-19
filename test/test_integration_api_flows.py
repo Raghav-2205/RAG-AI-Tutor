@@ -133,6 +133,7 @@ class FakeCursor:
     def __init__(self, docs: list[dict]):
         self._docs = [_deepcopy(doc) for doc in docs]
         self._limit = None
+        self._skip = 0
 
     def sort(self, key, direction=None):
         if isinstance(key, list):
@@ -149,8 +150,14 @@ class FakeCursor:
         self._limit = limit
         return self
 
+    def skip(self, count: int):
+        self._skip = count
+        return self
+
     async def to_list(self, length=None):
         docs = self._docs
+        if self._skip:
+            docs = docs[self._skip :]
         if self._limit is not None:
             docs = docs[: self._limit]
         if length is not None:
@@ -296,8 +303,12 @@ def _install_stub_modules():
             "source_mode": "knowledge_base",
         }
 
+    async def _validate_generated_answer(**kwargs):
+        return None
+
     rag_tutor.answer_query_with_rag = answer_query_with_rag
     rag_tutor.retrieve_chunks_for_streaming = retrieve_chunks_for_streaming
+    rag_tutor._validate_generated_answer = _validate_generated_answer
     sys.modules["backend.rag_tutor"] = rag_tutor
 
     feedback_module = types.ModuleType("backend.core.feedback_analyzer")
@@ -311,6 +322,9 @@ def _install_stub_modules():
 
         async def get_adaptive_context(self, user_id):
             return ""
+
+        async def track_response_quality(self, **kwargs):
+            return None
 
         async def log_feedback_influence(self, **kwargs):
             return None
@@ -327,6 +341,27 @@ def _install_stub_modules():
     llm_module.llm_client = StubLLMClient()
     llm_module.SOCRATIC_SYSTEM_PROMPT = "Stub prompt"
     sys.modules["backend.core.llm_interface"] = llm_module
+
+    search_engine_module = types.ModuleType("backend.core.search_engine")
+
+    class StubSearchEngine:
+        def __init__(self):
+            self.raise_error = False
+
+        def search(self, user_id: str, subject: str, query: str, top_k: int = 6, document_ids=None):
+            if self.raise_error:
+                raise RuntimeError("search unavailable")
+            return [
+                {
+                    "id": f"{subject}-chunk-1",
+                    "text": f"{subject} reference material for {query}",
+                    "metadata": {"source": f"{subject}.pdf"},
+                    "score": 0.91,
+                }
+            ]
+
+    search_engine_module.search_engine = StubSearchEngine()
+    sys.modules["backend.core.search_engine"] = search_engine_module
 
     file_handler = types.ModuleType("backend.file_handler")
     file_handler.save_upload_to_disk = lambda filename, file_bytes, user_id: f"/tmp/{filename}"
@@ -358,11 +393,31 @@ def _install_stub_modules():
     async def build_or_update_knowledge_graph(db, chat_id, user_id, full_text, source=None):
         return None
 
+    async def ensure_grag_for_session(db, chat_id, user_id, new_text=None, source=None, chunks=None, force_rebuild=False):
+        return None
+
     async def graph_retrieve(db, chat_id, query):
         return []
 
+    async def get_grag_session_state(db, chat_id):
+        return {
+            "session": {},
+            "user_id": None,
+            "document_ids": [],
+            "document_names": [],
+            "uploaded_documents": [],
+            "file_count": 0,
+            "grag_enabled": False,
+        }
+
+    def session_supports_grag(file_count=0, document_ids=None):
+        return int(file_count or 0) >= 2 or len(document_ids or []) >= 2
+
     grag_service.build_or_update_knowledge_graph = build_or_update_knowledge_graph
+    grag_service.ensure_grag_for_session = ensure_grag_for_session
     grag_service.graph_retrieve = graph_retrieve
+    grag_service.get_grag_session_state = get_grag_session_state
+    grag_service.session_supports_grag = session_supports_grag
     sys.modules["backend.services.grag_service"] = grag_service
 
     quiz_generator = types.ModuleType("backend.core.quiz_generator")
@@ -427,7 +482,7 @@ def _build_test_client():
     _install_stub_modules()
     os.environ["DEBUG"] = "true"
 
-    from backend.api import auth, upload, chat, lms, planner, dashboard, notifications, quiz
+    from backend.api import analytics, auth, upload, chat, lms, planner, dashboard, notifications, quiz, gamification
     from backend.utils.db import get_db
 
     app = FastAPI()
@@ -439,6 +494,8 @@ def _build_test_client():
     app.include_router(planner.router, prefix="/api/planner", tags=["Planner"])
     app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
     app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+    app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+    app.include_router(gamification.router, prefix="/api/gamification", tags=["Gamification"])
 
     fake_db = FakeDatabase()
 
@@ -781,7 +838,7 @@ def test_standalone_quiz_and_dashboard_contracts():
                         "final_rag_score": 0.45,
                         "answer_relevance": 0.5,
                         "hallucination_rate": 0.3,
-                        "validation_status": "WARNING",
+                        "validation_status": "VERIFIED",
                         "timestamp": now,
                     },
                     {
@@ -801,7 +858,7 @@ def test_standalone_quiz_and_dashboard_contracts():
                         "final_rag_score": 0.52,
                         "answer_relevance": 0.55,
                         "hallucination_rate": 0.25,
-                        "validation_status": "WARNING",
+                        "validation_status": "VERIFIED",
                         "timestamp": now,
                     },
                 ]
@@ -819,10 +876,321 @@ def test_standalone_quiz_and_dashboard_contracts():
         quality_payload = quality_response.json()
         assert quality_payload["has_data"] is True
         assert quality_payload["total_validated"] == 3
-        assert quality_payload["status_breakdown"]["WARNING"] == 2
+        assert quality_payload["status_breakdown"]["VERIFIED"] == 2
         assert quality_payload["status_breakdown"]["REJECTED"] == 1
 
         recommendations_response = client.get("/api/dashboard/recommendations", headers=headers)
         assert recommendations_response.status_code == 200
         recommendation_types = {item["type"] for item in recommendations_response.json()["recommendations"]}
         assert {"weak_topic", "feedback_pattern", "upload_prompt", "quality_alert"}.issubset(recommendation_types)
+
+
+def test_student_analytics_and_gamification_contracts():
+    with _build_test_client() as client:
+        _register_user(client, "analyticsuser@example.com", "secret123", "Analytics User")
+        token = _login(client, "analyticsuser@example.com", "secret123")
+        headers = _auth_headers(token)
+
+        db = client.app.state.fake_db
+        user_doc = next(doc for doc in db.users.docs if doc["email"] == "analyticsuser@example.com")
+        user_id = str(user_doc["_id"])
+        now = datetime.now(timezone.utc)
+
+        asyncio.run(
+            db.classes.insert_one(
+                {
+                    "id": "class-math",
+                    "name": "Algebra I",
+                    "subject": "Mathematics",
+                    "teacher_id": "teacher-analytics",
+                    "students": [user_id],
+                    "is_active": True,
+                }
+            )
+        )
+        asyncio.run(
+            db.lms_quizzes.insert_one(
+                {
+                    "id": "lms-quiz-analytics",
+                    "class_id": "class-math",
+                    "title": "Linear Equations",
+                    "time_limit": 15,
+                }
+            )
+        )
+        asyncio.run(
+            db.quiz_attempts.insert_many(
+                [
+                    {
+                        "id": "attempt-datetime",
+                        "quiz_id": "lms-quiz-analytics",
+                        "student_id": user_id,
+                        "score": 2,
+                        "max_score": 5,
+                        "percentage": 40.0,
+                        "submitted_at": now,
+                        "is_complete": True,
+                    },
+                    {
+                        "id": "attempt-iso",
+                        "quiz_id": "lms-quiz-analytics",
+                        "student_id": user_id,
+                        "score": 3,
+                        "max_score": 5,
+                        "percentage": 60.0,
+                        "submitted_at": now.isoformat(),
+                        "is_complete": True,
+                    },
+                    {
+                        "id": "attempt-bad-shape",
+                        "quiz_id": "lms-quiz-analytics",
+                        "student_id": user_id,
+                        "score": 5,
+                        "max_score": 5,
+                        "percentage": 100.0,
+                        "submitted_at": "not-a-date",
+                        "is_complete": True,
+                    },
+                ]
+            )
+        )
+        asyncio.run(
+            db.activity_logs.insert_one(
+                {
+                    "id": "study-log-1",
+                    "user_id": user_id,
+                    "category": "study",
+                    "date": now.isoformat(),
+                    "data": {"duration_min": 45},
+                }
+            )
+        )
+        asyncio.run(
+            db.user_stats.insert_one(
+                {
+                    "id": "stats-analytics",
+                    "user_id": user_id,
+                    "total_points": 120,
+                    "max_streak": 4,
+                }
+            )
+        )
+
+        analytics_response = client.get("/api/analytics/student", headers=headers)
+        assert analytics_response.status_code == 200
+        analytics_payload = analytics_response.json()
+        assert analytics_payload["analytics"]["weak_subjects"][0]["subject"] == "Mathematics"
+        assert analytics_payload["analytics"]["weak_subjects"][0]["average"] == 50.0
+        assert len(analytics_payload["analytics"]["performance_trend"]) == 2
+        assert analytics_payload["analytics"]["total_study_minutes"] == 45
+        assert analytics_payload["recommendations"][0]["subject"] == "Mathematics"
+
+        badge_stats_before = client.get("/api/gamification/my-stats", headers=headers)
+        assert badge_stats_before.status_code == 200
+        assert badge_stats_before.json()["badge_count"] == 0
+
+        badge_refresh_response = client.post("/api/gamification/badges/check", headers=headers)
+        assert badge_refresh_response.status_code == 200
+        assert badge_refresh_response.json()["count"] >= 1
+
+        badge_stats_after = client.get("/api/gamification/my-stats", headers=headers)
+        assert badge_stats_after.status_code == 200
+        badge_payload = badge_stats_after.json()
+        assert badge_payload["total_points"] == 120
+        assert badge_payload["badge_count"] >= 1
+        assert "quiz_master" in {badge["badge_id"] for badge in badge_payload["badges"]}
+
+        search_engine = sys.modules["backend.services.suggestion_service"].search_engine
+        search_engine.raise_error = True
+        try:
+            analytics_fallback_response = client.get("/api/analytics/student", headers=headers)
+        finally:
+            search_engine.raise_error = False
+
+        assert analytics_fallback_response.status_code == 200
+        fallback_payload = analytics_fallback_response.json()
+        assert fallback_payload["analytics"]["weak_subjects"][0]["subject"] == "Mathematics"
+        assert len(fallback_payload["analytics"]["performance_trend"]) == 2
+        assert fallback_payload["recommendations"] == []
+
+
+def test_lms_gradebook_attendance_invite_and_timetable_contracts():
+    with _build_test_client() as client:
+        _register_user(client, "teacher3@example.com", "secret123", "Teacher Three", role="Teacher")
+        _register_user(client, "student3@example.com", "secret123", "Student Three")
+
+        teacher_token = _login(client, "teacher3@example.com", "secret123")
+        student_token = _login(client, "student3@example.com", "secret123")
+        teacher_headers = _auth_headers(teacher_token)
+        student_headers = _auth_headers(student_token)
+
+        class_response = client.post(
+            "/api/lms/classes",
+            headers=teacher_headers,
+            json={"name": "Physics I", "section": "B", "subject": "Physics"},
+        )
+        assert class_response.status_code == 200
+        class_payload = class_response.json()
+        class_id = class_payload["id"]
+
+        existing_invite_response = client.post(
+            f"/api/lms/classes/{class_id}/students/invite",
+            headers=teacher_headers,
+            json={"student_email": "student3@example.com"},
+        )
+        assert existing_invite_response.status_code == 200
+        existing_invite_payload = existing_invite_response.json()
+        assert existing_invite_payload["mode"] == "enrolled_existing"
+
+        new_invite_response = client.post(
+            f"/api/lms/classes/{class_id}/students/invite",
+            headers=teacher_headers,
+            json={"student_email": "newstudent@example.com", "student_name": "New Student"},
+        )
+        assert new_invite_response.status_code == 200
+        new_invite_payload = new_invite_response.json()
+        assert new_invite_payload["mode"] == "invited"
+        assert "invite_token" in new_invite_payload
+        assert "invite_url" in new_invite_payload
+
+        db = client.app.state.fake_db
+        assert any(doc["student_email"] == "newstudent@example.com" for doc in db.class_invitations.docs)
+
+        _register_user(client, "newstudent@example.com", "secret123", "New Student")
+        invited_user_doc = next(doc for doc in db.users.docs if doc["email"] == "newstudent@example.com")
+        refreshed_class_doc = next(doc for doc in db.classes.docs if doc["id"] == class_id)
+        accepted_invite_doc = next(doc for doc in db.class_invitations.docs if doc["student_email"] == "newstudent@example.com")
+        assert str(invited_user_doc["_id"]) in refreshed_class_doc["students"]
+        assert accepted_invite_doc["status"] == "accepted"
+
+        assignment_response = client.post(
+            "/api/lms/assignments",
+            headers=teacher_headers,
+            json={
+                "class_id": class_id,
+                "title": "Lab Report",
+                "description": "Dynamics write-up",
+                "max_points": 20,
+            },
+        )
+        assert assignment_response.status_code == 200
+        assignment_id = assignment_response.json()["id"]
+
+        quiz_response = client.post(
+            f"/api/lms/classes/{class_id}/quizzes",
+            headers=teacher_headers,
+            json={
+                "title": "Newton Quiz",
+                "time_limit": 20,
+                "questions": [
+                    {
+                        "question": "Force equals?",
+                        "type": "mcq",
+                        "points": 2,
+                        "options": [
+                            {"label": "A", "text": "m * a", "is_correct": True},
+                            {"label": "B", "text": "m / a", "is_correct": False},
+                        ],
+                    }
+                ],
+            },
+        )
+        assert quiz_response.status_code == 200
+        quiz_id = quiz_response.json()["id"]
+
+        submit_assignment_response = client.post(
+            f"/api/lms/assignments/{assignment_id}/submit",
+            headers={**student_headers, "Content-Type": "application/json"},
+            json={"content": "Submitted report"},
+        )
+        assert submit_assignment_response.status_code == 200
+
+        submissions_response = client.get("/api/lms/submissions", headers=teacher_headers)
+        assert submissions_response.status_code == 200
+        submission_id = submissions_response.json()[0]["submission_id"]
+
+        grade_response = client.post(
+            "/api/lms/submissions/grade",
+            headers={**teacher_headers, "Content-Type": "application/json"},
+            json={"submission_id": submission_id, "marks": 18, "feedback": "Strong work"},
+        )
+        assert grade_response.status_code == 200
+
+        quiz_detail_response = client.get(f"/api/lms/quizzes/{quiz_id}", headers=student_headers)
+        assert quiz_detail_response.status_code == 200
+        question_id = quiz_detail_response.json()["questions"][0]["id"]
+
+        quiz_attempt_response = client.post(
+            f"/api/lms/quizzes/{quiz_id}/attempt",
+            headers={**student_headers, "Content-Type": "application/json"},
+            json={"answers": {question_id: "A"}},
+        )
+        assert quiz_attempt_response.status_code == 200
+
+        attendance_update_response = client.put(
+            f"/api/lms/classes/{class_id}/attendance/2026-04-15",
+            headers={**teacher_headers, "Content-Type": "application/json"},
+            json={
+                "date": "2026-04-15",
+                "records": [{"student_id": existing_invite_payload["student_id"], "status": "late"}],
+            },
+        )
+        assert attendance_update_response.status_code == 200
+
+        attendance_dates_response = client.get(
+            f"/api/lms/classes/{class_id}/attendance/dates",
+            headers=teacher_headers,
+        )
+        assert attendance_dates_response.status_code == 200
+        attendance_dates_payload = attendance_dates_response.json()
+        assert attendance_dates_payload[0]["date"] == "2026-04-15"
+        assert attendance_dates_payload[0]["status_breakdown"]["late"] == 1
+
+        my_attendance_response = client.get("/api/lms/students/me/attendance", headers=student_headers)
+        assert my_attendance_response.status_code == 200
+        my_attendance_payload = my_attendance_response.json()
+        assert my_attendance_payload[0]["status"] == "late"
+
+        attendance_stats_response = client.get(
+            f"/api/lms/classes/{class_id}/attendance/stats",
+            headers=student_headers,
+        )
+        assert attendance_stats_response.status_code == 200
+        attendance_stats_payload = attendance_stats_response.json()
+        assert attendance_stats_payload["present"] == 1
+        assert attendance_stats_payload["overall_percentage"] == 100.0
+        assert attendance_stats_payload["status_breakdown"]["late"] == 1
+
+        gradebook_response = client.get(
+            f"/api/lms/classes/{class_id}/gradebook",
+            headers=teacher_headers,
+        )
+        assert gradebook_response.status_code == 200
+        gradebook_payload = gradebook_response.json()
+        assert gradebook_payload["class_name"] == "Physics I"
+        assert gradebook_payload["assignments"][0]["title"] == "Lab Report"
+        assert gradebook_payload["quizzes"][0]["title"] == "Newton Quiz"
+        assert gradebook_payload["students"][0]["assignment_average"] == 90.0
+        assert gradebook_payload["students"][0]["quiz_average"] == 100.0
+        assert round(gradebook_payload["students"][0]["overall_percentage"], 1) == 90.9
+        assert gradebook_payload["students"][0]["attendance_percentage"] == 100.0
+
+        today_name = datetime.now().strftime("%A")
+        asyncio.run(
+            db.timetable.insert_one(
+                {
+                    "id": "slot-1",
+                    "day_of_week": today_name,
+                    "subject_id": "PHY101",
+                    "start_time": "09:00",
+                    "end_time": "10:00",
+                    "room": "Lab-1",
+                }
+            )
+        )
+
+        timetable_response = client.get("/api/lms/students/me/timetable", headers=student_headers)
+        assert timetable_response.status_code == 200
+        timetable_payload = timetable_response.json()
+        assert timetable_payload["today"] == today_name
+        assert timetable_payload["classes"][0]["subject_id"] == "PHY101"

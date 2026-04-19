@@ -1,0 +1,51 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-lms-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      RUN_PORT: "8000"
+      DEBUG: "false"
+      MONGODB_URI: "mongodb://mongodb:27017"
+      DATABASE_NAME: "rag_ai_tutor_prod"
+      CHROMA_API_URL: "http://chroma:8000/api/v2"
+      CHROMA_TENANT: "default_tenant"
+      CHROMA_DATABASE: "default_database"
+      UPLOAD_DIR: "/app/uploads"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - mongodb
+      - chroma
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  mongodb:
+    image: mongo:7.0
+    container_name: rag-lms-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+
+  chroma:
+    image: chromadb/chroma:0.5.23
+    container_name: rag-lms-chroma
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  mongodb_data:
+  chroma_data:
