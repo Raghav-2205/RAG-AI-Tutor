@@ -551,6 +551,7 @@
         style="display:none; justify-content:center; align-items:center;">
         <div class="modal-card modal-card-medium">
             <h2 id="submitTitle" style="margin-bottom:15px; color:var(--accent)">Submit Assignment</h2>
+            <p id="submitHelperText" style="font-size:12px; color:var(--text-muted); margin:-6px 0 14px;"></p>
             <textarea id="submitContent" placeholder="Write your submission here (optional)..."
                 class="theme-textarea" style="margin-bottom:15px;"></textarea>
             <input id="submitFileUrl" placeholder="File URL / Link"
@@ -558,7 +559,7 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary btn-secondary-soft"
                     onclick="hideModal('submitModal')">Cancel</button>
-                <button class="btn" onclick="submitFinal()">Submit</button>
+                <button class="btn" id="submitActionBtn" onclick="submitFinal()">Submit Assignment</button>
             </div>
         </div>
     </div>
@@ -588,6 +589,46 @@
         function unwrapPayload(payload) {
             if (payload && typeof payload === 'object' && 'data' in payload && payload.data != null) return payload.data;
             return payload;
+        }
+
+        function ensureArray(payload) {
+            const data = unwrapPayload(payload);
+            return Array.isArray(data) ? data : [];
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function formatDateLabel(value) {
+            if (!value) return 'N/A';
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) return String(value);
+            return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function buildLmsEmptyState(message) {
+            return `<div class="empty-state"><p>${escapeHtml(message)}</p></div>`;
+        }
+
+        async function fetchLmsCollection(path) {
+            try {
+                const res = await fetch(`${API}${path}`, { headers });
+                const payload = await parseJsonSafe(res);
+                if (!res.ok) {
+                    throw new Error(unwrapPayload(payload)?.detail || payload?.detail || `HTTP ${res.status}`);
+                }
+                return ensureArray(payload);
+            } catch (error) {
+                console.error(`Failed to load ${path}:`, error);
+                return [];
+            }
         }
 
         function showModal(id) { document.getElementById(id).style.display = 'flex'; }
@@ -768,49 +809,154 @@
             else { const d = await res.json(); alert(d.detail || 'Enrollment failed'); }
         }
 
+        let activeAssignmentId = null;
+        let dashboardAssignmentMeta = {};
+
+        function truncateText(value, max = 110) {
+            const text = String(value || '').trim();
+            if (!text) return '';
+            return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+        }
+
+        function buildDashboardAssignmentHref(assignment, action = 'view') {
+            const url = new URL('/views/lms.html', window.location.origin);
+            url.searchParams.set('allow_student', '1');
+            url.searchParams.set('page', 'classes');
+            url.searchParams.set('tab', 'assignments');
+            const classId = assignment.class_id || assignment.classId || '';
+            const assignmentId = assignment.id || assignment.assignment_id || '';
+            if (classId) url.searchParams.set('class_id', classId);
+            if (assignmentId) url.searchParams.set('assignment_id', assignmentId);
+            if (action) url.searchParams.set('assignment_action', action);
+            return url.toString();
+        }
+
+        function getDashboardAssignmentState(assignment, submission) {
+            const dueDate = assignment?.due_date ? new Date(assignment.due_date) : null;
+            const dueValid = !!dueDate && !Number.isNaN(dueDate.getTime());
+            const overdue = dueValid && dueDate.getTime() < Date.now() && !submission;
+            const rawStatus = String(submission?.status || '').toLowerCase();
+            const status = submission?.graded
+                ? 'graded'
+                : rawStatus === 'submitted'
+                    ? 'submitted'
+                    : rawStatus === 'graded'
+                        ? 'graded'
+                        : overdue
+                            ? 'overdue'
+                            : 'pending';
+
+            const badge = {
+                pending: { text: 'Pending', bg: 'rgba(245, 158, 11, 0.16)', color: '#f59e0b' },
+                overdue: { text: 'Overdue', bg: 'rgba(239, 68, 68, 0.16)', color: '#ef4444' },
+                submitted: { text: 'Submitted', bg: 'rgba(59, 130, 246, 0.16)', color: '#60a5fa' },
+                graded: { text: 'Graded', bg: 'rgba(16, 185, 129, 0.16)', color: '#34d399' },
+            }[status];
+
+            return {
+                status,
+                badge,
+                ctaLabel: submission ? 'Update Submission' : 'Submit',
+                lmsAction: submission ? 'view' : 'submit',
+                dueLabel: dueValid ? formatDateLabel(assignment.due_date) : 'No due date',
+                submittedLabel: submission?.submitted_at ? relTime(submission.submitted_at) : '',
+                scoreLabel: submission?.points_earned != null
+                    ? `${submission.points_earned}/${assignment.max_marks || assignment.max_points || 100}`
+                    : '',
+                feedbackPreview: truncateText(submission?.feedback, 120),
+                contentPreview: truncateText(submission?.content, 120),
+                fileUrl: submission?.file_url || '',
+            };
+        }
+
         async function loadLMSData() {
-            // Load Classes
-            const classRes = await fetch(`${API}/lms/classes`, { headers });
-            const classes = await classRes.json();
+            const isStudentDashboard = DASH_ROLE === 'student';
+            const [classes, assignments, quizzes, submissions] = await Promise.all([
+                fetchLmsCollection('/lms/classes'),
+                fetchLmsCollection('/lms/assignments'),
+                fetchLmsCollection('/lms/quizzes'),
+                isStudentDashboard ? fetchLmsCollection('/lms/students/me/submissions') : Promise.resolve([]),
+            ]);
+            const classNameMap = Object.fromEntries(classes.map(c => [c.id || c.class_id, c.name || 'Untitled Class']));
+            const submissionMap = Object.fromEntries(
+                (submissions || []).map(submission => [submission.assignment_id || submission.id, submission])
+            );
+            dashboardAssignmentMeta = {};
+
             const classList = document.getElementById('studentClassList');
-            classList.innerHTML = (classes || []).map(c => `
+            classList.innerHTML = classes.length ? classes.map(c => `
             <div class="card" style="padding:15px; border-left:4px solid var(--accent)">
-                <h4 style="margin:0">${c.name}</h4>
-                <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px">${c.subject || 'General'}</p>
+                <h4 style="margin:0">${escapeHtml(c.name || 'Untitled Class')}</h4>
+                <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px">${escapeHtml(c.subject || 'General')}</p>
                 <div style="display:flex; gap:8px">
-                    <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="window.location.href='/views/subjects.html?class_id=${c.id}'">Enter Class</button>
-                    <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="viewMaterials('${c.id}')">Materials</button>
+                    <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="window.location.href='${isStudentDashboard ? `/views/subjects.html?class_id=${encodeURIComponent(c.id || c.class_id || '')}` : `/views/lms.html?allow_student=1&page=classes&tab=classes&class_id=${encodeURIComponent(c.id || c.class_id || '')}`}'">${isStudentDashboard ? 'Enter Class' : 'Open Class'}</button>
+                    <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" onclick="viewMaterials('${c.id || c.class_id || ''}')">Materials</button>
                 </div>
             </div>
-        `).join('') || '<div class="empty-state"><p>No classes joined yet.</p></div>';
+        `).join('') : buildLmsEmptyState(isStudentDashboard ? 'No classes joined yet.' : 'No classes available yet.');
 
-            // Load Assignments
-            const assignRes = await fetch(`${API}/lms/assignments`, { headers });
-            const assignments = await assignRes.json();
             const assignList = document.getElementById('studentAssignmentList');
-            assignList.innerHTML = (assignments || []).map(a => `
+            assignList.innerHTML = assignments.length ? assignments.map(a => `
             <div class="list-item" style="padding:12px; border-bottom:1px solid var(--border-dim); display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <strong>${a.title}</strong>
-                    <div style="font-size:11px; color:var(--text-muted)">Due: ${a.due_date || 'N/A'} · Max Marks: ${a.max_marks || 100}</div>
+                    <strong>${escapeHtml(a.title || 'Untitled Assignment')}</strong>
+                    <div style="font-size:11px; color:var(--text-muted)">Due: ${escapeHtml(formatDateLabel(a.due_date))} · Max Marks: ${escapeHtml(a.max_marks || a.max_points || 100)}</div>
                 </div>
-                <button class="btn" style="font-size:11px; padding:5px 10px;" onclick="openSubmit('${a.id}', '${a.title}')">Submit</button>
+                ${isStudentDashboard
+                    ? `<button class="btn" style="font-size:11px; padding:5px 10px;" onclick="openSubmit('${a.id || a.assignment_id || ''}', '${escapeHtml(a.title || 'Assignment')}')">Submit</button>`
+                    : `<button class="btn btn-secondary" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='/views/lms.html?allow_student=1&page=classes&tab=assignments${a.class_id ? `&class_id=${encodeURIComponent(a.class_id)}` : ''}'">View Assignment</button>`}
             </div>
-        `).join('') || '<div class="empty-state"><p>No assignments found.</p></div>';
+        `).join('') : buildLmsEmptyState('No assignments found.');
 
-            // Load Quizzes
-            const quizRes = await fetch(`${API}/lms/quizzes`, { headers });
-            const quizzes = await quizRes.json();
+            assignList.innerHTML = assignments.length ? assignments.map(a => {
+                const assignmentId = a.id || a.assignment_id || '';
+                const submission = submissionMap[assignmentId];
+                const state = getDashboardAssignmentState(a, submission);
+                dashboardAssignmentMeta[assignmentId] = {
+                    assignmentId,
+                    assignment: a,
+                    title: a.title || 'Assignment',
+                    classId: a.class_id || '',
+                    description: a.description || '',
+                    submission,
+                    state,
+                };
+                return `
+            <div class="list-item" style="padding:12px; border-bottom:1px solid var(--border-dim); display:flex; flex-direction:column; gap:10px; align-items:stretch;">
+                <div style="display:flex; justify-content:space-between; gap:14px; align-items:flex-start;">
+                    <div style="flex:1; min-width:0;">
+                        <strong>${escapeHtml(a.title || 'Untitled Assignment')}</strong>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${a.class_id ? `${escapeHtml(classNameMap[a.class_id] || a.class_id)} · ` : ''}Due: ${escapeHtml(state.dueLabel)} · Max Marks: ${escapeHtml(a.max_marks || a.max_points || 100)}</div>
+                        ${state.contentPreview ? `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Submission: ${escapeHtml(state.contentPreview)}</div>` : ''}
+                        ${state.fileUrl ? `<div style="font-size:11px; color:var(--accent); margin-top:4px;">Link attached</div>` : ''}
+                        ${state.feedbackPreview ? `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Feedback: ${escapeHtml(state.feedbackPreview)}</div>` : ''}
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                        <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; background:${state.badge.bg}; color:${state.badge.color};">${escapeHtml(state.badge.text)}</span>
+                        ${state.scoreLabel ? `<span style="font-size:11px; font-weight:700; color:var(--accent);">${escapeHtml(state.scoreLabel)}</span>` : ''}
+                        ${state.submittedLabel ? `<span style="font-size:11px; color:var(--text-muted);">Updated ${escapeHtml(state.submittedLabel)}</span>` : ''}
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    ${isStudentDashboard
+                        ? `<button class="btn" style="font-size:11px; padding:5px 10px;" onclick="openSubmit('${assignmentId}')">${escapeHtml(state.ctaLabel)}</button><button class="btn btn-secondary" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='${buildDashboardAssignmentHref(a, state.lmsAction)}'">Open in LMS</button>`
+                        : `<button class="btn btn-secondary" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='${buildDashboardAssignmentHref(a, 'view')}'">View Assignment</button>`}
+                </div>
+            </div>`;
+            }).join('') : buildLmsEmptyState('No assignments found.');
+
             const quizList = document.getElementById('studentQuizList');
-            quizList.innerHTML = (quizzes || []).map(q => `
+            quizList.innerHTML = quizzes.length ? quizzes.map(q => `
             <div class="list-item" style="padding:12px; border-bottom:1px solid var(--border-dim); display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <strong>${q.title}</strong>
-                    <div style="font-size:11px; color:var(--text-muted)">Due: ${q.due_date || 'N/A'}</div>
+                    <strong>${escapeHtml(q.title || 'Untitled Quiz')}</strong>
+                    <div style="font-size:11px; color:var(--text-muted)">Due: ${escapeHtml(formatDateLabel(q.due_date || q.end_time))}</div>
                 </div>
-                <button class="btn" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='/views/lms_quiz.html?quiz_id=${q.id}${q.class_id ? `&class_id=${q.class_id}` : ''}'">Take Quiz</button>
+                <button class="btn" style="font-size:11px; padding:5px 10px;" onclick="window.location.href='${isStudentDashboard
+                    ? `/views/lms_quiz.html?quiz_id=${encodeURIComponent(q.id || q.quiz_id || '')}${q.class_id ? `&class_id=${encodeURIComponent(q.class_id)}` : ''}`
+                    : `/views/lms.html?allow_student=1&page=quizzes&tab=quizzes${q.class_id ? `&class_id=${encodeURIComponent(q.class_id)}` : ''}`}'">${isStudentDashboard ? 'Take Quiz' : 'View Quiz'}</button>
             </div>
-        `).join('') || '<div class="empty-state"><p>No quizzes found.</p></div>';
+        `).join('') : buildLmsEmptyState('No quizzes found.');
 
             loadSuggestions();
         }
@@ -860,26 +1006,54 @@
             loadSuggestions();
         }
 
-        let activeAssignmentId = null;
-        function openSubmit(id, title) {
+        function openSubmit(id) {
+            if (DASH_ROLE !== 'student') {
+                alert('Only students can submit assignments from the dashboard.');
+                return;
+            }
+            const meta = dashboardAssignmentMeta[id];
+            if (!meta) {
+                alert('Assignment details are unavailable right now.');
+                return;
+            }
             activeAssignmentId = id;
-            document.getElementById('submitTitle').textContent = `Submit: ${title}`;
+            document.getElementById('submitTitle').textContent = `${meta.state.ctaLabel}: ${meta.title}`;
+            document.getElementById('submitHelperText').textContent = meta.submission
+                ? `Current status: ${meta.state.badge.text}${meta.state.submittedLabel ? ` · Last updated ${meta.state.submittedLabel}` : ''}`
+                : (meta.description || 'You can add a written response, a file link, or both.');
+            document.getElementById('submitContent').value = meta.submission?.content || '';
+            document.getElementById('submitFileUrl').value = meta.submission?.file_url || '';
+            document.getElementById('submitActionBtn').textContent = meta.state.ctaLabel;
             showModal('submitModal');
         }
 
         async function submitFinal() {
+            if (DASH_ROLE !== 'student') {
+                alert('Only students can submit assignments from the dashboard.');
+                return;
+            }
             const content = document.getElementById('submitContent').value;
             const file_url = document.getElementById('submitFileUrl').value;
             const res = await fetch(`${API}/lms/assignments/${activeAssignmentId}/submit`, {
                 method: 'POST', headers, body: JSON.stringify({ content, file_url })
             });
-            if (res.ok) { alert('Submitted successfully!'); hideModal('submitModal'); }
-            else { alert('Submission failed'); }
+            const payload = await parseJsonSafe(res);
+            if (res.ok) {
+                alert('Submission saved successfully!');
+                hideModal('submitModal');
+                loadLMSData();
+            }
+            else { alert(unwrapPayload(payload)?.detail || payload?.detail || 'Submission failed'); }
         }
 
         async function viewMaterials(classId) {
             const res = await fetch(`${API}/lms/classes/${classId}/materials`, { headers });
-            const materials = await res.json();
+            const payload = await parseJsonSafe(res);
+            const materials = ensureArray(payload);
+            if (!res.ok) {
+                alert(unwrapPayload(payload)?.detail || payload?.detail || 'Failed to load materials');
+                return;
+            }
             if (materials.length === 0) { alert('No study materials available yet.'); return; }
             const mList = materials.map(m => `- ${m.title} (${m.file_url})`).join('\n');
             alert('Study Materials:\n' + mList);

@@ -113,6 +113,8 @@
     // Read initial route state from URL params.
     const _initialPage = _params.get('tab') || _params.get('page') || 'home';
     let activeClassId = _params.get('class_id') || '';
+    let pendingAssignmentId = _params.get('assignment_id') || '';
+    let pendingAssignmentAction = _params.get('assignment_action') || '';
 
     console.log('🚀 LMS Initializing:', { 
       role: ROLE, 
@@ -134,6 +136,8 @@
       url.searchParams.set('tab', tab || 'home');
       if (classId) url.searchParams.set('class_id', classId);
       else url.searchParams.delete('class_id');
+      url.searchParams.delete('assignment_id');
+      url.searchParams.delete('assignment_action');
       window.history.replaceState({}, '', url.toString());
     }
 
@@ -187,6 +191,72 @@
       const diffDays = Math.round(diffHours / 24);
       if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
       return formatDateLabel(value, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function truncateAssignmentText(value, max = 140) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+    }
+
+    function getStudentAssignmentState(assignment, submission) {
+      const dueDate = assignment?.due_date ? new Date(assignment.due_date) : null;
+      const dueValid = !!dueDate && !Number.isNaN(dueDate.getTime());
+      const overdue = dueValid && dueDate.getTime() < Date.now() && !submission;
+      const rawStatus = String(submission?.status || '').toLowerCase();
+      const status = submission?.graded
+        ? 'graded'
+        : rawStatus === 'submitted'
+          ? 'submitted'
+          : rawStatus === 'graded'
+            ? 'graded'
+            : overdue
+              ? 'overdue'
+              : 'pending';
+
+      const badge = {
+        pending: { label: 'Pending', className: 'badge badge-purple' },
+        overdue: { label: 'Overdue', className: 'badge badge-danger' },
+        submitted: { label: 'Submitted', className: 'badge badge-sky' },
+        graded: { label: 'Graded', className: 'badge badge-success' },
+      }[status];
+
+      return {
+        status,
+        badge,
+        ctaLabel: submission ? 'Update Submission' : 'Submit Assignment',
+        titlePrefix: submission ? 'Update' : 'Submit',
+        dueLabel: assignment?.due_date ? formatDateLabel(assignment.due_date) : 'No due date',
+        submittedLabel: submission?.submitted_at ? formatRelativeTime(submission.submitted_at) : '',
+        scoreLabel: submission?.points_earned != null
+          ? `${submission.points_earned}/${assignment.max_points || assignment.max_marks || 100}`
+          : '',
+        feedbackPreview: truncateAssignmentText(submission?.feedback, 120),
+        contentPreview: truncateAssignmentText(submission?.content, 120),
+        fileUrl: submission?.file_url || '',
+      };
+    }
+
+    function consumeAssignmentIntent(items, submissionMap = {}) {
+      if (ROLE !== 'student' || currentPage !== 'assignments' || !pendingAssignmentId) return;
+      const target = items.find((item) => (item.id || item.assignment_id) === pendingAssignmentId);
+      if (!target) return;
+
+      const row = document.querySelector(`[data-assignment-id="${pendingAssignmentId}"]`);
+      if (row) {
+        row.style.borderLeft = '4px solid var(--accent)';
+        row.style.background = 'color-mix(in oklab, var(--accent) 8%, var(--bg-card))';
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      const action = pendingAssignmentAction;
+      pendingAssignmentId = '';
+      pendingAssignmentAction = '';
+
+      if (action === 'submit') {
+        const submission = submissionMap[target.id || target.assignment_id] || null;
+        setTimeout(() => openSubmitAssignment(target.id || target.assignment_id, target.title || 'Assignment', target, submission), 120);
+      }
     }
 
     function getEventTone(type) {
@@ -257,29 +327,29 @@
     ];
 
     const iconMap = {
-      home: { icon: 'fa-solid fa-house', accent: 'sidebar-c1' },
+      home: { icon: 'fa-solid fa-chart-line', accent: 'sidebar-c1' },
       classes: { icon: 'fa-solid fa-book-open', accent: 'sidebar-c2' },
       students: { icon: 'fa-solid fa-user-group', accent: 'sidebar-c3' },
       assignments: { icon: 'fa-regular fa-pen-to-square', accent: 'sidebar-c4' },
       quizzes: { icon: 'fa-regular fa-circle-question', accent: 'sidebar-c5' },
-      results: { icon: 'fa-solid fa-chart-column', accent: 'sidebar-c6' },
+      results: { icon: 'fa-regular fa-chart-bar', accent: 'sidebar-c6' },
       attendance: { icon: 'fa-regular fa-circle-check', accent: 'sidebar-c7' },
-      events: { icon: 'fa-regular fa-calendar-days', accent: 'sidebar-c1' },
+      events: { icon: 'fa-solid fa-calendar-days', accent: 'sidebar-c4' },
       announcements: { icon: 'fa-solid fa-bullhorn', accent: 'sidebar-c2' },
-      chat: { icon: 'fa-regular fa-comments', accent: 'sidebar-c3' },
-      analytics: { icon: 'fa-solid fa-chart-pie', accent: 'sidebar-c4' },
-      profile: { icon: 'fa-regular fa-user', accent: 'sidebar-c5' },
-      logout: { icon: 'fa-solid fa-right-from-bracket', accent: 'sidebar-c6' }
+      chat: { icon: 'fa-solid fa-comments', accent: 'sidebar-c3' },
+      analytics: { icon: 'fa-solid fa-chart-pie', accent: 'sidebar-c1' },
+      profile: { icon: 'fa-regular fa-user', accent: 'sidebar-c6' },
+      logout: { icon: 'fa-solid fa-right-from-bracket', accent: 'sidebar-c5' }
     };
     menuConfig.forEach((group) => group.items.forEach((item) => Object.assign(item, iconMap[item.id] || {})));
 
     const pageMeta = {
-      home: { eyebrow: 'Overview', icon: 'fa-solid fa-book-open', title: 'LMS Workspace', subtitle: 'Track classes, coursework, events, and announcements from one cohesive dashboard shell.' },
-      classes: { eyebrow: 'Classes', icon: 'fa-solid fa-book-open-reader', title: 'Classes', subtitle: 'Browse sections, join codes, and class rosters with the same spacing and controls as the dashboard.' },
+      home: { eyebrow: 'Overview', icon: 'fa-regular fa-chart-bar', title: 'LMS Workspace', subtitle: 'Track classes, coursework, events, and announcements from one cohesive dashboard shell.' },
+      classes: { eyebrow: 'Classes', icon: 'fa-solid fa-book-open', title: 'Classes', subtitle: 'Browse sections, join codes, and class rosters with the same spacing and controls as the dashboard.' },
       students: { eyebrow: 'Students', icon: 'fa-solid fa-user-group', title: 'Students', subtitle: 'Review enrollment and student activity without leaving the LMS workspace.' },
       assignments: { eyebrow: 'Coursework', icon: 'fa-regular fa-pen-to-square', title: 'Assignments', subtitle: 'Create, review, and manage assignment work with consistent table and action patterns.' },
       quizzes: { eyebrow: 'Assessment', icon: 'fa-regular fa-circle-question', title: 'Exams', subtitle: 'Keep quizzes and exams aligned with the same card, badge, and action language.' },
-      results: { eyebrow: 'Performance', icon: 'fa-solid fa-chart-column', title: 'Results', subtitle: 'Compare class analytics and outcomes inside a cleaner reporting layout.' },
+      results: { eyebrow: 'Performance', icon: 'fa-regular fa-chart-bar', title: 'Results', subtitle: 'Compare class analytics and outcomes inside a cleaner reporting layout.' },
       attendance: { eyebrow: 'Attendance', icon: 'fa-regular fa-circle-check', title: 'Attendance', subtitle: 'Mark attendance and review trends in a simpler, more readable workspace.' },
       events: { eyebrow: 'Calendar', icon: 'fa-regular fa-calendar-days', title: 'Events', subtitle: 'Plan exams, meetings, holidays, and class milestones with a dashboard-aligned event view.' },
       announcements: { eyebrow: 'Communication', icon: 'fa-solid fa-bullhorn', title: 'Announcements', subtitle: 'Post updates in a clearer feed with the same typography, badges, and spacing system.' }
@@ -311,6 +381,81 @@
       if (eyebrow) eyebrow.innerHTML = `<i class="${meta.icon}" aria-hidden="true"></i> ${meta.eyebrow}`;
       if (title) title.innerHTML = `<i class="${meta.icon}" aria-hidden="true"></i> ${meta.title}`;
       if (subtitle) subtitle.textContent = meta.subtitle;
+    }
+
+    function normalizeClassesIconography(area, isTeacher) {
+      const searchIcon = area.querySelector('.table-search span');
+      if (searchIcon) searchIcon.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>';
+
+      const actionButton = area.querySelector('.table-header .btn.btn-primary');
+      if (actionButton) {
+        actionButton.innerHTML = isTeacher
+          ? '<i class="fa-solid fa-plus" aria-hidden="true"></i> Create Class'
+          : '<i class="fa-solid fa-plus" aria-hidden="true"></i> Join Class';
+      }
+
+      area.querySelectorAll("button.btn.btn-sm.btn-icon[onclick^=\"openEditClass(\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>';
+        button.title = 'Edit class';
+        button.setAttribute('aria-label', 'Edit class');
+      });
+
+      area.querySelectorAll("button.btn.btn-sm.btn-icon[onclick^=\"deleteClass(\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-trash-can" aria-hidden="true"></i>';
+        button.title = 'Delete class';
+        button.setAttribute('aria-label', 'Delete class');
+      });
+
+      area.querySelectorAll("button.btn.btn-sm.btn-icon[onclick^=\"viewStudents(\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-solid fa-user-group" aria-hidden="true"></i>';
+        button.title = 'View students';
+        button.setAttribute('aria-label', 'View students');
+      });
+
+      area.querySelectorAll("button.btn.btn-sm.btn-primary[onclick*=\"loadPage('assignments'\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i> View';
+      });
+    }
+
+    function normalizeQuizIconography(area, isTeacher) {
+      const searchIcon = area.querySelector('.table-search span');
+      if (searchIcon) searchIcon.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>';
+
+      const createButton = area.querySelector('.table-header .btn.btn-primary');
+      if (createButton && isTeacher) {
+        createButton.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true"></i> New Quiz';
+      }
+
+      area.querySelectorAll("button.btn.btn-sm.btn-primary[onclick^=\"openLmsQuiz(\"]").forEach((button) => {
+        button.innerHTML = isTeacher
+          ? '<i class="fa-regular fa-eye" aria-hidden="true"></i> View Quiz'
+          : '<i class="fa-regular fa-circle-question" aria-hidden="true"></i> Take Quiz';
+      });
+    }
+
+    function normalizeAssignmentsIconography(area, isTeacher) {
+      const searchIcon = area.querySelector('.table-search span');
+      if (searchIcon) searchIcon.innerHTML = '<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>';
+
+      const createButton = area.querySelector('.table-header .btn.btn-primary');
+      if (createButton && isTeacher) {
+        createButton.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true"></i> New Assignment';
+      }
+
+      area.querySelectorAll("button.btn.btn-sm.btn-primary[onclick^=\"openSubmitAssignment(\"]").forEach((button) => {
+        const wantsUpdate = /update/i.test(button.textContent || '');
+        button.innerHTML = wantsUpdate
+          ? '<i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Update Submission'
+          : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit Assignment';
+      });
+
+      area.querySelectorAll("button.btn.btn-sm.btn-secondary[onclick^=\"openViewSubmissions(\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-file-lines" aria-hidden="true"></i> Submissions';
+      });
+
+      area.querySelectorAll("button.btn.btn-sm.btn-secondary[onclick*=\"assignment_action=view\"]").forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i> Open';
+      });
     }
 
     function navTo(page, el) {
@@ -896,6 +1041,7 @@
         </table>
       </div>
     </div>`;
+      normalizeClassesIconography(area, isTeacher);
     }
 
     function filterClassTable(q) {
@@ -1069,6 +1215,9 @@
 
       const tone = result.mode === 'enrolled_existing' ? 'rgba(16,185,129,0.16)' : 'rgba(59,130,246,0.16)';
       const title = result.mode === 'enrolled_existing' ? 'Student enrolled directly' : 'Invitation ready to share';
+      const rollNumberNote = result.roll_number
+        ? `<div style="margin-top:10px; font-size:12px; color:var(--text-muted);">Roll number: <strong style="color:var(--text);">${escHtml(result.roll_number)}</strong></div>`
+        : '';
       const inviteLink = result.invite_url
         ? `<div style="display:grid; gap:10px; margin-top:12px;">
             <div style="font-size:12px; color:var(--text-muted); word-break:break-all;">${escHtml(result.invite_url)}</div>
@@ -1080,6 +1229,7 @@
         <div style="padding:14px 16px; border-radius:18px; border:1px solid color-mix(in oklab, var(--accent) 32%, var(--border)); background:${tone};">
           <div style="font-weight:700; color:var(--text);">${title}</div>
           <div class="text-muted" style="margin-top:6px;">${escHtml(result.message || message || '')}</div>
+          ${rollNumberNote}
           ${inviteLink}
         </div>`;
     }
@@ -1209,9 +1359,11 @@
 
       const emailInput = document.getElementById('studentInviteEmail');
       const nameInput = document.getElementById('studentInviteName');
+      const rollInput = document.getElementById('studentInviteRollNumber');
       const submitBtn = document.getElementById('studentInviteBtn');
       const student_email = (emailInput?.value || '').trim();
       const student_name = (nameInput?.value || '').trim();
+      const student_roll_number = (rollInput?.value || '').trim();
 
       if (!student_email) {
         toast('Student email is required.', 'error');
@@ -1227,7 +1379,7 @@
       try {
         const response = await apiFetch(`/lms/classes/${classId}/students/invite`, {
           method: 'POST',
-          body: JSON.stringify({ student_email, student_name })
+          body: JSON.stringify({ student_email, student_name, student_roll_number })
         });
         const payload = response ? normalizeApiPayload(await response.json()) : { success: false, error: 'No response' };
 
@@ -1238,6 +1390,7 @@
         const resultData = payload.data || payload;
         if (emailInput) emailInput.value = '';
         if (nameInput) nameInput.value = '';
+        if (rollInput) rollInput.value = '';
         toast(resultData.mode === 'enrolled_existing' ? 'Student enrolled successfully.' : 'Invite created successfully.');
         const classPick = document.getElementById('studentClassPick');
         const selectedClass = classPick ? { id: classId, name: classPick.options[classPick.selectedIndex]?.text || '' } : null;
@@ -1344,6 +1497,10 @@
             <span class="text-muted" style="font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">Student name</span>
             <input id="studentInviteName" type="text" placeholder="Optional name for invite" style="padding:12px 14px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-family:var(--font);">
           </label>
+          <label style="display:grid; gap:8px;">
+            <span class="text-muted" style="font-size:12px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">Roll number</span>
+            <input id="studentInviteRollNumber" type="text" placeholder="Optional academic ID" style="padding:12px 14px; border-radius:16px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-family:var(--font);">
+          </label>
           <button class="btn btn-primary" id="studentInviteBtn" onclick="submitStudentInvite()" style="justify-content:center;">
             <i class="fa-solid fa-paper-plane"></i> Add student
           </button>
@@ -1402,6 +1559,14 @@
       const data = normalizeApiPayload(await res?.json());
       const items = Array.isArray(data.data) ? data.data : [];
       const isTeacher = ROLE === 'teacher' || ROLE === 'admin';
+      let submissionMap = {};
+
+      if (!isTeacher) {
+        const submissionRes = await apiFetch(`/lms/students/me/submissions${classId ? `?class_id=${encodeURIComponent(classId)}` : ''}`);
+        const submissionData = normalizeApiPayload(await submissionRes?.json());
+        const submissions = Array.isArray(submissionData.data) ? submissionData.data : [];
+        submissionMap = Object.fromEntries(submissions.map((submission) => [submission.assignment_id || submission.id, submission]));
+      }
 
       // Get classes for create form
       let classOpts = '';
@@ -1436,7 +1601,44 @@
     </div>`;
 
       // Stash class options for the create form
+      normalizeAssignmentsIconography(area, isTeacher);
       window._classOpts = classOpts;
+
+      if (!isTeacher) {
+        area.innerHTML = `
+    <div class="lms-card">
+      <div class="table-header">
+        <span class="lms-card-title">Assignments (${items.length})</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="table-search"><span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span><input placeholder="Search..." oninput="filterTable('assignTable',this.value)"></div>
+        </div>
+      </div>
+      <div class="lms-table-wrap"><table class="lms-table" id="assignTable">
+        <thead><tr><th>Title</th><th>Type</th><th>Due Date</th><th>Submission</th><th>Actions</th></tr></thead>
+        <tbody>${items.map((assignment) => {
+          const assignmentId = assignment.id || assignment.assignment_id;
+          const submission = submissionMap[assignmentId];
+          const state = getStudentAssignmentState(assignment, submission);
+          return `<tr data-assignment-id="${escHtml(assignmentId)}">
+            <td>
+              <strong>${escHtml(assignment.title)}</strong>
+              ${state.contentPreview || state.feedbackPreview || state.fileUrl ? `<div style="font-size:12px;color:var(--lms-muted);margin-top:6px;display:grid;gap:4px;">${state.contentPreview ? `<span>Submission: ${escHtml(state.contentPreview)}</span>` : ''}${state.feedbackPreview ? `<span>Feedback: ${escHtml(state.feedbackPreview)}</span>` : ''}${state.fileUrl ? `<span style="color:var(--accent)">Link attached</span>` : ''}</div>` : ''}
+            </td>
+            <td><span class="badge badge-purple">${escHtml(assignment.type || 'homework')}</span></td>
+            <td>${assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '-'}</td>
+            <td><div style="display:grid;gap:6px;justify-items:start;"><span class="${state.badge.className}">${escHtml(state.badge.label)}</span>${state.submittedLabel ? `<span style="font-size:12px;color:var(--lms-muted);">Updated ${escHtml(state.submittedLabel)}</span>` : ''}${state.scoreLabel ? `<span style="font-size:12px;font-weight:700;color:var(--accent);">${escHtml(state.scoreLabel)}</span>` : ''}</div></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-primary" onclick="openSubmitAssignment('${assignmentId}', ${JSON.stringify(assignment.title || 'Assignment').replace(/"/g, '&quot;')}, ${JSON.stringify(assignment).replace(/"/g, '&quot;')}, ${submission ? JSON.stringify(submission).replace(/"/g, '&quot;') : 'null'})">${escHtml(state.ctaLabel)}</button>
+              <button class="btn btn-sm btn-secondary" onclick="window.location.href='${`/views/lms.html?allow_student=1&page=classes&tab=assignments${assignment.class_id ? `&class_id=${encodeURIComponent(assignment.class_id)}` : ''}&assignment_id=${encodeURIComponent(assignmentId)}&assignment_action=view`}'"><i class="fa-regular fa-eye" aria-hidden="true"></i> Open</button>
+            </td>
+          </tr>`;
+        }).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">No assignments yet.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+        normalizeAssignmentsIconography(area, isTeacher);
+      }
+
+      consumeAssignmentIntent(items, submissionMap);
     }
 
     function openCreateAssignment() {
@@ -1457,15 +1659,26 @@
       });
     }
 
-    function openSubmitAssignment(assignId, title) {
-      openFormModal('Submit: ' + title, `
-    <div class="form-group"><label>Your Answer</label><textarea id="fSubmitContent" placeholder="Write your answer here..." rows="5"></textarea></div>
-    <div class="form-group"><label>File URL (optional)</label><input id="fSubmitUrl" placeholder="Google Drive / link"></div>
+    function openSubmitAssignment(assignId, title, assignment = {}, existingSubmission = null) {
+      const state = getStudentAssignmentState(assignment || {}, existingSubmission);
+      openFormModal(`${state.titlePrefix}: ${title}`, `
+    <div class="form-group"><label>Your Answer</label><textarea id="fSubmitContent" placeholder="Write your answer here..." rows="5">${escHtml(existingSubmission?.content || '')}</textarea></div>
+    <div class="form-group"><label>File URL (optional)</label><input id="fSubmitUrl" placeholder="Google Drive / link" value="${escHtml(existingSubmission?.file_url || '')}"></div>
+    ${existingSubmission ? `<div class="form-group" style="padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--bg-secondary);display:grid;gap:6px;"><div style="font-size:12px;color:var(--lms-muted);">Status: <strong style="color:var(--text-primary)">${escHtml(state.badge.label)}</strong>${state.submittedLabel ? ` · Last updated ${escHtml(state.submittedLabel)}` : ''}</div>${state.scoreLabel ? `<div style="font-size:12px;color:var(--accent);font-weight:700;">Score: ${escHtml(state.scoreLabel)}</div>` : ''}${state.feedbackPreview ? `<div style="font-size:12px;color:var(--lms-muted);">Feedback: ${escHtml(state.feedbackPreview)}</div>` : ''}</div>` : ''}
   `, async () => {
         const body = { assignment_id: assignId, content: document.getElementById('fSubmitContent').value, file_url: document.getElementById('fSubmitUrl').value };
         const res = await apiFetch(`/lms/assignments/${assignId}/submit`, { method: 'POST', body: JSON.stringify(body) });
-        if (res?.ok) { toast('Submitted!'); closeFormModal(); } else { toast('Submission failed', 'error'); }
+        if (res?.ok) {
+          toast(existingSubmission ? 'Submission updated!' : 'Submitted!');
+          closeFormModal();
+          loadPage('assignments', { classId: activeClassId, updateUrl: false });
+        } else {
+          toast('Submission failed', 'error');
+        }
       });
+      document.getElementById('formModalSubmit').innerHTML = existingSubmission
+        ? '<i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Update Submission'
+        : '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit Assignment';
     }
 
     // ═══════════════════════════════════════════════════
@@ -1490,8 +1703,8 @@
       <div class="table-header">
         <span class="lms-card-title">Exams & Quizzes (${items.length})</span>
         <div style="display:flex;gap:8px;align-items:center">
-          <div class="table-search"><span>🔍</span><input placeholder="Search..." oninput="filterTable('quizTable',this.value)"></div>
-          ${isTeacher ? `<button class="btn btn-primary" onclick="openCreateQuiz()">+ New Quiz</button>` : ''}
+          <div class="table-search"><span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span><input placeholder="Search..." oninput="filterTable('quizTable',this.value)"></div>
+          ${isTeacher ? `<button class="btn btn-primary" onclick="openCreateQuiz()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Quiz</button>` : ''}
         </div>
       </div>
       <div class="lms-table-wrap"><table class="lms-table" id="quizTable">
@@ -1502,10 +1715,11 @@
           <td>${q.due_date ? new Date(q.due_date).toLocaleDateString() : '-'}</td>
           ${isTeacher ? `<td>-</td>` : `<td>${q.time_limit ? q.time_limit + ' min' : 'None'}</td>`}
           <!-- FIX A5: Use lms_quiz.html for LMS quizzes, not quiz.html -->
-          <td><button class="btn btn-sm btn-primary" onclick="openLmsQuiz('${q.id}', '${q.class_id || classId || ''}')">${isTeacher ? '👁 View' : '🧠 Take Quiz'}</button></td>
+          <td><button class="btn btn-sm btn-primary" onclick="openLmsQuiz('${q.id}', '${q.class_id || classId || ''}')">${isTeacher ? '<i class="fa-regular fa-eye" aria-hidden="true"></i> View Quiz' : '<i class="fa-regular fa-circle-question" aria-hidden="true"></i> Take Quiz'}</button></td>
         </tr>`).join('') || '<tr><td colspan="5" class="text-muted" style="text-align:center;padding:40px">No quizzes yet.</td></tr>'}</tbody>
       </table></div>
     </div>`;
+      normalizeQuizIconography(area, isTeacher);
 
       window._quizClassOpts = classOpts;
     }
@@ -2290,7 +2504,21 @@
       </tr>`).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:20px">No submissions yet.</td></tr>'}
       </tbody>
     </table>`, () => closeFormModal());
-      document.getElementById('formModalSubmit').textContent = 'Close';
+      document.getElementById('formModalTitle').textContent = `${title} — Submissions (${subs.length})`;
+      document.getElementById('formModalSubmit').innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i> Close';
+      document.querySelectorAll('#formModalBody a.btn.btn-sm.btn-secondary').forEach((button) => {
+        button.innerHTML = '<i class="fa-solid fa-paperclip" aria-hidden="true"></i>';
+        button.title = 'Open attachment';
+        button.setAttribute('aria-label', 'Open attachment');
+      });
+      document.querySelectorAll('#formModalBody button.btn.btn-sm.btn-secondary').forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+        button.title = 'View answer';
+        button.setAttribute('aria-label', 'View answer');
+      });
+      document.querySelectorAll('#formModalBody button.btn.btn-sm.btn-primary').forEach((button) => {
+        button.innerHTML = '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Grade';
+      });
     }
 
     let _gradeSubId = null;

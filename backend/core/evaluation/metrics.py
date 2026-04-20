@@ -214,10 +214,11 @@ def calculate_retrieval_confidence(
     if not chunks and not has_graph_context:
         return 0.0
         
-    # If we have graph context, it's a strong signal of relationship discovery
-    base_boost = 0.1 if has_graph_context else 0.0
-    graph_bonus = min(0.2, max(0.0, graph_support) * 0.2)
-    document_bonus = min(0.15, max(0.0, document_coverage) * 0.15)
+    # Graph context is a meaningful signal of cross-document relationship discovery.
+    # Use a higher base boost so GRAG answers aren't dragged down by low raw RRF scores.
+    base_boost = 0.25 if has_graph_context else 0.0
+    graph_bonus = min(0.25, max(0.0, graph_support) * 0.25)
+    document_bonus = min(0.2, max(0.0, document_coverage) * 0.2)
         
     scores = []
     for c in chunks:

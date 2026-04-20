@@ -1081,7 +1081,7 @@
                                         const formatted = window.ai ?
                                             window.ai.formatMessage(msg.content, msg.chunks || []) :
                                             this.escapeHtml(msg.content);
-                                        const validationUI = this.createValidationUI(msg.validation_result);
+                                        const validationUI = this.renderValidationCardUI(msg.validation_result);
                                         const sessionId = `${chatId}_${msg.timestamp || index}`;
                                         const feedbackUI = this.createFeedbackUI(sessionId);
                                         const messageId = buildAssistantMessageId(chatId, msg.timestamp || index);
@@ -1311,51 +1311,38 @@
             }
 
             createValidationUI(validation) {
+                return this.renderValidationCardUI(validation);
+            }
+
+            renderValidationCardUI(validation) {
                 if (!validation) return '';
 
-                const icon = validation.validation_status === 'VERIFIED' ? '✓'
-                    : validation.validation_status === 'REJECTED' ? '✗'
-                    : '✗';
-                
-                const docBadge = validation.document_id
-                    ? `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid var(--accent-border-soft);">📄 DOC SCOPE: ACTIVE</span>`
-                    : '';
-                
                 const normalizedStatus = String(validation.validation_status || 'REJECTED').toUpperCase() === 'VERIFIED'
                     ? 'VERIFIED'
                     : 'REJECTED';
-                const displayStatusColor = normalizedStatus === 'VERIFIED' ? '#00ff64' : '#ff4444';
-                const displayIcon = normalizedStatus === 'VERIFIED' ? '✓' : '✗';
+                const statusColor = normalizedStatus === 'VERIFIED' ? '#00ff64' : '#ff4444';
+                const displayIcon = normalizedStatus === 'VERIFIED' ? 'OK' : '!';
+                const displayStatusColor = statusColor;
                 const evalId = validation._id || validation.id || '';
-                
-                // 1. Hallucination Warning Block
-                let hallucinationHtml = '';
-                if (validation.unsupported_sentences && validation.unsupported_sentences.length > 0) {
-                    hallucinationHtml = `
-                        <div class="hallucination-warning">
-                            <h4>⚠️ Unsupported Claims Detected</h4>
-                            <ul>
-                                ${validation.unsupported_sentences.map(s => `<li>"${this.escapeHtml(s)}"</li>`).join('')}
-                            </ul>
-                        </div>
-                    `;
-                }
-
-                // 2. Documents Used Badge
+                const sourceMode = String(validation.answer_source_mode || validation.source_mode || '').trim().toLowerCase();
+                const isLightweight = Boolean(validation.lightweight_validation);
+                const docBadge = (validation.document_id || sourceMode === 'document')
+                    ? `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid var(--accent-border-soft);">DOC SCOPE</span>`
+                    : '';
                 const usedChunkIndices = Array.isArray(validation.chunk_usage?.used_chunk_indices)
                     ? validation.chunk_usage.used_chunk_indices
                     : [];
                 const usedSourcesCount = usedChunkIndices.length;
-                const sourceBadge = usedSourcesCount > 0 
-                    ? `<span style="background:rgba(138,43,226,0.2);color:#d1a3ff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(138,43,226,0.3);">📚 ${usedSourcesCount} SOURCES USED</span>`
+                const sourceBadge = usedSourcesCount > 0
+                    ? `<span style="background:rgba(138,43,226,0.2);color:#d1a3ff;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(138,43,226,0.3);">${usedSourcesCount} SOURCES USED</span>`
                     : '';
                 const judgeBadge = validation.judge_fallback_used
                     ? `<span style="background:rgba(245,158,11,0.18);color:#fcd34d;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(245,158,11,0.35);">JUDGE FALLBACK</span>`
                     : '';
-                const multiDocBadge = validation.multi_document_metrics?.graph_used
+                const multiDoc = validation.multi_document_metrics || {};
+                const multiDocBadge = multiDoc.graph_used
                     ? `<span style="background:rgba(59,130,246,0.18);color:#93c5fd;padding:2px 6px;border-radius:4px;font-size:0.7rem;margin-right:8px;border:1px solid rgba(59,130,246,0.35);">MULTI-DOC</span>`
                     : '';
-                const multiDoc = validation.multi_document_metrics || {};
                 const uploadedDocumentCount = Number(multiDoc.uploaded_document_count || 0);
                 const coveredDocumentCount = Number(multiDoc.covered_document_count || 0);
                 const unsupportedDocuments = Array.isArray(multiDoc.unsupported_documents) ? multiDoc.unsupported_documents : [];
@@ -1370,13 +1357,68 @@
                         <li>Missing Documents: ${missingDocuments.length ? missingDocuments.map((name) => this.escapeHtml(name)).join(', ') : 'None'}</li>
                       `
                     : '';
-
-                // Expand/Collapse Toggle JS
                 const toggleJs = `this.closest('.validation-card').classList.toggle('expanded')`;
+
+                if (isLightweight) {
+                    const sourceLabel = sourceMode === 'gemini_fallback'
+                        ? 'General AI fallback'
+                        : sourceMode === 'document'
+                            ? 'Document grounded'
+                            : sourceMode === 'knowledge_base'
+                                ? 'Knowledge base grounded'
+                                : (sourceMode ? sourceMode.replace(/_/g, ' ') : 'Assistant answer');
+                    const sourceTone = sourceMode === 'gemini_fallback'
+                        ? '#b8c5d6'
+                        : sourceMode === 'document'
+                            ? '#a78bfa'
+                            : sourceMode === 'knowledge_base'
+                                ? 'var(--accent)'
+                                : '#93c5fd';
+                    return `
+                        <div class="validation-card" style="border-left-color: ${statusColor}">
+                            <div class="validation-header" onclick="${toggleJs}">
+                                <div>
+                                    ${docBadge}
+                                    ${multiDocBadge}
+                                    ${coverageBadge}
+                                    <span style="font-weight:700;color:${displayStatusColor};font-size:0.75rem;text-transform:uppercase;">${displayIcon} ${normalizedStatus}</span>
+                                </div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);">
+                                    <span>Details</span>
+                                    <span class="expand-icon">▼</span>
+                                </div>
+                            </div>
+                            <div class="metrics-grid">
+                                <div class="metric-badge">
+                                    Source: <strong style="color:${sourceTone}">${this.escapeHtml(sourceLabel)}</strong>
+                                </div>
+                                <div class="metric-badge">
+                                    Confidence: <strong>${Number(validation.retrieval_confidence || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="validation-details">
+                                <div style="font-size:0.78rem;color:#b8c5d6;line-height:1.5;">
+                                    <strong>Reason:</strong> ${this.escapeHtml(validation.reason || 'Evaluation attached.')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let hallucinationHtml = '';
+                if (validation.unsupported_sentences && validation.unsupported_sentences.length > 0) {
+                    hallucinationHtml = `
+                        <div class="hallucination-warning">
+                            <h4>Unsupported Claims Detected</h4>
+                            <ul>
+                                ${validation.unsupported_sentences.map(s => `<li>"${this.escapeHtml(s)}"</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="validation-card" style="border-left-color: ${statusColor}">
-                        <!-- Visible Header (clickable accordion) -->
                         <div class="validation-header" onclick="${toggleJs}">
                             <div>
                                 ${docBadge}
@@ -1391,8 +1433,6 @@
                                 <span class="expand-icon">▼</span>
                             </div>
                         </div>
-                        
-                        <!-- Top-Level Metrics -->
                         <div class="metrics-grid">
                             <div class="metric-badge">
                                 Faithfulness: <strong>${(validation.faithfulness_score || 0).toFixed(2)}</strong>
@@ -1407,10 +1447,7 @@
                                 <div class="metric-tooltip">Overall weighted score combining retrieval quality and generation accuracy.</div>
                             </div>
                         </div>
-
                         ${hallucinationHtml}
-
-                        <!-- Hidden Expandable Details -->
                         <div class="validation-details">
                             <div style="font-size: 0.75rem; color: #b8c5d6; margin-bottom: 8px;">
                                 <strong>Advanced Metrics:</strong>
@@ -1741,7 +1778,7 @@
                         ${createReadAloudButtonMarkup(messageId)}
                     </div>
                     <div class="ai-message-content">${answerHtml}</div>
-                    ${validationHtml}
+                    <div class="validation-slot">${validationHtml}</div>
                     ${feedbackHtml}
                 </div>
             `;
@@ -1797,7 +1834,7 @@
             function renderValidationCard(validation) {
                 if (!validation) return;
                 latestValidation = validation;
-                const validationHTML = chatHistory.createValidationUI(validation);
+                const validationHTML = chatHistory.renderValidationCardUI(validation);
                 if (!validationHTML) return;
 
                 const targetBubble = finalizedAssistantMessageId
@@ -1805,13 +1842,19 @@
                     : aiBubble;
                 if (!targetBubble) return;
 
-                // Always add the evaluation card (do not remove existing)
-                const feedbackEl = targetBubble.querySelector('.feedback-container');
-                if (feedbackEl) {
-                    feedbackEl.insertAdjacentHTML('beforebegin', validationHTML);
-                } else {
-                    targetBubble.insertAdjacentHTML('beforeend', validationHTML);
+                let validationSlot = targetBubble.querySelector('.validation-slot');
+                if (!validationSlot) {
+                    validationSlot = document.createElement('div');
+                    validationSlot.className = 'validation-slot';
+                    const feedbackEl = targetBubble.querySelector('.feedback-container');
+                    if (feedbackEl) {
+                        feedbackEl.insertAdjacentElement('beforebegin', validationSlot);
+                    } else {
+                        targetBubble.appendChild(validationSlot);
+                    }
                 }
+
+                validationSlot.innerHTML = validationHTML;
                 feed.scrollTop = feed.scrollHeight;
             }
 
@@ -1894,7 +1937,7 @@
                         const chunks = (meta || metaInfo)?.chunks || [];
                         const chatId = (meta || metaInfo)?.chat_id || resolvedChatId || chatHistory.activeChatId;
                         const feedbackReferenceId = (meta || metaInfo)?.feedback_reference_id || chatId;
-                        const validationHTML = chatHistory.createValidationUI(latestValidation);
+                        const validationHTML = chatHistory.renderValidationCardUI(latestValidation);
 
                         // --- Source mode badge ---
                         const srcMode = (meta || metaInfo)?.source_mode || '';

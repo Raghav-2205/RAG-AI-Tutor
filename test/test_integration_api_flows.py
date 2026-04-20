@@ -335,8 +335,23 @@ def _install_stub_modules():
     llm_module = types.ModuleType("backend.core.llm_interface")
 
     class StubLLMClient:
+        def __init__(self):
+            self.responses = ["{}"]
+            self.calls = []
+
+        def reset(self, *responses):
+            self.responses = list(responses) if responses else ["{}"]
+            self.calls = []
+
         async def async_generate(self, *args, **kwargs):
-            return "{}"
+            self.calls.append({"args": args, "kwargs": kwargs})
+            if self.responses:
+                response = self.responses.pop(0)
+            else:
+                response = "{}"
+            if isinstance(response, Exception):
+                raise response
+            return response
 
     llm_module.llm_client = StubLLMClient()
     llm_module.SOCRATIC_SYSTEM_PROMPT = "Stub prompt"
@@ -734,6 +749,114 @@ def test_lms_planner_and_notifications_flow():
         notifications_after_response = client.get("/api/notifications/?unread=true", headers=student_headers)
         assert notifications_after_response.status_code == 200
         assert notifications_after_response.json() == []
+
+
+def test_planner_generate_accepts_fenced_json_and_normalizes_tasks():
+    with _build_test_client() as client:
+        _register_user(client, "planner.student@example.com", "password123", "Planner Student")
+        student_headers = _auth_headers(_login(client, "planner.student@example.com", "password123"))
+
+        from backend.core.llm_interface import llm_client
+
+        llm_client.reset(
+            """```json
+            {
+              "days": [
+                {
+                  "date": "2026-04-02",
+                  "tasks": [
+                    {
+                      "title": "Review lecture notes",
+                      "category": "deepstudy",
+                      "start_time": "bad-time",
+                      "end_time": "",
+                      "notes": "Focus on weak areas"
+                    },
+                    {
+                      "title": "Evening walk",
+                      "category": "workout",
+                      "start_time": "17:00",
+                      "end_time": "18:00"
+                    }
+                  ]
+                }
+              ]
+            }
+            ```"""
+        )
+
+        response = client.post(
+            "/api/planner/plans/generate",
+            headers={**student_headers, "Content-Type": "application/json"},
+            json={"start_date": "2026-04-01", "days": 7},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "success"
+        assert payload["days_processed"] == 7
+        assert "Generated" in payload["message"]
+
+        plan_response = client.get("/api/planner/plans/2026-04-02", headers=student_headers)
+        assert plan_response.status_code == 200
+        plan_payload = plan_response.json()
+        assert len(plan_payload["tasks"]) >= 3
+        assert any(task["category"] == "general" for task in plan_payload["tasks"])
+        assert any(task["start_time"] == "09:00" and task["end_time"] == "10:00" for task in plan_payload["tasks"])
+
+        week_response = client.get("/api/planner/plans/range?start=2026-04-01&end=2026-04-07", headers=student_headers)
+        assert week_response.status_code == 200
+        week_payload = week_response.json()
+        assert len(week_payload) == 7
+        assert all(len(day["tasks"]) >= 3 for day in week_payload)
+
+
+def test_planner_generate_repairs_malformed_json_once():
+    with _build_test_client() as client:
+        _register_user(client, "planner.repair@example.com", "password123", "Repair Student")
+        student_headers = _auth_headers(_login(client, "planner.repair@example.com", "password123"))
+
+        from backend.core.llm_interface import llm_client
+
+        llm_client.reset(
+            "Here is your plan: {'days': [{'date': '2026-04-03', 'tasks': [{'title': 'Study chemistry', 'category': 'study', 'start_time': '10:00', 'end_time': '11:00'}]}]}",
+            '{"days":[{"date":"2026-04-03","tasks":[{"title":"Study chemistry","category":"study","start_time":"10:00","end_time":"11:00"}]}]}',
+        )
+
+        response = client.post(
+            "/api/planner/plans/generate",
+            headers={**student_headers, "Content-Type": "application/json"},
+            json={"start_date": "2026-04-01", "days": 7},
+        )
+        assert response.status_code == 200
+        assert response.json()["days_processed"] == 7
+        assert len(llm_client.calls) == 2
+
+        plan_response = client.get("/api/planner/plans/2026-04-03", headers=student_headers)
+        assert plan_response.status_code == 200
+        assert any(task["title"] == "Study chemistry" for task in plan_response.json()["tasks"])
+
+        week_response = client.get("/api/planner/plans/range?start=2026-04-01&end=2026-04-07", headers=student_headers)
+        assert week_response.status_code == 200
+        assert len(week_response.json()) == 7
+
+
+def test_planner_generate_returns_clear_error_on_unrecoverable_json():
+    with _build_test_client() as client:
+        _register_user(client, "planner.failure@example.com", "password123", "Failure Student")
+        student_headers = _auth_headers(_login(client, "planner.failure@example.com", "password123"))
+
+        from backend.core.llm_interface import llm_client
+
+        llm_client.reset("not valid json at all", "still not valid json")
+
+        response = client.post(
+            "/api/planner/plans/generate",
+            headers={**student_headers, "Content-Type": "application/json"},
+            json={"start_date": "2026-04-01", "days": 7},
+        )
+        assert response.status_code == 500
+        assert "malformed JSON" in response.json()["detail"]
+        assert client.app.state.fake_db.planner_tasks.docs == []
 
 
 def test_standalone_quiz_and_dashboard_contracts():

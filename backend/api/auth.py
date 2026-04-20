@@ -29,6 +29,7 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
         "name": user_in.name,
         "email": user_in.email.lower(),
         "hashed_password": hashed_pw,
+        "roll_number": (user_in.roll_number or "").strip() or None,
         "level": user_in.level,
         "role": "student",
         "created_at": _utcnow()
@@ -37,6 +38,7 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
     # 4. Insert into DB
     try:
         result = await db.users.insert_one(user_dict)
+        effective_roll_number = user_dict.get("roll_number")
 
         invited_email = user_in.email.lower()
         pending_invites = await db.class_invitations.find(
@@ -55,6 +57,14 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
             if cls and str(result.inserted_id) not in (cls.get("students") or []):
                 await db.classes.update_one({"id": class_id}, {"$push": {"students": str(result.inserted_id)}})
 
+            invite_roll_number = (invite.get("student_roll_number") or "").strip() or None
+            if not effective_roll_number and invite_roll_number:
+                await db.users.update_one(
+                    {"_id": result.inserted_id},
+                    {"$set": {"roll_number": invite_roll_number}},
+                )
+                effective_roll_number = invite_roll_number
+
             await db.class_invitations.update_one(
                 {"id": invite.get("id")},
                 {
@@ -71,6 +81,7 @@ async def register(user_in: UserCreate, db = Depends(get_db)):
             id=str(result.inserted_id),
             name=user_in.name,
             email=user_in.email,
+            roll_number=effective_roll_number,
             level=user_in.level,
             role="student"
         )
@@ -103,6 +114,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
             "id": str(user["_id"]),
             "name": user_name,
             "email": user_email,
+            "roll_number": user.get("roll_number"),
             "role": normalize_role(user.get("role", "student"))
         }
     }
@@ -113,6 +125,7 @@ async def read_users_me(current_user = Depends(get_current_user)):
         id=str(current_user["_id"]),
         name=current_user["name"],
         email=current_user["email"],
+        roll_number=current_user.get("roll_number"),
         level=current_user.get("level", "undergraduate"),
         role=normalize_role(current_user.get("role", "student"))
     )
@@ -131,6 +144,7 @@ async def list_users(
             id=str(u["_id"]),
             name=u.get("name", ""),
             email=u.get("email", ""),
+            roll_number=u.get("roll_number"),
             level=u.get("level", "undergraduate"),
             role=normalize_role(u.get("role", "student"))
         ) for u in users

@@ -95,12 +95,18 @@ class AuthManager {
         }
     }
 
-    async register(name, email, password, level = "undergraduate") {
+    async register(name, email, password, level = "undergraduate", rollNumber = "") {
         try {
             const response = await window.config.fetch(`${window.config.apiBase}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password, level }),
+                body: JSON.stringify({
+                    name,
+                    email,
+                    password,
+                    level,
+                    roll_number: String(rollNumber || "").trim() || null,
+                }),
             });
 
             if (!response.ok) {
@@ -161,13 +167,14 @@ async function handleSignup(event) {
     const name = document.getElementById("signupName").value;
     const email = document.getElementById("signupEmail").value;
     const password = document.getElementById("signupPassword").value;
+    const rollNumber = document.getElementById("signupRollNumber")?.value || "";
     const level = document.getElementById("signupLevel")?.value || "undergraduate";
     const btn = event.target.querySelector("button");
 
     btn.textContent = "Creating Account...";
     btn.disabled = true;
 
-    const result = await window.auth.register(name, email, password, level);
+    const result = await window.auth.register(name, email, password, level, rollNumber);
 
     if (result.success) {
         routeGuard.redirectToHome(window.auth.user?.role);
@@ -177,4 +184,28 @@ async function handleSignup(event) {
     alert(result.error);
     btn.textContent = "Sign Up";
     btn.disabled = false;
+}
+
+function hydrateSignupInviteContext() {
+    const emailInput = document.getElementById("signupEmail");
+    const rollInput = document.getElementById("signupRollNumber");
+    if (!emailInput && !rollInput) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const invitedEmail = (params.get("email") || "").trim();
+    const invitedRollNumber = (params.get("roll_number") || "").trim();
+
+    if (emailInput && invitedEmail && !emailInput.value) {
+        emailInput.value = invitedEmail;
+    }
+
+    if (rollInput && invitedRollNumber && !rollInput.value) {
+        rollInput.value = invitedRollNumber;
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", hydrateSignupInviteContext);
+} else {
+    hydrateSignupInviteContext();
 }

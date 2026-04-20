@@ -536,10 +536,12 @@ def _build_grounded_prompt(
                 "Structure the answer as:\n"
                 "1. A 'Direct Answer' sentence stating what the documents are mainly related to.\n"
                 "2. A 'Document Summaries' section with one concise bullet per uploaded document. Use the actual document name in each bullet.\n"
-                "3. A 'How They Are Related' section with one or two short bullets using only directly supported shared themes.\n"
+                "3. A 'Shared Themes' section with one or two short bullets using only directly supported shared themes.\n"
                 "4. A 'Differences' section only if the differences are explicitly supported.\n"
                 "5. An 'Evidence Gaps' section only when one or more uploaded documents lack relevant support.\n"
-                "Keep the answer concise, query-shaped, and grounded. Do not introduce adjacent domain concepts unless they appear in retrieved chunks or graph facts."
+                "GROUNDING RULE: every sentence must be directly supported by a specific [CHUNK n] or graph fact. "
+                "Do not paraphrase beyond what a chunk literally says. If a detail is not in the chunks, omit it rather than inferring it. "
+                "Do not introduce adjacent domain concepts unless they appear word-for-word in retrieved chunks or graph facts."
             )
         else:
             structure = (
@@ -551,7 +553,8 @@ def _build_grounded_prompt(
                 "3. A 'Shared Themes' section.\n"
                 "4. A 'Differences' section, only if supported.\n"
                 "5. An 'Evidence Gaps' section only when one or more uploaded documents lack relevant support.\n"
-                "Keep the answer concise and grounded."
+                "GROUNDING RULE: every sentence must be directly supported by a specific [CHUNK n] or graph fact. "
+                "Do not infer or extrapolate. If a detail is not in the chunks, omit it."
             )
         if best_effort_mode:
             structure += (
@@ -570,6 +573,7 @@ def _build_grounded_prompt(
             structure += (
                 "\nBenchmark style: keep each section terse, preserve source terminology, and avoid teaching-style filler."
             )
+
     else:
         if answer_mode == BENCHMARK_MODE:
             structure = (

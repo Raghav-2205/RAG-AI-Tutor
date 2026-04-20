@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
@@ -88,6 +89,7 @@ class EnrollIn(BaseModel):
 class InviteStudentIn(BaseModel):
     student_email: str
     student_name: Optional[str] = None
+    student_roll_number: Optional[str] = None
 
 class RemoveStudentIn(BaseModel):
     student_id: str
@@ -348,6 +350,7 @@ async def invite_student(
 ):
     await _authorize_class_staff_access(db, class_id, current_user)
     email = body.student_email.lower().strip()
+    student_roll_number = (body.student_roll_number or "").strip() or None
     existing = await db.users.find_one({"email": email})
 
     if existing:
@@ -357,6 +360,13 @@ async def invite_student(
             raise HTTPException(status_code=404, detail="Class not found.")
         if student_id not in (cls.get("students") or []):
             await db.classes.update_one({"id": class_id}, {"$push": {"students": student_id}})
+        effective_roll_number = (existing.get("roll_number") or "").strip() or None
+        if not effective_roll_number and student_roll_number:
+            await db.users.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"roll_number": student_roll_number}},
+            )
+            effective_roll_number = student_roll_number
         return maybe_envelope(
             request,
             {
@@ -364,6 +374,7 @@ async def invite_student(
                 "mode": "enrolled_existing",
                 "student_id": student_id,
                 "student_email": email,
+                "roll_number": effective_roll_number,
             },
         )
 
@@ -373,8 +384,16 @@ async def invite_student(
         str(current_user["_id"]),
         email,
         body.student_name,
+        student_roll_number,
     )
-    invite_url = f"/views/signup.html?invite_token={invitation['invite_token']}&class_id={class_id}&email={email}"
+    invite_query = {
+        "invite_token": invitation["invite_token"],
+        "class_id": class_id,
+        "email": email,
+    }
+    if invitation.get("student_roll_number"):
+        invite_query["roll_number"] = invitation["student_roll_number"]
+    invite_url = f"/views/signup.html?{urlencode(invite_query)}"
     return maybe_envelope(
         request,
         {
@@ -382,6 +401,7 @@ async def invite_student(
             "mode": "invited",
             "class_id": class_id,
             "student_email": email,
+            "roll_number": invitation.get("student_roll_number"),
             "invite_token": invitation["invite_token"],
             "invite_url": invite_url,
             "expires_at": invitation["expires_at"],
@@ -838,6 +858,20 @@ async def submit_assignment(
     db = Depends(get_db),
     current_user=Depends(require_role("student")),
 ):
+    assignment = await db.assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    try:
+        await _authorize_class_access(db, assignment["class_id"], current_user)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not enrolled in the class for this assignment",
+            ) from exc
+        raise
+
     sub = await lms_service.submit_assignment(
         db, assignment_id, str(current_user["_id"]), body.content, body.file_url
     )

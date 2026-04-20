@@ -16,6 +16,99 @@
     <link rel="stylesheet" href="/assets/css/theme.css">
     <link rel="stylesheet" href="/assets/css/app-shell.css">
     <script src="/assets/js/theme-controls.js"></script>
+    <style>
+        .teacher-portal-page .page-header {
+            gap: 18px;
+            margin-bottom: 28px;
+        }
+
+        .teacher-portal-page .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: color-mix(in oklab, var(--accent) 82%, white 18%) !important;
+            color: #101722 !important;
+            box-shadow: 0 14px 30px color-mix(in oklab, var(--accent) 28%, transparent);
+        }
+
+        .teacher-portal-page .teacher-stat-card,
+        .teacher-portal-page .class-card-modern {
+            border-color: color-mix(in oklab, var(--accent) 18%, var(--border));
+        }
+
+        .teacher-portal-page .activity-icon,
+        .teacher-portal-page .card-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: color-mix(in oklab, var(--accent) 14%, var(--bg-secondary));
+            color: var(--accent);
+            box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 18%, transparent);
+        }
+
+        .teacher-portal-page .activity-icon {
+            font-size: 20px;
+        }
+
+        .teacher-portal-page .card-icon {
+            font-size: 22px;
+        }
+
+        .teacher-portal-page .portal-inline-actions,
+        .teacher-portal-page .class-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .teacher-portal-page .portal-inline-actions .btn,
+        .teacher-portal-page .class-actions .btn,
+        .teacher-portal-page .list-item .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .teacher-portal-page .portal-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .teacher-portal-page .portal-empty {
+            color: var(--text-muted);
+        }
+
+        .teacher-portal-page .portal-inline-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+        }
+
+        .teacher-portal-page .portal-status-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .teacher-portal-page .toast {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .teacher-portal-page .toast i {
+            flex: 0 0 auto;
+        }
+    </style>
 </head>
 
 <body class="page-layout teacher-portal-page">
@@ -580,11 +673,149 @@
             return fallback;
         }
 
+        const PORTAL_ICONS = {
+            teacher: '<i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i>',
+            scheduleMath: '<i class="fa-solid fa-book-open" aria-hidden="true"></i>',
+            scheduleScience: '<i class="fa-solid fa-flask" aria-hidden="true"></i>',
+            scheduleCode: '<i class="fa-solid fa-laptop-code" aria-hidden="true"></i>',
+            classCard: '<i class="fa-regular fa-bookmark" aria-hidden="true"></i>',
+            edit: '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>',
+            delete: '<i class="fa-regular fa-trash-can" aria-hidden="true"></i>',
+            students: '<i class="fa-solid fa-users" aria-hidden="true"></i>',
+            units: '<i class="fa-regular fa-folder-open" aria-hidden="true"></i>',
+            materials: '<i class="fa-regular fa-file-lines" aria-hidden="true"></i>',
+            quizzes: '<i class="fa-regular fa-circle-question" aria-hidden="true"></i>',
+            attendance: '<i class="fa-regular fa-circle-check" aria-hidden="true"></i>',
+            upload: '<i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>',
+            download: '<i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>',
+            insights: '<i class="fa-solid fa-chart-line" aria-hidden="true"></i>',
+            chat: '<i class="fa-solid fa-comments" aria-hidden="true"></i>',
+            key: '<i class="fa-solid fa-key" aria-hidden="true"></i>',
+            file: '<i class="fa-solid fa-paperclip" aria-hidden="true"></i>',
+            grade: '<i class="fa-solid fa-check-to-slot" aria-hidden="true"></i>',
+            stats: '<i class="fa-solid fa-chart-simple" aria-hidden="true"></i>',
+            add: '<i class="fa-solid fa-plus" aria-hidden="true"></i>',
+            close: '<i class="fa-solid fa-xmark" aria-hidden="true"></i>',
+            live: '<i class="fa-solid fa-bolt" aria-hidden="true"></i>',
+            online: '<i class="fa-solid fa-circle" aria-hidden="true"></i>',
+            success: '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>',
+            error: '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>',
+            warning: '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>',
+            info: '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>',
+            trophy: '<i class="fa-solid fa-trophy" aria-hidden="true"></i>',
+            read: '<i class="fa-solid fa-check" aria-hidden="true"></i>',
+        };
+
+        function iconLabel(iconMarkup, text) {
+            return `<span class="portal-inline-icon">${iconMarkup}</span>${text}`;
+        }
+
+        function sanitizeToastMessage(msg) {
+            return String(msg || '').replace(/^[^A-Za-z0-9"<]+(?:\s+)?/, '');
+        }
+
+        function normalizeTeacherPortalStaticIcons() {
+            const roleBadge = document.querySelector('.role-badge');
+            if (roleBadge) roleBadge.innerHTML = `${PORTAL_ICONS.teacher} Teacher`;
+
+            const scheduleIcons = [
+                ['#todayScheduleList .activity-icon.chat', PORTAL_ICONS.scheduleMath],
+                ['#todayScheduleList .activity-icon.quiz', PORTAL_ICONS.scheduleScience],
+                ['#todayScheduleList .activity-icon.doc', PORTAL_ICONS.scheduleCode],
+            ];
+            scheduleIcons.forEach(([selector, iconMarkup]) => {
+                const node = document.querySelector(selector);
+                if (node) node.innerHTML = iconMarkup;
+            });
+
+            const addQuestionButton = document.querySelector('button[onclick="addMcqQuestion()"]');
+            if (addQuestionButton) addQuestionButton.innerHTML = `${PORTAL_ICONS.add} Add Question`;
+
+            const studentsTitle = document.getElementById('studentsModalTitle');
+            if (studentsTitle) studentsTitle.innerHTML = `${PORTAL_ICONS.students} Students`;
+
+            const editClassTitle = document.querySelector('#editClassModal h2');
+            if (editClassTitle) editClassTitle.innerHTML = `${PORTAL_ICONS.edit} Edit Class`;
+
+            const insightHeadings = document.querySelectorAll('#classInsightsModal h3');
+            if (insightHeadings[1]) insightHeadings[1].innerHTML = `${PORTAL_ICONS.live} Live Interactions`;
+        }
+
+        function normalizeTeacherPortalDynamicIcons(scope = document) {
+            const root = scope || document;
+
+            root.querySelectorAll('.card-icon').forEach((node) => {
+                if (!node.innerHTML.includes('fa-')) node.innerHTML = PORTAL_ICONS.classCard;
+            });
+
+            root.querySelectorAll('.stat-chip').forEach((node) => {
+                if (!node.innerHTML.includes('fa-')) node.innerHTML = iconLabel(PORTAL_ICONS.key, node.textContent.trim());
+            });
+
+            root.querySelectorAll('button, a.btn, .btn').forEach((node) => {
+                const title = (node.getAttribute('title') || '').trim();
+                const text = node.textContent.replace(/\s+/g, ' ').trim();
+
+                if (title === 'Edit Class') {
+                    node.innerHTML = PORTAL_ICONS.edit;
+                    return;
+                }
+                if (title === 'Delete Class') {
+                    node.innerHTML = PORTAL_ICONS.delete;
+                    return;
+                }
+
+                const buttonMap = [
+                    ['Students', PORTAL_ICONS.students],
+                    ['Units', PORTAL_ICONS.units],
+                    ['Materials', PORTAL_ICONS.materials],
+                    ['Quizzes', PORTAL_ICONS.quizzes],
+                    ['Attendance', PORTAL_ICONS.attendance],
+                    ['Bulk Enroll', PORTAL_ICONS.upload],
+                    ['Export', PORTAL_ICONS.download],
+                    ['Insights', PORTAL_ICONS.insights],
+                    ['Chat', PORTAL_ICONS.chat],
+                    ['View Submissions', PORTAL_ICONS.materials],
+                    ['Grade', PORTAL_ICONS.grade],
+                    ['Stats', PORTAL_ICONS.stats],
+                    ['Mark Attendance', PORTAL_ICONS.attendance],
+                    ['Remove', PORTAL_ICONS.delete],
+                    ['Mark all as read', PORTAL_ICONS.read],
+                    ['Add Question', PORTAL_ICONS.add],
+                    ['Close', PORTAL_ICONS.close],
+                ];
+
+                const match = buttonMap.find(([label]) => text.includes(label));
+                if (match && !node.innerHTML.includes('fa-')) {
+                    node.innerHTML = iconLabel(match[1], match[0]);
+                }
+            });
+
+            const performanceHeading = root.querySelector('#studentPerformanceList h4');
+            if (performanceHeading) performanceHeading.innerHTML = `${PORTAL_ICONS.trophy} All Students`;
+
+            const liveStatus = root.querySelector('#liveActivityContainer p');
+            if (liveStatus && liveStatus.textContent.includes('Students Online Now') && !liveStatus.innerHTML.includes('fa-')) {
+                liveStatus.innerHTML = `<span class="portal-status-line" style="color:var(--accent); font-weight:bold;">${PORTAL_ICONS.online}<span>${liveStatus.textContent.trim()}</span></span>`;
+            }
+
+            const studentsTitle = document.getElementById('studentsModalTitle');
+            if (studentsTitle) studentsTitle.innerHTML = `${PORTAL_ICONS.students} Students`;
+
+            const editClassTitle = document.querySelector('#editClassModal h2');
+            if (editClassTitle) editClassTitle.innerHTML = `${PORTAL_ICONS.edit} Edit Class`;
+        }
+
         document.getElementById('teacherName').textContent = USER.name || 'Teacher';
         if (document.getElementById('teacherNameNav')) document.getElementById('teacherNameNav').textContent = USER.name || 'Teacher';
         if (document.getElementById('userLevelNav')) document.getElementById('userLevelNav').textContent = ROLE_LABEL;
+        normalizeTeacherPortalStaticIcons();
 
-        function showModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function showModal(id) {
+            const modal = document.getElementById(id);
+            modal.style.display = 'flex';
+            normalizeTeacherPortalDynamicIcons(modal);
+        }
         function hideModal(id) { document.getElementById(id).style.display = 'none'; }
 
         let cachedClasses = [];
@@ -611,6 +842,7 @@
                                     <button class="btn" style="width:100%; margin-top:10px; padding:8px" onclick="openAttendance('${c.id}')">Mark Attendance</button>
                                 </div>
                             `).join('');
+                            normalizeTeacherPortalDynamicIcons(todayList);
                         }
                     }
                 } catch (e) {
@@ -655,6 +887,7 @@
                     </div>`;
                 }).join('');
                 document.getElementById('classList').innerHTML = classHtml || '<div class="card"><p style="color:var(--text-muted)">No classes yet. Click "Create Class" to start.</p></div>';
+                normalizeTeacherPortalDynamicIcons(document.getElementById('classList'));
                 document.getElementById('studentCount').textContent = totalStudents;
 
                 // Populate class selectors
@@ -675,6 +908,7 @@
                     <button class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;" onclick="viewSubmissions('${a.assignment_id}')">View Submissions</button>
                 </div>`).join('');
                 document.getElementById('assignmentList').innerHTML = assignHtml || '<div class="card"><p style="color:var(--text-muted)">No assignments yet.</p></div>';
+                normalizeTeacherPortalDynamicIcons(document.getElementById('assignmentList'));
 
                 // Load submissions
                 const subRes = await fetch(`${API}/lms/submissions`, { headers });
@@ -690,6 +924,7 @@
                 </div>`).join('');
                 document.getElementById('submissionList').innerHTML = subHtml || '<div class="card"><p style="color:var(--accent)">✅ All submissions graded!</p></div>';
 
+                normalizeTeacherPortalDynamicIcons(document);
             } catch (err) {
                 console.error('Load error:', err);
             }
@@ -845,6 +1080,7 @@
                         <span>${u.title}</span>
                         <span style="color:var(--text-muted);font-size:0.8rem">#${u.order_index || 0}</span>
                     </div>`).join('') || '<p style="color:var(--text-muted)">No units defined.</p>';
+                    normalizeTeacherPortalDynamicIcons(document.getElementById('manageUnitsModal'));
                     showModal('manageUnitsModal');
                 });
         }
@@ -871,6 +1107,7 @@
             const units = parsePayload(await unitRes.json()) || [];
             const options = (units || []).map(u => `<option value="${u.id}">${u.title}</option>`).join('');
             document.getElementById('matUnitId').innerHTML = '<option value="">Select Unit (optional)...</option>' + options;
+            normalizeTeacherPortalDynamicIcons(document.getElementById('uploadMaterialModal'));
             showModal('uploadMaterialModal');
         }
 
@@ -961,6 +1198,7 @@
                     </div>
                 </div>
             `).join('') || '<p style="color:var(--text-muted); text-align:center">No submissions yet.</p>';
+            normalizeTeacherPortalDynamicIcons(document.getElementById('viewSubmissionsModal'));
             showModal('viewSubmissionsModal');
         }
 
@@ -975,6 +1213,7 @@
                         <span>${q.title}</span>
                         <button class="btn btn-secondary" style="font-size:0.7rem" onclick="viewQuizStats('${q.id}')">Stats</button>
                     </div>`).join('') || '<p style="color:var(--text-muted)">No quizzes created.</p>';
+                    normalizeTeacherPortalDynamicIcons(document.getElementById('manageQuizzesModal'));
                     showModal('manageQuizzesModal');
                 });
         }
@@ -1003,6 +1242,7 @@
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', html);
+            normalizeTeacherPortalDynamicIcons(document.getElementById(`mcqItem-${mcqCount}`));
         }
 
         async function createQuiz() {
@@ -1178,8 +1418,11 @@
                     document.getElementById('liveActivityContainer').innerHTML = '<p style="color:#ff4444">Failed to load live activity</p>';
                 }
 
+                normalizeTeacherPortalDynamicIcons(document.getElementById('classInsightsModal'));
+
             } catch (err) {
                 console.error('Insights error:', err);
+                normalizeTeacherPortalDynamicIcons(document.getElementById('classInsightsModal'));
             }
         }
 
@@ -1250,6 +1493,7 @@
                         </div>
                     </div>
                 `).join('');
+                normalizeTeacherPortalDynamicIcons(document.getElementById('takeAttendanceModal'));
             } catch (e) {
                 list.innerHTML = studentIds.map(sid => `
                     <div class="list-item" data-student-id="${sid}">
@@ -1266,6 +1510,7 @@
                         </div>
                     </div>
                 `).join('');
+                normalizeTeacherPortalDynamicIcons(document.getElementById('takeAttendanceModal'));
             }
         }
 
@@ -1330,6 +1575,7 @@
                 </div>
             `).join('') || '<p style="color:var(--text-muted); text-align:center;">No notifications yet.</p>';
 
+            normalizeTeacherPortalDynamicIcons(document.getElementById('notificationsModal'));
             showModal('notificationsModal');
         }
 
@@ -1354,7 +1600,9 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = msg;
+            const cleanMessage = sanitizeToastMessage(msg);
+            const icon = type === 'error' ? PORTAL_ICONS.error : type === 'warning' ? PORTAL_ICONS.warning : PORTAL_ICONS.success;
+            toast.innerHTML = `${icon}<span>${cleanMessage}</span>`;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 4000);
         }
@@ -1401,8 +1649,10 @@
                         <button style="background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.2);color:#ff4444;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.8rem" onclick="removeStudent('${classId}','${s.id}','${s.name}')">Remove</button>
                     </div>
                 `).join('');
+                normalizeTeacherPortalDynamicIcons(modal);
             } catch (e) {
                 document.getElementById('studentsModalList').innerHTML = `<p style="color:#ff4444">Error: ${e}</p>`;
+                normalizeTeacherPortalDynamicIcons(modal);
             }
         }
 

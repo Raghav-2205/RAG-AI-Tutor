@@ -335,10 +335,16 @@ class LLMInterface:
             yield "[Stream Error: model unavailable]"
 
         except httpx.ReadTimeout:
-            logger.error("Gemini stream timed out")
+            logger.error("Gemini stream timed out for candidate models: %s", self._build_model_candidates(self.model_name))
             yield "\n[Response timed out]"
         except Exception as e:
-            logger.error(f"LLM Stream Failed: {e}")
+            logger.error(
+                "LLM Stream Failed for model candidates %s: %s (%s)",
+                self._build_model_candidates(self.model_name),
+                repr(e),
+                type(e).__name__,
+                exc_info=True,
+            )
             yield f"\n[Stream Error: {str(e)}]"
 
 

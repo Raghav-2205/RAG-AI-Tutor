@@ -129,6 +129,7 @@ async def create_student_invitation(
     invited_by: str,
     student_email: str,
     student_name: Optional[str] = None,
+    student_roll_number: Optional[str] = None,
     expires_in_days: int = 7,
 ) -> dict:
     token = secrets.token_urlsafe(24)
@@ -137,6 +138,7 @@ async def create_student_invitation(
         "class_id": class_id,
         "student_email": student_email.lower().strip(),
         "student_name": (student_name or "").strip() or None,
+        "student_roll_number": (student_roll_number or "").strip() or None,
         "invited_by": invited_by,
         "invite_token": token,
         "status": "pending",

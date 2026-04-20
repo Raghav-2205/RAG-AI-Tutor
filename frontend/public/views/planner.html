@@ -413,8 +413,15 @@
                     alert(`Success: ${data.message}`);
                     loadPlan();
                 } else {
-                    const error = await res.json();
-                    alert(`Failed: ${error.detail || 'Unknown error'}`);
+                    let message = 'Failed to generate AI plan.';
+                    try {
+                        const error = await res.json();
+                        message = error.detail || error.message || message;
+                    } catch {
+                        const raw = await res.text();
+                        if (raw) message = raw;
+                    }
+                    alert(`Failed: ${message}`);
                 }
             } catch (err) {
                 console.error(err);

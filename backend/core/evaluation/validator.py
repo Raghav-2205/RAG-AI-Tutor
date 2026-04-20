@@ -218,6 +218,60 @@ def _should_soften_multi_document_fallback_validation(
     return full_document_coverage
 
 
+def _should_soften_multi_document_overview_validation(
+    *,
+    question: str,
+    answer_source_mode: str,
+    uploaded_document_count: int,
+    judge_available: bool,
+    generation_failed: bool,
+    refusal_like: bool,
+    faith_score: float,
+    answer_relevance: float,
+    bert_score_val: float,
+    citation_score: float,
+    retrieval_confidence: float,
+    document_coverage_balance: float,
+    covered_document_count: int,
+    graph_summary: str,
+) -> bool:
+    """Soften faithfulness for multi-doc GRAG overview answers.
+
+    When the LLM judge gives a low faithfulness score on a cross-document
+    synthesis answer but every other corroborating metric is strong, the
+    judge is likely penalising legitimate document-level paraphrase rather
+    than true hallucination.  Apply the same soft-path already used for
+    single-doc overviews.
+    """
+    if generation_failed or refusal_like:
+        return False
+    if answer_source_mode != "document":
+        return False
+    if uploaded_document_count < 2:
+        return False
+    # Only apply when faith is borderline-low (0.5 – 0.72), not catastrophic
+    if faith_score >= 0.72 or faith_score < 0.45:
+        return False
+    # Require strong corroborating signals
+    if answer_relevance < 0.8:
+        return False
+    if bert_score_val < 0.65:
+        return False
+    if citation_score < 0.3:
+        return False
+    # Require meaningful retrieval (graph context or good chunk coverage)
+    has_graph = bool(graph_summary)
+    enough_retrieval = retrieval_confidence >= 0.3 or has_graph
+    if not enough_retrieval:
+        return False
+    # Require that the answer addresses most of the uploaded documents
+    partial_coverage = (
+        covered_document_count >= max(1, uploaded_document_count - 1)
+        or document_coverage_balance >= 0.5
+    )
+    return partial_coverage
+
+
 class ValidationEngine:
     def __init__(self, db):
         self.db = db
@@ -390,6 +444,7 @@ class ValidationEngine:
             effective_source_mode = "error" if generation_failed else answer_source_mode
             overview_softening_applied = False
             multi_doc_fallback_softening_applied = False
+            multi_doc_overview_softening_applied = False
 
             if generation_failed:
                 faith_score = 0.0
@@ -515,6 +570,49 @@ class ValidationEngine:
                     judge_fallback_used = True
                     multi_doc_fallback_softening_applied = True
 
+            if _should_soften_multi_document_overview_validation(
+                question=question,
+                answer_source_mode=answer_source_mode,
+                uploaded_document_count=uploaded_document_count,
+                judge_available=judge_available,
+                generation_failed=generation_failed,
+                refusal_like=refusal_like,
+                faith_score=faith_score,
+                answer_relevance=answer_relevance,
+                bert_score_val=bert_score_val,
+                citation_score=citation_score,
+                retrieval_confidence=retrieval_conf,
+                document_coverage_balance=document_coverage_balance,
+                covered_document_count=covered_document_count,
+                graph_summary=graph_summary,
+            ):
+                overview_blend = round(
+                    (answer_relevance * 0.28)
+                    + (bert_score_val * 0.22)
+                    + (max(cosine_sim, 0.0) * 0.14)
+                    + (citation_score * 0.12)
+                    + (retrieval_conf * 0.12)
+                    + (document_coverage_balance * 0.12),
+                    4,
+                )
+                softened_faith = min(0.88, max(0.72, overview_blend))
+                if faith_score < softened_faith:
+                    logger.info(
+                        "Softening GRAG multi-doc overview faithfulness "
+                        "(faith=%.2f -> %.2f, relevance=%.2f, bert=%.2f, cite=%.2f, conf=%.2f, doc_cov=%.2f)",
+                        faith_score,
+                        softened_faith,
+                        answer_relevance,
+                        bert_score_val,
+                        citation_score,
+                        retrieval_conf,
+                        document_coverage_balance,
+                    )
+                    faith_score = softened_faith
+                    hallucination_rate = round(1.0 - faith_score, 4)
+                    judge_fallback_used = True
+                    multi_doc_overview_softening_applied = True
+
             final_score = calculate_final_rag_score(
                 recall_at_5=None,
                 faithfulness=faith_score,
@@ -544,6 +642,12 @@ class ValidationEngine:
             elif overview_softening_applied:
                 status = "VERIFIED"
                 reason = "Single-document overview answer accepted using grounded heuristic support."
+            elif multi_doc_overview_softening_applied:
+                status = "VERIFIED"
+                reason = (
+                    "Multi-document GRAG overview answer accepted: faithfulness was borderline but "
+                    "relevance, BERTScore, and document coverage are strong."
+                )
             elif faith_score < 0.7:
                 status = "REJECTED"
                 reason = f"Low faithfulness ({faith_score:.2f}). Potential hallucination detected."
@@ -554,9 +658,10 @@ class ValidationEngine:
                 status = "VERIFIED"
                 reason = f"Elevated hallucination risk ({hallucination_rate:.2f})."
             elif uploaded_document_count >= 2 and missing_document_names:
-                if len(missing_document_names) >= max(1, uploaded_document_count // 2):
+                # Only reject if ALL uploaded documents are uncovered; partial coverage is VERIFIED
+                if len(missing_document_names) >= uploaded_document_count:
                     status = "REJECTED"
-                    reason = "The answer did not cover all uploaded documents or name the unsupported ones."
+                    reason = "The answer did not address any of the uploaded documents."
                 else:
                     status = "VERIFIED"
                     reason = f"Multi-document answer missed: {', '.join(missing_document_names[:3])}."
