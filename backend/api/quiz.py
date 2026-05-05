@@ -21,6 +21,8 @@ def _utcnow() -> datetime:
 class QuizGenerateRequest(BaseModel):
     subject: Optional[str] = "general"
     num_questions: int = 10
+    level: Optional[str] = None   # "Beginner" | "Intermediate" | "Advanced"
+    chat_id: Optional[str] = None  # When set, scopes quiz to this session's documents
 
 class QuizSubmitRequest(BaseModel):
     quiz_id: str
@@ -50,26 +52,42 @@ async def generate_quiz_endpoint(
     """Generate a new quiz from document chunks"""
     try:
         user_id = str(current_user["_id"])
-        
-        logger.info(f"[QUIZ GENERATE] User={user_id}, Subject={request.subject}, Questions={request.num_questions}")
-        
-        # Generate quiz using new chunk-based generator
+
+        logger.info(f"[QUIZ GENERATE] User={user_id}, Subject={request.subject}, Questions={request.num_questions}, Level={request.level}, ChatID={request.chat_id}")
+
+        # Resolve document_ids from chat session when chat_id is provided
+        session_document_ids: List[str] = []
+        if request.chat_id:
+            session = await db.chat_sessions.find_one({"chat_id": request.chat_id, "user_id": user_id})
+            if session:
+                ids = [str(d).strip() for d in (session.get("document_ids") or []) if str(d).strip()]
+                legacy = str(session.get("document_id") or "").strip()
+                if legacy and legacy not in ids:
+                    ids.append(legacy)
+                session_document_ids = ids
+                logger.info(f"[QUIZ GENERATE] Scoping to {len(session_document_ids)} session doc(s): {session_document_ids}")
+
+        # Generate quiz — scoped to session docs if available, else all user chunks
         quiz_data = generate_quiz_from_chunks(
             user_id=user_id,
             subject=request.subject,
-            num_questions=request.num_questions
+            num_questions=request.num_questions,
+            level=request.level,
+            document_ids=session_document_ids if session_document_ids else None,
         )
-        
+
         # Add metadata
         quiz_data["user_id"] = user_id
         quiz_data["created_at"] = _utcnow()
-        
+        quiz_data["chat_id"] = request.chat_id
+        quiz_data["scoped_document_ids"] = session_document_ids
+
         # Save to MongoDB
         result = await db.quizzes.insert_one(quiz_data.copy())
         quiz_data["_id"] = result.inserted_id
-        
-        logger.info(f"[QUIZ SAVED] QuizID={quiz_data['quiz_id']}")
-        
+
+        logger.info(f"[QUIZ SAVED] QuizID={quiz_data['quiz_id']}, Scoped={bool(session_document_ids)}")
+
         # Don't send correct answers to frontend yet
         questions_for_frontend = []
         for q in quiz_data["questions"]:
@@ -79,14 +97,14 @@ async def generate_quiz_endpoint(
                 "chunk_source": q.get("chunk_source", "Unknown")
                 # Note: correct_index is NOT included
             })
-        
+
         return QuizResponse(
             quiz_id=quiz_data["quiz_id"],
             subject=quiz_data["subject"],
             questions=questions_for_frontend,
             total_questions=len(questions_for_frontend)
         )
-        
+
     except ValueError as e:
         logger.error(f"[QUIZ ERROR] {e}")
         raise HTTPException(status_code=400, detail=str(e))

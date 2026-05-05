@@ -22,16 +22,19 @@ logger = logging.getLogger(__name__)
 
 # Global flag - we strictly use REST now
 GENAI_AVAILABLE = False
-RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
-FALLBACK_MODEL_CANDIDATES = ("gemini-2.5-flash", "gemini-2.0-flash")
+# 429 = quota exhausted for the whole minute — skip immediately to next model
+# 404 = model not found — skip immediately, no retry
+RETRYABLE_STATUS_CODES = {408, 500, 502, 503, 504}
+QUOTA_SKIP_CODES = {429, 404}
+FALLBACK_MODEL_CANDIDATES = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-flash-latest", "gemini-pro-latest")
 
 
 class LLMInterface:
     def __init__(self, model_name: Optional[str] = None):
         self.model_name = model_name or settings.llm_model
         self.api_key = settings.gemini_api_key
-        self.max_retries = 2
-        self.base_retry_delay = 1.0
+        self.max_retries = 1
+        self.base_retry_delay = 0.5
         self.model_candidates = self._build_model_candidates(self.model_name)
 
     def _retry_delay_seconds(self, attempt: int) -> float:
@@ -164,20 +167,17 @@ class LLMInterface:
                             self.model_candidates = self._build_model_candidates(self.model_name)
                             return self._extract_text(data)
 
-                        last_error = f"LLM API Error: {response.status_code} - {response.text}"
-                        logger.error("Gemini API Error %s for %s: %s", response.status_code, model_name, response.text)
-                        if self._is_missing_model_response(response.status_code, response.text):
-                            logger.warning("Configured Gemini model '%s' is unavailable. Trying fallback model.", model_name)
+                        last_error = f"LLM API Error: {response.status_code}"
+                        logger.error("Gemini API Error %s for %s", response.status_code, model_name)
+                        # 429/404 — skip immediately, no retry (quota gone or model unavailable)
+                        if response.status_code in QUOTA_SKIP_CODES:
+                            logger.warning("Model '%s' unavailable (%s) — skipping to next model.", model_name, response.status_code)
                             break
                         if attempt < self.max_retries and self._should_retry_status(response.status_code):
                             time.sleep(self._retry_delay_seconds(attempt))
                             continue
                         if self._should_retry_status(response.status_code):
-                            logger.warning(
-                                "Retryable Gemini error persisted for %s after %s attempts. Trying next fallback model if available.",
-                                model_name,
-                                attempt + 1,
-                            )
+                            logger.warning("Retryable error persisted for %s — trying next model.", model_name)
                             break
                         return last_error
                     except requests.RequestException as exc:
@@ -232,19 +232,16 @@ class LLMInterface:
                             return self._extract_text(data)
 
                         last_error = f"LLM API Error: {response.status_code}"
-                        logger.error("Gemini API Async Error %s for %s: %s", response.status_code, model_name, response.text)
-                        if self._is_missing_model_response(response.status_code, response.text):
-                            logger.warning("Configured Gemini model '%s' is unavailable. Trying fallback model.", model_name)
+                        logger.error("Gemini API Async Error %s for %s", response.status_code, model_name)
+                        # 429/404 — skip immediately to next model, no backoff wait
+                        if response.status_code in QUOTA_SKIP_CODES:
+                            logger.warning("Model '%s' unavailable (%s) — skipping to next model.", model_name, response.status_code)
                             break
                         if attempt < self.max_retries and self._should_retry_status(response.status_code):
                             await asyncio.sleep(self._retry_delay_seconds(attempt))
                             continue
                         if self._should_retry_status(response.status_code):
-                            logger.warning(
-                                "Retryable async Gemini error persisted for %s after %s attempts. Trying next fallback model if available.",
-                                model_name,
-                                attempt + 1,
-                            )
+                            logger.warning("Retryable async error persisted for %s — trying next model.", model_name)
                             break
                         return last_error
                     except (httpx.TimeoutException, httpx.TransportError) as exc:
@@ -302,9 +299,10 @@ class LLMInterface:
                     ) as response:
                         if response.status_code != 200:
                             error_body = await response.aread()
-                            logger.error("Gemini Stream Error %s for %s: %s", response.status_code, model_name, error_body)
-                            if self._is_missing_model_response(response.status_code, error_body.decode(errors="ignore")):
-                                logger.warning("Configured Gemini stream model '%s' is unavailable. Trying fallback model.", model_name)
+                            logger.error("Gemini Stream Error %s for %s", response.status_code, model_name)
+                            # On quota/not-found errors, try next model silently
+                            if response.status_code in QUOTA_SKIP_CODES:
+                                logger.warning("Stream model '%s' unavailable (%s) — skipping to next model.", model_name, response.status_code)
                                 continue
                             yield f"[Stream Error: {response.status_code}]"
                             return

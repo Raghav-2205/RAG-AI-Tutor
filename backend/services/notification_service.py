@@ -1,9 +1,10 @@
 import uuid
 import logging
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 logger = logging.getLogger(__name__)
+
 
 def _make_id():
     return str(uuid.uuid4())
@@ -12,7 +13,6 @@ def _make_id():
 def _clean_notification(doc: dict | None) -> dict | None:
     if doc is None:
         return None
-
     cleaned = {}
     for key, value in doc.items():
         if key == "_id":
@@ -25,44 +25,48 @@ def _clean_notification(doc: dict | None) -> dict | None:
 async def create_notification(
     db,
     user_id: str,
-    n_type: str, # assignment, quiz, notice, system
     title: str,
     message: str,
+    n_type: str = "info",          # assignment | quiz | notice | system | info | warning | success
+    notification_type: str = None,  # alias accepted from API layer
     link: Optional[str] = None,
+    sender: Optional[str] = None,
 ) -> dict:
+    # support both n_type and notification_type kwargs
+    resolved_type = n_type or notification_type or "info"
     notif_id = _make_id()
     doc = {
         "id": notif_id,
         "user_id": user_id,
-        "type": n_type,
+        "type": resolved_type,
         "title": title,
         "message": message,
         "link": link,
+        "sender": sender,
         "is_read": False,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
     }
     await db.notifications.insert_one(doc)
     return _clean_notification(doc)
 
-async def get_user_notifications(db, user_id: str, limit: int = 20) -> list:
+
+async def get_user_notifications(db, user_id: str, limit: int = 30) -> list:
     cursor = db.notifications.find({"user_id": user_id}).sort("created_at", -1).limit(limit)
     docs = await cursor.to_list(None)
     return [_clean_notification(doc) for doc in docs]
+
 
 async def mark_as_read(db, notification_id: str, user_id: Optional[str] = None) -> bool:
     query = {"id": notification_id}
     if user_id is not None:
         query["user_id"] = user_id
-
-    res = await db.notifications.update_one(
-        query,
-        {"$set": {"is_read": True}}
-    )
+    res = await db.notifications.update_one(query, {"$set": {"is_read": True}})
     return res.modified_count > 0
+
 
 async def mark_all_as_read(db, user_id: str) -> bool:
     res = await db.notifications.update_many(
         {"user_id": user_id, "is_read": False},
-        {"$set": {"is_read": True}}
+        {"$set": {"is_read": True}},
     )
     return res.modified_count > 0

@@ -604,6 +604,21 @@ async def chat_stream(
         feedback_context = await feedback_analyzer.get_adaptive_context(user_id)
         feedback_adjusted = True
 
+    # --- STEP 3.5: QUIZ CONTEXT — inject level & weak topics into system prompt ---
+    quiz_ctx = session.get("quiz_context")
+    if quiz_ctx:
+        level = quiz_ctx.get("level", "Intermediate")
+        weak_topics = quiz_ctx.get("weak_topics", [])
+        weak_str = ", ".join(weak_topics) if weak_topics else "none identified"
+        quiz_context_note = (
+            f"\n\n[Student Profile] The student has completed a quiz. "
+            f"Their current level is '{level}'. "
+            f"Weak topics: {weak_str}. "
+            f"Adjust your explanation depth and vocabulary to match this level. "
+            f"If weak topics are relevant, address them with extra clarity."
+        )
+        feedback_context = (feedback_context or "") + quiz_context_note
+
     rag_args = _resolve_session_rag_args(session)
 
     # --- STEP 4: RAG RETRIEVAL (get chunks & build prompt, no LLM call yet) ---
@@ -1024,3 +1039,49 @@ async def delete_chat_session(
     # Return 204 No Content (successful deletion)
     from fastapi.responses import Response
     return Response(status_code=204)
+
+
+
+class QuizContextIn(BaseModel):
+    level: str
+    score: float | None = None
+    weak_topics: list[str] = []
+    quiz_id: str | None = None
+
+
+@router.post("/sessions/{chat_id}/quiz-context", summary="Store quiz result for adaptive tutoring")
+async def store_quiz_context(
+    chat_id: str,
+    body: QuizContextIn,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Persist quiz results (level, weak_topics) into chat session for adaptive tutoring."""
+    user_id = str(current_user["_id"])
+    session = await db.chat_sessions.find_one({"chat_id": chat_id, "user_id": user_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    quiz_context = {
+        "level": body.level,
+        "score": body.score,
+        "weak_topics": body.weak_topics,
+        "quiz_id": body.quiz_id,
+        "updated_at": _utcnow().isoformat(),
+    }
+    import uuid
+    ai_message = {
+        "id": str(uuid.uuid4()),
+        "role": "assistant",
+        "content": f"I've updated your learning profile based on your diagnostic quiz. You're currently testing at a **{body.level}** level. Let's focus our chat on reviewing the core concepts we identified as areas for improvement!",
+        "timestamp": _utcnow(),
+    }
+
+    await db.chat_sessions.update_one(
+        {"chat_id": chat_id},
+        {
+            "$set": {"quiz_context": quiz_context, "updated_at": _utcnow()},
+            "$push": {"messages": ai_message}
+        },
+    )
+    logger.info("[QUIZ-CTX] Stored quiz context for session %s (level=%s)", chat_id, body.level)
+    return {"message": "Quiz context stored.", "chat_id": chat_id, "level": body.level}

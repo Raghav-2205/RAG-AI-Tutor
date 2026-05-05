@@ -400,28 +400,11 @@
 </div>
 
 <script>
-(function redirectToCanonicalLmsShell() {
-    const params = new URLSearchParams(window.location.search);
-    const tabMap = {
-        classes: 'classes',
-        assignments: 'assignments',
-        quizzes: 'quizzes',
-        grades: 'results',
-        timetable: 'attendance'
-    };
-    const target = new URL('/views/lms.html', window.location.origin);
-    target.searchParams.set('allow_student', '1');
-    target.searchParams.set('page', tabMap[params.get('tab')] || 'classes');
-    if (params.get('class_id')) target.searchParams.set('class_id', params.get('class_id'));
-    window.location.replace(target.toString());
-    throw new Error('Redirecting to canonical LMS shell');
-})();
+
 
 const API = window.config?.apiBase || (window.location.origin + '/api');
-const SESSION = window.routeGuard?.requireAuth({ roles: ['student'] });
-if (!SESSION) throw new Error('Student access required');
-const TOKEN = SESSION.token;
-const user = SESSION.user || {};
+const TOKEN = localStorage.getItem('token');
+const user = JSON.parse(localStorage.getItem('user') || '{}');
 const headers = { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 const routeParams = new URLSearchParams(window.location.search);
 let activeClassId = routeParams.get('class_id') || '';

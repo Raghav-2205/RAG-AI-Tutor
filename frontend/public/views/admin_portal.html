@@ -216,6 +216,44 @@
                 </div>
             </section>
 
+            <!-- ═══════ SEND NOTIFICATION ═══════ -->
+            <section class="admin-section" id="sendNotifSection">
+                <div class="admin-section-head">
+                    <div>
+                        <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> Send Notification</h2>
+                        <p>Broadcast a notification to <strong>all users</strong> on the platform instantly.</p>
+                    </div>
+                </div>
+                <article class="card" style="padding:1.5rem;max-width:640px;">
+                    <div style="display:flex;flex-direction:column;gap:1rem;">
+                        <div>
+                            <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Title *</label>
+                            <input id="notifTitle" type="text" placeholder="e.g. System Maintenance Tonight" maxlength="120"
+                                style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-primary);font-size:14px;outline:none;">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Message *</label>
+                            <textarea id="notifMessage" rows="3" placeholder="Write your announcement here..." maxlength="500"
+                                style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-primary);font-size:14px;outline:none;resize:vertical;"></textarea>
+                        </div>
+                        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                            <div>
+                                <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Type</label>
+                                <select id="notifType" style="padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-primary);font-size:14px;outline:none;cursor:pointer;">
+                                    <option value="info">ℹ️ Info</option>
+                                    <option value="warning">⚠️ Warning</option>
+                                    <option value="success">✅ Success</option>
+                                </select>
+                            </div>
+                            <button id="sendNotifBtn" class="btn btn-primary" type="button" onclick="sendBroadcastNotification()">
+                                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send to All Users
+                            </button>
+                        </div>
+                        <div id="notifSendStatus" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:500;"></div>
+                    </div>
+                </article>
+            </section>
+
             <section class="admin-section">
                 <div class="admin-dual-grid">
                     <article class="card admin-feed-card">
@@ -648,6 +686,43 @@
             } finally {
                 button.disabled = false;
                 button.innerHTML = original;
+            }
+        }
+
+        async function sendBroadcastNotification() {
+            const title = document.getElementById('notifTitle').value.trim();
+            const message = document.getElementById('notifMessage').value.trim();
+            const notifType = document.getElementById('notifType').value;
+            const statusEl = document.getElementById('notifSendStatus');
+            const btn = document.getElementById('sendNotifBtn');
+
+            if (!title) { statusEl.style.display = 'block'; statusEl.style.background = 'var(--danger-soft)'; statusEl.style.color = 'var(--danger)'; statusEl.textContent = '❌ Please enter a title.'; return; }
+            if (!message) { statusEl.style.display = 'block'; statusEl.style.background = 'var(--danger-soft)'; statusEl.style.color = 'var(--danger)'; statusEl.textContent = '❌ Please enter a message.'; return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            statusEl.style.display = 'none';
+
+            try {
+                const data = await fetchJson('/notifications/send', {
+                    method: 'POST',
+                    headers: JSON_HEADERS,
+                    body: JSON.stringify({ title, message, notification_type: notifType }),
+                });
+                statusEl.style.display = 'block';
+                statusEl.style.background = 'var(--accent-soft)';
+                statusEl.style.color = 'var(--accent)';
+                statusEl.textContent = `✅ ${data?.message || `Notification sent to ${data?.sent ?? '?'} users.`}`;
+                document.getElementById('notifTitle').value = '';
+                document.getElementById('notifMessage').value = '';
+            } catch (err) {
+                statusEl.style.display = 'block';
+                statusEl.style.background = 'var(--danger-soft)';
+                statusEl.style.color = 'var(--danger)';
+                statusEl.textContent = `❌ Failed: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send to All Users';
             }
         }
 

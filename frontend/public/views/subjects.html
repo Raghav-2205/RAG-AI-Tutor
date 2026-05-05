@@ -694,8 +694,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <script src="/assets/js/config.js?v=11"></script>
-    <link rel="stylesheet" href="/assets/css/theme.css" />
-    <link rel="stylesheet" href="/assets/css/app-shell.css" />
+    <link rel="stylesheet" href="/assets/css/theme.css?v=12" />
+    <link rel="stylesheet" href="/assets/css/app-shell.css?v=12" />
     <script src="/assets/js/theme-controls.js"></script>
     <style>
         .subjects-page {
@@ -941,6 +941,9 @@
                 <div class="subjects-page-actions">
                     <button class="btn btn-secondary-soft" onclick="document.getElementById('hiddenFileInput').click()"><i class="fa-solid fa-file-arrow-up"></i> Upload</button>
                     <button class="btn btn-secondary-soft subjects-danger-btn" onclick="clearAllDocuments()"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                    <button id="takeQuizBtn" class="btn btn-primary" onclick="openQuizModal()" title="Generate a quiz from your current session" style="background:linear-gradient(135deg,var(--accent),color-mix(in oklab,var(--accent) 60%,#7c3aed));border:none;">
+                        <i class="fa-solid fa-circle-question"></i> Take Quiz
+                    </button>
                     <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
                         <i class="fa-solid fa-moon" aria-hidden="true"></i>
                     </button>
@@ -981,16 +984,23 @@
             <div class="subjects-modal-header">
                 <div>
                     <p class="subjects-modal-eyebrow">Practice</p>
-                    <h2>AI Quiz Generator</h2>
-                    <p class="subjects-modal-subtitle">Turn the current material into a quick knowledge check.</p>
+                    <h2>Take a Quiz?</h2>
+                    <p class="subjects-modal-subtitle" id="quizModalHint">Quiz questions will be grounded in the documents from this chat session.</p>
                 </div>
                 <button class="subjects-modal-close" type="button" onclick="closeQuiz()" aria-label="Close quiz modal">
                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
             </div>
-            <div id="quizArea" class="subjects-quiz-area"></div>
+            <div id="quizArea" class="subjects-quiz-area" style="padding:0 0 4px 0;">
+                <input type="hidden" id="quizModalChatId" value="">
+                <div style="display:flex;align-items:center;gap:10px;padding:14px 0 6px 0;color:var(--text-muted);font-size:0.875rem;">
+                    <i class="fa-solid fa-circle-info" style="color:var(--accent);"></i>
+                    <span>10 adaptive MCQ questions generated from your uploaded documents. Your score determines your tutoring level.</span>
+                </div>
+            </div>
             <div class="modal-actions subjects-modal-actions">
-                <button class="btn btn-secondary-soft" type="button" onclick="closeQuiz()">Close</button>
+                <button class="btn btn-secondary-soft" type="button" onclick="closeQuiz()"><i class="fa-solid fa-xmark"></i> Not Now</button>
+                <button class="btn btn-primary" type="button" onclick="launchQuiz()" style="background:linear-gradient(135deg,var(--accent),color-mix(in oklab,var(--accent) 60%,#7c3aed));border:none;"><i class="fa-solid fa-play"></i> Start Quiz</button>
             </div>
         </div>
     </div>
@@ -2118,31 +2128,28 @@
             e.target.value = ''; // Reset input
         }
 
-        /* QUIZ */
-        const quizData = [
-            { q: "What does RAG stand for?", options: ["Retrieval Augmented Generation", "Random AI Generator"], correct: 0 }
-        ];
-        let quizIndex = 0;
-
+        /* QUIZ — opens confirmation modal then redirects to quiz.html with session context */
         function openQuizModal() {
-            quizIndex = 0;
+            const chatId = window.chatHistory?.activeChatId || null;
+            if (!chatId) {
+                // No active session — go to generic diagnostic quiz
+                document.getElementById('quizModalChatId').value = '';
+                document.getElementById('quizModalHint').textContent = 'A general quiz will be generated from all your uploaded documents.';
+            } else {
+                document.getElementById('quizModalChatId').value = chatId;
+                document.getElementById('quizModalHint').textContent = 'Quiz questions will be grounded in the documents from this chat session.';
+            }
             document.getElementById('quizModal').style.display = 'flex';
-            renderQuiz();
         }
         function closeQuiz() {
             document.getElementById('quizModal').style.display = 'none';
         }
-        function renderQuiz() {
-            const area = document.getElementById('quizArea');
-            const q = quizData[quizIndex];
-            area.innerHTML = `<h3>${q.q}</h3>`;
-            q.options.forEach((o, i) => {
-                const d = document.createElement('div');
-                d.className = 'quiz-option';
-                d.textContent = o;
-                d.onclick = () => d.classList.add(i === q.correct ? 'correct' : 'wrong');
-                area.appendChild(d);
-            });
+        function launchQuiz() {
+            const chatId = document.getElementById('quizModalChatId').value.trim();
+            const url = new URL('/views/quiz.html', window.location.origin);
+            if (chatId) url.searchParams.set('chat_id', chatId);
+            url.searchParams.set('source', 'chat');
+            window.location.href = url.toString();
         }
 
         // ==================== PAGE INITIALIZATION ====================
